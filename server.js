@@ -84,7 +84,7 @@ function paginaMensaje({ icono, titulo, texto, botonExtra }) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${titulo} - VibeSpace</title>
+    <title>${titulo} - Oniria</title>
     <link rel="stylesheet" href="/LogIn.css">
     <link rel="stylesheet" href="/OlvideContrasena.css">
 </head>
@@ -145,7 +145,7 @@ app.post('/olvide-contrasena', async (req, res) => {
             await transporter.sendMail({
                 from: process.env.GMAIL_USER,
                 to: email,
-                subject: 'Recupera tu contraseña de VibeSpace',
+                subject: 'Recupera tu contraseña de Oniria',
                 text: `Hola ${usuario.nombre}, para crear una contraseña nueva entra aquí: ${enlace}\n\nEl enlace caduca en 1 hora. Si tú no lo pediste, ignora este correo.`,
                 html: `<p>Hola <b>${usuario.nombre}</b>,</p>
                        <p>Recibimos una solicitud para cambiar tu contraseña.</p>
@@ -248,7 +248,7 @@ app.post('/registro', async (req, res) => {
         await transporter.sendMail({
             from: process.env.GMAIL_USER,
             to: email,
-            subject: 'Verifica tu cuenta de VibeSpace',
+            subject: 'Verifica tu cuenta de Oniria',
             text: `Hola ${nombre}, verifica tu cuenta haciendo clic aquí: ${BASE_URL}/verificar/${token}\n\nEl enlace caduca en 24 horas.`
         });
     } catch (errorCorreo) {
