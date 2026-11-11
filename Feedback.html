@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeSpace - Red Social</title>
+    <link rel="stylesheet" href="Feedback.css">
+</head>
+<body>
+
+    <!-- Barra de navegación (Ahora es FIJA) -->
+    <header class="top-bar">
+        <div class="menu-icon">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar short-bar"></div>
+        </div>
+
+        <!-- Nombre de la Red Social -->
+        <h1 class="app-name">Oniria</h1>
+
+        <div class="action-buttons" style="display: flex; align-items: center; gap: 15px;">
+            <!-- Botón del tema -->
+            <button id="theme-toggle" class="theme-btn" title="Cambiar tema">☀️</button>
+            
+            <!-- Foto de perfil -->
+            <div class="circle profile-pic"></div>
+        </div>
+    </header>
+
+    <!-- Contenido principal (Feed con 10 publicaciones) -->
+    <main class="feed">
+
+        <!-- NUEVO: Formulario para crear publicación -->
+        <article class="post-card create-post-card">
+            <div class="post-header">
+                <div class="avatar bg-blue"></div>
+                <h2>Crear publicación</h2>
+            </div>
+            <form action="/crear-publicacion" method="POST" enctype="multipart/form-data" class="create-post-form">
+                <textarea name="contenido" placeholder="¿Qué estás pensando?" required></textarea>
+                
+                <div class="form-footer">
+                    <input type="file" name="imagen_post" accept="image/*" class="file-input">
+                    <button type="submit" class="btn-publish">Publicar</button>
+                </div>
+            </form>
+        </article>
+        
+        <!-- Publicación 1 -->
+        <article class="post-card">
+            <div class="post-header">
+                <div class="avatar bg-blue"></div>
+                <div class="user-info">
+                    <h2>Carlos Dev</h2>
+                    <span class="time">Hace 10 minutos</span>
+                </div>
+            </div>
+            <div class="post-body">
+                <p>¡Empezando un nuevo proyecto increíble hoy! 🚀💻</p>
+                <div class="post-image img-1"></div>
+            </div>
+            <div class="post-footer">
+                <button class="action-btn">❤️ Me gusta</button>
+                <button class="action-btn">💬 Comentar</button>
+            </div>
+        </article>
+
+        <!-- Publicación 2 -->
+        <article class="post-card">
+            <div class="post-header">
+                <div class="avatar bg-green"></div>
+                <div class="user-info">
+                    <h2>María Gómez</h2>
+                    <span class="time">Hace 1 hora</span>
+                </div>
+            </div>
+            <div class="post-body">
+                <p>Qué buen clima hace hoy para salir a caminar por el parque. 🌳☀️</p>
+                <div class="post-image img-2"></div>
+            </div>
+            <div class="post-footer">
+                <button class="action-btn">❤️ Me gusta</button>
+                <button class="action-btn">💬 Comentar</button>
+            </div>
+        </article>
+
+        <!-- Publicación 3 -->
+        <article class="post-card">
+            <div class="post-header">
+                <div class="avatar bg-purple"></div>
+                <div class="user-info">
+                    <h2>Alex Tech</h2>
+                    <span class="time">Hace 3 horas</span>
+                </div>
+            </div>
+            <div class="post-body">
+                <p>Al fin terminé de configurar la base de datos... ¡Ese error me volvió loco! 😅🛠️</p>
+            </div>
+            <div class="post-footer">
+
+    <script src="feedback-script.js"></script>
+</body>
+</html>

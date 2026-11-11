@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nueva Contraseña - VibeSpace</title>
+    <link rel="stylesheet" href="/LogIn.css">
+    <link rel="stylesheet" href="/OlvideContrasena.css">
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="login-box">
+
+            <div class="recover-icon" aria-hidden="true">🔒</div>
+
+            <h1 class="app-name recover-title">Crea tu nueva contraseña</h1>
+            <p class="subtitle">Elige una que recuerdes fácilmente.</p>
+
+            <!-- Sin "action": el formulario se envía a la misma URL (/restablecer/<token>) -->
+            <form method="POST" class="login-form">
+
+                <div class="input-group">
+                    <div class="password-container">
+                        <input type="password" id="password" name="password" placeholder="Contraseña nueva" minlength="6" required data-fuerza>
+                        <button type="button" id="toggle-password" class="toggle-password-btn" aria-label="Mostrar contraseña">👁️</button>
+                    </div>
+                    <span id="error-password" class="error-text"></span>
+                    <!-- Medidor de fuerza -->
+                    <div class="fuerza-contrasena">
+                        <div class="fuerza-barra"><div class="fuerza-relleno"></div></div>
+                        <span class="fuerza-texto"></span>
+                        <span class="fuerza-consejo"></span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <input type="password" id="confirmar" name="confirmar" placeholder="Confirmar contraseña" minlength="6" required>
+                    <span id="error-confirmar" class="error-text"></span>
+                </div>
+
+                <button type="submit" class="btn-primary">Guardar contraseña</button>
+            </form>
+
+            <div class="login-footer">
+                <hr class="divider">
+                <a href="/" class="back-link">← Volver a iniciar sesión</a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- LogIn-script.js ya muestra errores de la URL y hace funcionar el ojo -->
+    <script src="/LogIn-script.js"></script>
+    <script src="/FuerzaContrasena.js"></script>
+</body>
+</html>

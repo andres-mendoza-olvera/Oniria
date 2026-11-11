@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro - VibeSpace</title>
+    <link rel="stylesheet" href="LogIn.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <h1 class="app-name">Registro</h1>
+            <p class="subtitle">Únete a Oniria</p>
+            <form action="/registro" method="POST" class="login-form">
+                <div class="input-group">
+                    <input type="text" name="nombre" placeholder="Nombre completo" required>
+                </div>
+                <div class="input-group">
+                <input type="text" name="apodo" placeholder="Apodo (sera público)" required>
+                </div>
+                <div class="input-group">
+                    <input type="email" name="email" placeholder="Correo electrónico" required>
+                </div>
+                <div class="input-group">
+                    <div class="password-container">
+                        <input type="password" id="password" name="password" placeholder="Contraseña" minlength="6" required data-fuerza>
+                        <button type="button" id="toggle-password" class="toggle-password-btn" aria-label="Mostrar contraseña">👁️</button>
+                    </div>
+                    <span id="error-password" class="error-text"></span>
+                    <!-- Medidor de fuerza -->
+                    <div class="fuerza-contrasena">
+                        <div class="fuerza-barra"><div class="fuerza-relleno"></div></div>
+                        <span class="fuerza-texto"></span>
+                        <span class="fuerza-consejo"></span>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Registrarme</button>
+            </form>
+            <div class="login-footer">
+                <a href="/" class="forgot-password">Ya tengo una cuenta</a>
+            </div>
+        </div>
+    </div>
+    <script src="/LogIn-script.js"></script>
+    <script src="/FuerzaContrasena.js"></script>
+</body>
+</html>

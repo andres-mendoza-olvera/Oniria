@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar Contraseña - VibeSpace</title>
+    <!-- Reutilizamos los estilos base (colores, caja, inputs, botones) -->
+    <link rel="stylesheet" href="LogIn.css">
+    <!-- Estilos propios de esta página -->
+    <link rel="stylesheet" href="OlvideContrasena.css">
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="login-box">
+
+            <!-- Icono decorativo -->
+            <div class="recover-icon" aria-hidden="true">🔑</div>
+
+            <h1 class="app-name recover-title">¿Olvidaste tu contraseña?</h1>
+            <p class="subtitle">No te preocupes, a todos nos pasa.</p>
+
+            <p class="recover-instructions">
+                Escribe el correo con el que te registraste y te enviaremos
+                un enlace para crear una contraseña nueva.
+            </p>
+
+            <!-- FORMULARIO: el servidor recibirá el correo en /olvide-contrasena -->
+            <form action="/olvide-contrasena" method="POST" class="login-form">
+
+                <div class="input-group">
+                    <input type="email" id="email" name="email" placeholder="Correo electrónico" required>
+                    <span id="error-email" class="error-text"></span>
+                </div>
+
+                <button type="submit" class="btn-primary">Enviar enlace</button>
+            </form>
+
+            <!-- Mensaje de éxito (oculto por defecto, se muestra con la clase "visible") -->
+            <div id="mensaje-exito" class="success-message">
+                ✉️ Si el correo está registrado, recibirás un enlace en unos minutos.
+            </div>
+
+            <div class="login-footer">
+                <hr class="divider">
+                <a href="/" class="back-link">← Volver a iniciar sesión</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="OlvideContrasena-script.js"></script>
+</body>
+</html>

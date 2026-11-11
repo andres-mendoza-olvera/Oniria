@@ -1,0 +1,298 @@
+/* =========================================
+   VARIABLES DE TEMA (CLARO Y OSCURO)
+   ========================================= */
+
+/* TEMA CLARO (Por defecto) */
+:root {
+    /* Paleta basada en tus azules + un toque morado */
+    --color-primary: #4e73a5;      /* Azul medio de tu paleta */
+    --color-primary-hover: #264373;/* Azul oscuro de tu paleta */
+    --color-accent: #9b59b6;       /* Morado de ensueño */
+    --color-accent-hover: #8e44ad;
+    
+    /* Fondos y Cajas */
+    --bg-body: #adc2dd;            /* El azul más clarito de tu paleta para el fondo */
+    --bg-box: #ffffff;             /* Caja blanca tradicional */
+    
+    /* Textos */
+    --text-main: #1c1e21;          /* Texto principal oscuro */
+    --text-muted: #4e73a5;         /* Subtítulos en azul medio */
+    
+    /* Inputs y Bordes */
+    --input-bg: #ffffff;
+    --input-border: #7698c9;       /* Azul intermedio de tu paleta */
+    --input-text: #1c1e21;
+    --divider-color: #7698c9;
+}
+
+/* TEMA OSCURO (Se activará cuando le pongamos la clase "dark-theme" al body) */
+body.dark-theme {
+    --color-primary: #7698c9;      /* Azul más claro para que resalte en la oscuridad */
+    --color-primary-hover: #adc2dd;
+    --color-accent: #a970ff;       /* Un morado más brillante (neón suave) */
+    --color-accent-hover: #b98aff;
+    
+    /* Fondos y Cajas */
+    --bg-body: #0a0e17;            /* Un azul noche casi negro (Cielo nocturno) */
+    --bg-box: #151f32;             /* Un tono azul oscuro para la caja (como el tono más oscuro de tu imagen) */
+    
+    /* Textos */
+    --text-main: #e2e8f0;          /* Texto blanco/grisáceo para no lastimar la vista */
+    --text-muted: #adc2dd;         /* Subtítulos en el azul claro de tu paleta */
+    
+    /* Inputs y Bordes */
+    --input-bg: #0f1725;           /* Interior de la caja de texto oscuro */
+    --input-border: #264373;       /* Borde en azul oscuro de tu paleta */
+    --input-text: #e2e8f0;
+    --divider-color: #264373;
+}
+
+/* =========================================
+   ESTILOS GENERALES
+   ========================================= */
+
+/* Reseteo básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-body); /* Usa la variable de fondo */
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-main);          /* Usa la variable de texto */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    transition: background-color 0.4s ease, color 0.4s ease; /* Transición suave al cambiar de tema */
+}
+
+/* Contenedor responsivo */
+.login-container {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+/* La caja del login */
+.login-box {
+    background-color: var(--bg-box);
+    width: 100%;
+    max-width: 400px;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2); /* Sombra un poco más profunda y de ensueño */
+    text-align: center;
+    transition: background-color 0.4s ease;
+}
+
+/* Nombre de la app con el degradado azul-morado */
+.app-name {
+    font-size: 2.5rem;
+    font-weight: 800;
+    /* Degradado usando nuestras variables */
+    background: linear-gradient(45deg, var(--color-primary), var(--color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-bottom: 25px;
+    font-style: italic; /* Un toque más literario/onírico */
+}
+
+/* ----- ESTILOS DEL FORMULARIO ----- */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 14px;
+    font-size: 1.05rem;
+    background-color: var(--input-bg);
+    color: var(--input-text);
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.4s ease;
+}
+
+/* Efecto al hacer clic en el input */
+.input-group input:focus {
+    border-color: var(--color-accent); /* Brilla en morado al escribir */
+    box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.2); 
+}
+
+/* Botón principal */
+.btn-primary {
+    background-color: var(--color-primary);
+    color: #ffffff; /* Este siempre será blanco */
+    font-size: 1.2rem;
+    font-weight: bold;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-top: 5px;
+}
+
+.btn-primary:hover {
+    background-color: var(--color-primary-hover);
+}
+
+/* ----- SECCIÓN INFERIOR ----- */
+.login-footer {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.forgot-password {
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.forgot-password:hover {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+}
+
+/* La línea separadora */
+.divider {
+    border: none;
+    border-top: 1px solid var(--divider-color);
+    opacity: 0.5;
+}
+
+/* Botón de crear cuenta (Morado para seguir la temática) */
+.btn-secondary {
+    background-color: var(--color-accent);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: fit-content;
+    margin: 0 auto;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-accent-hover);
+}
+
+/* ----- ESTILOS DE ERROR (Igual que antes) ----- */
+.error-text {
+    color: #ff6b6b; /* Un rojo más suave que combine con tonos oscuros/claros */
+    font-size: 0.85rem;
+    text-align: left;
+    margin-top: 5px;
+    display: none;
+    font-weight: 500;
+}
+
+.input-error {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
+}
+
+/* ----- ESTILOS DEL OJO DE CONTRASEÑA ----- */
+.password-container {
+    position: relative;
+    display: flex;
+    width: 100%;
+}
+
+.password-container input {
+    width: 100%;
+    padding-right: 45px; 
+}
+
+.toggle-password-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--text-muted); /* Usa la variable para que se adapte al tema */
+    padding: 0;
+    outline: none;
+    transition: opacity 0.2s;
+}
+
+.toggle-password-btn:hover {
+    opacity: 0.7;
+}
+
+/* ----- MEDIDOR DE FUERZA DE CONTRASEÑA ----- */
+.fuerza-contrasena {
+    display: none;
+    margin-top: 8px;
+    text-align: left;
+}
+
+.fuerza-contrasena.visible {
+    display: block;
+}
+
+/* Barra gris de fondo */
+.fuerza-barra {
+    height: 6px;
+    width: 100%;
+    background-color: var(--divider-color);
+    opacity: 0.9;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Parte de color que se va llenando */
+.fuerza-relleno {
+    height: 100%;
+    width: 0;
+    border-radius: 4px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.fuerza-texto {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.fuerza-consejo {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Niveles */
+.nivel-corta   .fuerza-relleno { width: 10%;  background-color: #ff6b6b; }
+.nivel-debil   .fuerza-relleno { width: 33%;  background-color: #ff6b6b; }
+.nivel-mediana .fuerza-relleno { width: 66%;  background-color: #f5a623; }
+.nivel-fuerte  .fuerza-relleno { width: 100%; background-color: #2ecc71; }
+
+.nivel-corta   .fuerza-texto,
+.nivel-debil   .fuerza-texto { color: #ff6b6b; }
+.nivel-mediana .fuerza-texto { color: #f5a623; }
+.nivel-fuerte  .fuerza-texto { color: #2ecc71; }

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - VibeSpace</title>
+    <link rel="stylesheet" href="LogIn.css">
+</head>
+<body>
+
+    <!-- Contenedor que centra todo en la pantalla -->
+    <div class="login-container">
+        
+        <!-- Caja blanca del formulario -->
+        <div class="login-box">
+            <h1 class="app-name">Oniria</h1>
+            <p class="subtitle">El mundo de tus sueños</p>
+            
+            <!-- FORMULARIO: Aquí es donde Node.js entrará en acción más adelante -->
+            <form action="/login" method="POST" class="login-form">
+                
+                <!-- Campo de Correo -->
+                <div class="input-group">
+                    <input type="email" id="email" name="email" placeholder="Correo electrónico" required>
+                    <span id="error-email" class="error-text"></span>
+                </div>
+                
+                <!-- Campo de Contraseña -->
+                <div class="input-group">
+                    <div class="password-container">
+                        <input type="password" id="password" name="password" placeholder="Contraseña" required>
+                        <button type="button" id="toggle-password" class="toggle-password-btn" aria-label="Mostrar contraseña">
+                            👁️
+                        </button>
+                    </div>
+                    <span id="error-password" class="error-text"></span>
+                </div>
+                
+                <!-- Botón Principal -->
+                <button type="submit" class="btn-primary">Iniciar sesión</button>
+            </form>
+            
+            <!-- Enlaces adicionales -->
+            <div class="login-footer">
+                <a href="/olvide-contrasena" class="forgot-password">¿Olvidaste tu contraseña?</a>
+                
+                <!-- Línea separadora -->
+                <hr class="divider">
+                
+                <!-- Botón Secundario para Registro -->
+                <a href="/registro" class="btn-secondary" style="text-decoration: none; text-align: center; display: block;">Crear cuenta nueva</a>
+            </div>
+        </div>
+
+    </div>
+    <script src="LogIn-script.js"></script>
+</body>
+</html>
