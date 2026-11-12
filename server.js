@@ -55,8 +55,19 @@ const transporter = nodemailer.createTransport({
     auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_PASS
-    }
+    },
+    // Si el servidor de correo no responde, nos rendimos rápido
+    // en lugar de dejar al usuario esperando varios minutos
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
 });
+
+// Todos los correos de la app salen por aquí.
+// Si cambiamos de servicio de correo, solo hay que tocar esta función.
+async function enviarCorreo({ to, subject, text, html }) {
+    await transporter.sendMail({ from: process.env.GMAIL_USER, to, subject, text, html });
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -114,6 +125,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'LogIn.html')));
 app.get('/registro', (req, res) => res.sendFile(path.join(__dirname, 'Registro.html')));
 app.get('/feed', (req, res) => res.sendFile(path.join(__dirname, 'Feedback.html')));
 app.get('/olvide-contrasena', (req, res) => res.sendFile(path.join(__dirname, 'OlvideContrasena.html')));
+app.get('/privacidad', (req, res) => res.sendFile(path.join(__dirname, 'Privacidad.html')));
 
 // =========================================================
 // RECUPERACIÓN DE CONTRASEÑA
@@ -142,8 +154,7 @@ app.post('/olvide-contrasena', async (req, res) => {
 
         const enlace = `${BASE_URL}/restablecer/${token}`;
         try {
-            await transporter.sendMail({
-                from: process.env.GMAIL_USER,
+            await enviarCorreo({
                 to: email,
                 subject: 'Recupera tu contraseña de Oniria',
                 text: `Hola ${usuario.nombre}, para crear una contraseña nueva entra aquí: ${enlace}\n\nEl enlace caduca en 1 hora. Si tú no lo pediste, ignora este correo.`,
@@ -153,7 +164,7 @@ app.post('/olvide-contrasena', async (req, res) => {
                        <p>El enlace caduca en 1 hora. Si tú no lo pediste, ignora este correo.</p>`
             });
         } catch (errorCorreo) {
-            console.log(errorCorreo);
+            console.error('Error enviando correo de recuperación:', errorCorreo.message);
             return res.redirect(urlError('No se pudo enviar el correo, intenta más tarde.'));
         }
 
@@ -223,36 +234,59 @@ app.post('/registro', async (req, res) => {
     const token = crypto.randomBytes(20).toString('hex');
 
     try {
-        // El enlace de verificación caduca en 24 horas
-        await db.query(
-            "INSERT INTO usuarios (nombre, apodo, email, contrasena, tema, token_verificacion, token_verificacion_expira) VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '24 hours')",
+        // Si el correo es nuevo, se crea la cuenta.
+        // Si ya existe pero NUNCA se verificó, se actualizan sus datos y se
+        // genera un enlace nuevo (así nadie se queda atorado si no le llegó el correo).
+        // Si ya existe y está verificado, no se toca y "RETURNING" no devuelve nada.
+        // El enlace de verificación caduca en 24 horas.
+        const resultado = await db.query(
+            `INSERT INTO usuarios (nombre, apodo, email, contrasena, tema, token_verificacion, token_verificacion_expira)
+             VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '24 hours')
+             ON CONFLICT (email) DO UPDATE SET
+                 nombre = EXCLUDED.nombre,
+                 apodo = EXCLUDED.apodo,
+                 contrasena = EXCLUDED.contrasena,
+                 token_verificacion = EXCLUDED.token_verificacion,
+                 token_verificacion_expira = EXCLUDED.token_verificacion_expira
+             WHERE usuarios.verificado IS NOT TRUE
+             RETURNING email`,
             [nombre, apodo, email, hashedPassword, tema, token]
         );
+
+        if (resultado.rows.length === 0) {
+            return res.send(paginaMensaje({
+                icono: '⚠️',
+                titulo: 'No se pudo registrar',
+                texto: 'Ese correo ya está registrado. Inicia sesión o recupera tu contraseña.',
+                botonExtra: { href: '/olvide-contrasena', texto: 'Olvidé mi contraseña' }
+            }));
+        }
     } catch (err) {
-        console.error(err.message);
-        // 23505 = el correo ya existe (columna UNIQUE)
-        const yaExiste = err.code === '23505';
+        console.error('Error registrando usuario:', err.message);
         return res.send(paginaMensaje({
             icono: '⚠️',
             titulo: 'No se pudo registrar',
-            texto: yaExiste
-                ? 'Ese correo ya está registrado. Inicia sesión o recupera tu contraseña.'
-                : 'Hubo un error al crear tu cuenta. Intenta de nuevo en un momento.',
-            botonExtra: yaExiste
-                ? { href: '/olvide-contrasena', texto: 'Olvidé mi contraseña' }
-                : { href: '/registro', texto: 'Intentar de nuevo' }
+            texto: 'Hubo un error al crear tu cuenta. Intenta de nuevo en un momento.',
+            botonExtra: { href: '/registro', texto: 'Intentar de nuevo' }
         }));
     }
 
     try {
-        await transporter.sendMail({
-            from: process.env.GMAIL_USER,
+        await enviarCorreo({
             to: email,
             subject: 'Verifica tu cuenta de Oniria',
             text: `Hola ${nombre}, verifica tu cuenta haciendo clic aquí: ${BASE_URL}/verificar/${token}\n\nEl enlace caduca en 24 horas.`
         });
     } catch (errorCorreo) {
-        console.log(errorCorreo);
+        console.error('Error enviando correo de verificación:', errorCorreo.message);
+        // La cuenta quedó guardada sin verificar; si vuelve a registrarse
+        // con el mismo correo se le genera un enlace nuevo.
+        return res.send(paginaMensaje({
+            icono: '⚠️',
+            titulo: 'No pudimos enviarte el correo',
+            texto: 'Tu cuenta se guardó, pero el correo de verificación no se pudo enviar. Intenta registrarte de nuevo en unos minutos con el mismo correo.',
+            botonExtra: { href: '/registro', texto: 'Intentar de nuevo' }
+        }));
     }
 
     res.send(paginaMensaje({
