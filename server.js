@@ -5,7 +5,6 @@ const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const fs = require('fs');
 
@@ -50,23 +49,73 @@ db.query('SELECT NOW()')
 // =========================================================
 // 3. CONFIGURACIÓN DE SERVICIOS (Correo y Archivos)
 // =========================================================
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS
-    },
-    // Si el servidor de correo no responde, nos rendimos rápido
-    // en lugar de dejar al usuario esperando varios minutos
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000
-});
+// Los correos se mandan con la API de Gmail (por HTTPS) y no por SMTP,
+// porque Render (plan gratis) bloquea las conexiones SMTP.
+// Las credenciales salen de Google Cloud (proyecto "Oniria").
+
+// Google nos da un "access token" que dura 1 hora; lo guardamos para
+// no pedir uno nuevo en cada correo.
+let accessToken = null;
+let accessTokenExpira = 0;
+
+async function obtenerAccessToken() {
+    if (accessToken && Date.now() < accessTokenExpira) return accessToken;
+
+    const respuesta = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        body: new URLSearchParams({
+            client_id: process.env.GMAIL_CLIENT_ID,
+            client_secret: process.env.GMAIL_CLIENT_SECRET,
+            refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+            grant_type: 'refresh_token'
+        }),
+        signal: AbortSignal.timeout(10000)
+    });
+    const datos = await respuesta.json();
+    if (!respuesta.ok) throw new Error(`Google no dio el token: ${datos.error} ${datos.error_description || ''}`);
+
+    accessToken = datos.access_token;
+    accessTokenExpira = Date.now() + (datos.expires_in - 60) * 1000; // 1 minuto de margen
+    return accessToken;
+}
+
+// Arma el correo en el formato que entiende Gmail (MIME)
+function armarCorreo({ to, subject, text, html }) {
+    const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
+    const cabeceras = [
+        `From: Oniria <${process.env.GMAIL_USER}>`,
+        `To: ${to}`,
+        `Subject: =?UTF-8?B?${b64(subject)}?=`, // así se ven bien los acentos
+        'MIME-Version: 1.0'
+    ];
+    const parte = (tipo, contenido) =>
+        `Content-Type: ${tipo}; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64(contenido)}`;
+
+    if (!html) return [...cabeceras, parte('text/plain', text)].join('\r\n');
+
+    const limite = 'oniria-' + crypto.randomBytes(8).toString('hex');
+    return [
+        ...cabeceras,
+        `Content-Type: multipart/alternative; boundary="${limite}"`,
+        '',
+        `--${limite}`, parte('text/plain', text),
+        `--${limite}`, parte('text/html', html),
+        `--${limite}--`
+    ].join('\r\n');
+}
 
 // Todos los correos de la app salen por aquí.
-// Si cambiamos de servicio de correo, solo hay que tocar esta función.
 async function enviarCorreo({ to, subject, text, html }) {
-    await transporter.sendMail({ from: process.env.GMAIL_USER, to, subject, text, html });
+    const token = await obtenerAccessToken();
+    const raw = Buffer.from(armarCorreo({ to, subject, text, html })).toString('base64url');
+
+    const respuesta = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw }),
+        signal: AbortSignal.timeout(15000)
+    });
+    if (!respuesta.ok) throw new Error(`Gmail rechazó el correo (${respuesta.status}): ${await respuesta.text()}`);
 }
 
 const storage = multer.diskStorage({
