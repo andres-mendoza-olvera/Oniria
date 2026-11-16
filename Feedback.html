@@ -8,7 +8,7 @@
 </head>
 <body>
 
-    <!-- Barra de navegación (Ahora es FIJA) -->
+    <!-- Barra de navegación (FIJA) -->
     <header class="top-bar">
         <div class="menu-icon">
             <div class="bar"></div>
@@ -22,83 +22,47 @@
         <div class="action-buttons" style="display: flex; align-items: center; gap: 15px;">
             <!-- Botón del tema -->
             <button id="theme-toggle" class="theme-btn" title="Cambiar tema">☀️</button>
-            
-            <!-- Foto de perfil -->
-            <div class="circle profile-pic"></div>
+
+            <!-- Foto de perfil (el script le pone el avatar según tu apodo) -->
+            <div id="mi-avatar" class="circle profile-pic" title=""></div>
+
+            <!-- Cerrar sesión -->
+            <form action="/cerrar-sesion" method="POST" style="margin: 0;">
+                <button type="submit" class="theme-btn" title="Cerrar sesión">🚪</button>
+            </form>
         </div>
     </header>
 
-    <!-- Contenido principal (Feed con 10 publicaciones) -->
+    <!-- Contenido principal -->
     <main class="feed">
 
-        <!-- NUEVO: Formulario para crear publicación -->
+        <!-- Formulario para contar un sueño -->
         <article class="post-card create-post-card">
             <div class="post-header">
-                <div class="avatar bg-blue"></div>
-                <h2>Crear publicación</h2>
+                <div class="avatar bg-blue" id="avatar-crear"></div>
+                <h2>Cuenta tu sueño</h2>
             </div>
-            <form action="/crear-publicacion" method="POST" enctype="multipart/form-data" class="create-post-form">
-                <textarea name="contenido" placeholder="¿Qué estás pensando?" required></textarea>
-                
+            <form id="form-crear" action="/crear-publicacion" method="POST" enctype="multipart/form-data" class="create-post-form">
+                <textarea name="contenido" maxlength="2000" placeholder="¿Qué soñaste anoche? Cuéntalo con todos los detalles que recuerdes…" required></textarea>
+
                 <div class="form-footer">
-                    <input type="file" name="imagen_post" accept="image/*" class="file-input">
+                    <label class="file-label">
+                        📎 Agregar imagen (opcional)
+                        <input type="file" name="imagen_post" accept="image/*" class="file-input">
+                    </label>
                     <button type="submit" class="btn-publish">Publicar</button>
                 </div>
+                <p class="form-nota">✨ Oniria creará una imagen y una historia a partir de tu sueño.</p>
             </form>
         </article>
-        
-        <!-- Publicación 1 -->
-        <article class="post-card">
-            <div class="post-header">
-                <div class="avatar bg-blue"></div>
-                <div class="user-info">
-                    <h2>Carlos Dev</h2>
-                    <span class="time">Hace 10 minutos</span>
-                </div>
-            </div>
-            <div class="post-body">
-                <p>¡Empezando un nuevo proyecto increíble hoy! 🚀💻</p>
-                <div class="post-image img-1"></div>
-            </div>
-            <div class="post-footer">
-                <button class="action-btn">❤️ Me gusta</button>
-                <button class="action-btn">💬 Comentar</button>
-            </div>
-        </article>
 
-        <!-- Publicación 2 -->
-        <article class="post-card">
-            <div class="post-header">
-                <div class="avatar bg-green"></div>
-                <div class="user-info">
-                    <h2>María Gómez</h2>
-                    <span class="time">Hace 1 hora</span>
-                </div>
-            </div>
-            <div class="post-body">
-                <p>Qué buen clima hace hoy para salir a caminar por el parque. 🌳☀️</p>
-                <div class="post-image img-2"></div>
-            </div>
-            <div class="post-footer">
-                <button class="action-btn">❤️ Me gusta</button>
-                <button class="action-btn">💬 Comentar</button>
-            </div>
-        </article>
+        <!-- Aquí el script dibuja las publicaciones que vienen de la base de datos -->
+        <section id="lista-publicaciones" class="lista-publicaciones" aria-live="polite"></section>
 
-        <!-- Publicación 3 -->
-        <article class="post-card">
-            <div class="post-header">
-                <div class="avatar bg-purple"></div>
-                <div class="user-info">
-                    <h2>Alex Tech</h2>
-                    <span class="time">Hace 3 horas</span>
-                </div>
-            </div>
-            <div class="post-body">
-                <p>Al fin terminé de configurar la base de datos... ¡Ese error me volvió loco! 😅🛠️</p>
-            </div>
-            <div class="post-footer">
+        <p id="estado-feed" class="feed-estado">Cargando sueños…</p>
+        <button id="btn-cargar-mas" class="btn-cargar-mas" hidden>Ver más sueños</button>
+    </main>
 
-    <script src="feedback-script.js"></script>
+    <script src="Feedback-script.js"></script>
 </body>
 </html>
