@@ -33,10 +33,13 @@ if (themeBtn) {
 const lista = document.getElementById('lista-publicaciones');
 const estadoFeed = document.getElementById('estado-feed');
 const btnCargarMas = document.getElementById('btn-cargar-mas');
+const avisoNuevos = document.getElementById('aviso-nuevos');
 
-let miId = null;            // id_usuario de quien está viendo el feed
-let ultimoId = null;        // para pedir la siguiente página
-const enProceso = new Map(); // id_publicacion -> intentos de revisar si ya terminó
+let miId = null;              // id_usuario de quien está viendo el feed
+let idMasViejo = null;        // para "Ver más" (pedir publicaciones anteriores)
+let idMasNuevo = 0;           // la publicación más reciente que ya tenemos
+let feedCargado = false;
+const pendientes = new Set(); // sueños nuevos de otros que aún no se muestran
 
 // Crea un elemento HTML. Usamos textContent (nunca innerHTML) para que el
 // texto que escriben los usuarios no se pueda ejecutar como código.
@@ -64,7 +67,11 @@ async function api(url, opciones = {}) {
         throw new Error('Sesión terminada');
     }
     const datos = await respuesta.json().catch(() => ({}));
-    if (!respuesta.ok) throw new Error(datos.error || 'Ocurrió un error, intenta de nuevo.');
+    if (!respuesta.ok) {
+        const error = new Error(datos.error || 'Ocurrió un error, intenta de nuevo.');
+        error.status = respuesta.status;
+        throw error;
+    }
     return datos;
 }
 
@@ -90,6 +97,19 @@ function tiempoRelativo(fecha) {
     return 'justo ahora';
 }
 
+function buscarTarjeta(id) {
+    return lista.querySelector(`.post-card[data-id="${id}"]`);
+}
+
+function revisarVacio() {
+    if (lista.children.length === 0) {
+        estadoFeed.hidden = false;
+        estadoFeed.textContent = 'Todavía nadie ha contado un sueño. ¡Sé el primero! 🌙';
+    } else {
+        estadoFeed.hidden = true;
+    }
+}
+
 // =========================================================
 // 3. DIBUJAR UNA PUBLICACIÓN
 // =========================================================
@@ -110,19 +130,19 @@ function crearMedios(p) {
     return carrusel;
 }
 
-function crearHistoria(p) {
-    if (!p.historia_ia) return null;
+function crearInterpretacion(p) {
+    if (!p.interpretacion_ia) return null;
 
-    const texto = crear('div', { class: 'historia-texto' });
-    p.historia_ia.split(/\n\s*\n/).forEach((parrafo) => texto.append(crear('p', { text: parrafo.trim() })));
+    const texto = crear('div', { class: 'interpretacion-texto' });
+    p.interpretacion_ia.split(/\n\s*\n/).forEach((parrafo) => texto.append(crear('p', { text: parrafo.trim() })));
 
-    const bloque = crear('div', { class: 'historia-ia' },
-        crear('span', { class: 'historia-etiqueta', text: '📖 La historia del sueño' }),
+    const bloque = crear('div', { class: 'interpretacion-ia' },
+        crear('span', { class: 'interpretacion-etiqueta', text: '🔮 Interpretación psicológica' }),
         texto
     );
 
-    // Si la historia es larga, se muestra recortada con un botón "Leer más"
-    if (p.historia_ia.length > 400) {
+    // Si es larga, se muestra recortada con un botón "Leer más"
+    if (p.interpretacion_ia.length > 400) {
         texto.classList.add('colapsada');
         const boton = crear('button', {
             class: 'btn-leer-mas',
@@ -134,12 +154,27 @@ function crearHistoria(p) {
         });
         bloque.append(boton);
     }
+
+    bloque.append(crear('p', {
+        class: 'interpretacion-nota',
+        text: 'Generada por IA como reflexión personal; no sustituye la opinión de un profesional.'
+    }));
     return bloque;
+}
+
+function pintarCorazon(boton, activo, total) {
+    boton.dataset.activo = activo ? '1' : '0';
+    boton.classList.toggle('activo', activo);
+    boton.textContent = `${activo ? '❤️' : '🤍'} ${total}`;
+}
+
+function pintarComentarios(boton, total) {
+    boton.textContent = `💬 ${total}`;
 }
 
 function crearPublicacion(p) {
     const esMia = p.id_usuario === miId;
-    const tarjeta = crear('article', { class: 'post-card', 'data-id': p.id_publicacion });
+    const tarjeta = crear('article', { class: 'post-card', 'data-id': p.id_publicacion, 'data-estado': p.estado });
 
     // --- Encabezado ---
     const encabezado = crear('div', { class: 'post-header' },
@@ -154,7 +189,7 @@ function crearPublicacion(p) {
             class: 'btn-borrar',
             title: 'Borrar publicación',
             text: '🗑️',
-            onclick: () => borrarPublicacion(p.id_publicacion, tarjeta)
+            onclick: () => borrarPublicacion(p.id_publicacion)
         }));
     }
     tarjeta.append(encabezado);
@@ -170,30 +205,43 @@ function crearPublicacion(p) {
         cuerpo.append(crear('div', { class: 'post-error', text: '😔 No pudimos interpretar este sueño. Puedes borrarlo e intentarlo de nuevo.' }));
     }
 
-    cuerpo.append(crearMedios(p) || '', crearHistoria(p) || '');
+    cuerpo.append(crearMedios(p) || '', crearInterpretacion(p) || '');
     tarjeta.append(cuerpo);
 
     // --- Corazones y comentarios (solo cuando ya está lista) ---
     if (p.estado === 'listo') {
         const btnCorazon = crear('button', {
-            class: 'action-btn' + (p.di_corazon ? ' activo' : ''),
-            text: `${p.di_corazon ? '❤️' : '🤍'} ${p.total_corazones}`,
+            class: 'action-btn btn-corazon',
             title: 'Me gusta',
             onclick: () => alternarCorazon(p.id_publicacion, btnCorazon)
         });
+        pintarCorazon(btnCorazon, p.di_corazon, p.total_corazones);
 
         const seccionComentarios = crear('div', { class: 'comentarios', hidden: '' });
         const btnComentarios = crear('button', {
-            class: 'action-btn',
-            text: `💬 ${p.total_comentarios}`,
+            class: 'action-btn btn-comentarios',
             title: 'Comentarios',
-            onclick: () => abrirComentarios(p.id_publicacion, seccionComentarios, btnComentarios)
+            onclick: () => abrirComentarios(p.id_publicacion, tarjeta)
         });
+        pintarComentarios(btnComentarios, p.total_comentarios);
 
         tarjeta.append(crear('div', { class: 'post-footer' }, btnCorazon, btnComentarios), seccionComentarios);
     }
 
     return tarjeta;
+}
+
+// Vuelve a pedir una publicación y reemplaza su tarjeta
+async function refrescarPublicacion(id) {
+    const tarjeta = buscarTarjeta(id);
+    if (!tarjeta) return;
+    try {
+        const p = await api(`/api/publicaciones/${id}`);
+        tarjeta.replaceWith(crearPublicacion(p));
+    } catch (err) {
+        if (err.status === 404) tarjeta.remove(); // ya no existe
+        revisarVacio();
+    }
 }
 
 // =========================================================
@@ -205,21 +253,19 @@ async function cargarFeed() {
     estadoFeed.textContent = 'Cargando sueños…';
 
     try {
-        const url = ultimoId ? `/api/feed?antes=${ultimoId}` : '/api/feed';
+        const url = idMasViejo ? `/api/feed?antes=${idMasViejo}` : '/api/feed';
         const { publicaciones, hayMas } = await api(url);
 
         publicaciones.forEach((p) => {
-            lista.append(crearPublicacion(p));
-            if (p.estado === 'procesando') vigilar(p.id_publicacion);
+            if (!buscarTarjeta(p.id_publicacion)) lista.append(crearPublicacion(p));
+            idMasNuevo = Math.max(idMasNuevo, p.id_publicacion);
         });
-        if (publicaciones.length > 0) ultimoId = publicaciones[publicaciones.length - 1].id_publicacion;
+        if (publicaciones.length > 0) idMasViejo = publicaciones[publicaciones.length - 1].id_publicacion;
 
-        if (lista.children.length === 0) {
-            estadoFeed.textContent = 'Todavía nadie ha contado un sueño. ¡Sé el primero! 🌙';
-        } else {
-            estadoFeed.hidden = true;
-        }
+        revisarVacio();
+        btnCargarMas.textContent = 'Ver más sueños';
         btnCargarMas.hidden = !hayMas;
+        feedCargado = true;
     } catch (err) {
         estadoFeed.textContent = err.message;
         btnCargarMas.hidden = false;
@@ -227,41 +273,131 @@ async function cargarFeed() {
     }
 }
 
-btnCargarMas.addEventListener('click', () => {
-    btnCargarMas.textContent = 'Ver más sueños';
-    cargarFeed();
-});
-
-// Mientras la IA trabaja, revisamos cada 5 segundos si la publicación ya quedó
-function vigilar(id) {
-    enProceso.set(id, 0);
-}
-
-setInterval(async () => {
-    for (const [id, intentos] of enProceso) {
-        if (intentos > 60) { enProceso.delete(id); continue; } // ~5 minutos máximo
-        enProceso.set(id, intentos + 1);
-        try {
-            const p = await api(`/api/publicaciones/${id}`);
-            if (p.estado !== 'procesando') {
-                enProceso.delete(id);
-                lista.querySelector(`[data-id="${id}"]`)?.replaceWith(crearPublicacion(p));
-            }
-        } catch {
-            enProceso.delete(id); // se borró o hubo error: dejamos de revisar
-        }
-    }
-}, 5000);
+btnCargarMas.addEventListener('click', cargarFeed);
 
 // =========================================================
-// 5. ACCIONES: corazón, comentarios, borrar
+// 5. TIEMPO REAL (el servidor nos avisa cuando pasa algo)
+// =========================================================
+
+// Botón "✨ N sueños nuevos" (no los metemos de golpe para no mover lo que estás leyendo)
+function actualizarAviso() {
+    const n = pendientes.size;
+    avisoNuevos.hidden = n === 0;
+    avisoNuevos.textContent = n === 1 ? '✨ 1 sueño nuevo' : `✨ ${n} sueños nuevos`;
+}
+
+avisoNuevos.addEventListener('click', async () => {
+    const ids = [...pendientes].sort((a, b) => a - b); // del más viejo al más nuevo
+    pendientes.clear();
+    actualizarAviso();
+
+    for (const id of ids) {
+        if (buscarTarjeta(id)) continue;
+        try {
+            const p = await api(`/api/publicaciones/${id}`);
+            lista.prepend(crearPublicacion(p)); // el más nuevo termina hasta arriba
+            idMasNuevo = Math.max(idMasNuevo, id);
+        } catch {
+            // se borró mientras tanto: la ignoramos
+        }
+    }
+    revisarVacio();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Al (re)conectar: ponernos al día con lo que pasó mientras no estábamos conectados
+async function sincronizar() {
+    if (!feedCargado) return;
+
+    // Mis sueños que seguían procesando
+    lista.querySelectorAll('.post-card[data-estado="procesando"]')
+        .forEach((t) => refrescarPublicacion(Number(t.dataset.id)));
+
+    // Sueños nuevos de otros
+    try {
+        const { publicaciones } = await api(`/api/feed?despues=${idMasNuevo}`);
+        publicaciones.forEach((p) => {
+            if (!buscarTarjeta(p.id_publicacion) && p.estado === 'listo') pendientes.add(p.id_publicacion);
+        });
+        actualizarAviso();
+    } catch {
+        // si falla, lo intentará en la siguiente reconexión
+    }
+}
+
+const manejadores = {
+    // Un sueño terminó de procesarse
+    'publicacion-actualizada': ({ id_publicacion, estado }) => {
+        if (buscarTarjeta(id_publicacion)) {
+            refrescarPublicacion(id_publicacion); // es mío (o ya lo tenía): mostrar el resultado
+        } else if (estado === 'listo') {
+            pendientes.add(id_publicacion);
+            actualizarAviso();
+        }
+    },
+
+    'publicacion-borrada': ({ id_publicacion }) => {
+        buscarTarjeta(id_publicacion)?.remove();
+        pendientes.delete(id_publicacion);
+        actualizarAviso();
+        if (feedCargado) revisarVacio();
+    },
+
+    // Alguien dio o quitó corazón: solo cambia el número (mi corazón sigue igual)
+    corazones: ({ id_publicacion, total_corazones }) => {
+        const boton = buscarTarjeta(id_publicacion)?.querySelector('.btn-corazon');
+        if (boton) pintarCorazon(boton, boton.dataset.activo === '1', total_corazones);
+    },
+
+    'comentario-nuevo': ({ id_publicacion, comentario, total_comentarios }) => {
+        const tarjeta = buscarTarjeta(id_publicacion);
+        if (!tarjeta) return;
+        const boton = tarjeta.querySelector('.btn-comentarios');
+        if (boton) pintarComentarios(boton, total_comentarios);
+        agregarComentario(tarjeta, comentario);
+    },
+
+    'comentario-borrado': ({ id_publicacion, id_comentario, total_comentarios }) => {
+        const tarjeta = buscarTarjeta(id_publicacion);
+        if (!tarjeta) return;
+        const boton = tarjeta.querySelector('.btn-comentarios');
+        if (boton) pintarComentarios(boton, total_comentarios);
+        tarjeta.querySelector(`[data-comentario="${id_comentario}"]`)?.remove();
+    }
+};
+
+function conectarTiempoReal() {
+    const fuente = new EventSource('/api/eventos');
+
+    for (const [tipo, manejador] of Object.entries(manejadores)) {
+        fuente.addEventListener(tipo, (e) => {
+            try {
+                manejador(JSON.parse(e.data));
+            } catch (err) {
+                console.error(`Error procesando evento ${tipo}:`, err);
+            }
+        });
+    }
+
+    fuente.addEventListener('open', sincronizar);
+
+    // El navegador reconecta solo; si la conexión se cerró del todo (p. ej. la
+    // sesión expiró), revisamos la sesión y volvemos a conectar.
+    fuente.addEventListener('error', () => {
+        if (fuente.readyState === EventSource.CLOSED) {
+            setTimeout(() => api('/api/yo').then(conectarTiempoReal).catch(() => {}), 5000);
+        }
+    });
+}
+
+// =========================================================
+// 6. ACCIONES: corazón, comentarios, borrar
 // =========================================================
 async function alternarCorazon(id, boton) {
     boton.disabled = true;
     try {
         const { di_corazon, total_corazones } = await api(`/api/publicaciones/${id}/corazon`, { method: 'POST' });
-        boton.textContent = `${di_corazon ? '❤️' : '🤍'} ${total_corazones}`;
-        boton.classList.toggle('activo', di_corazon);
+        pintarCorazon(boton, di_corazon, total_corazones);
     } catch (err) {
         alert(err.message);
     } finally {
@@ -269,23 +405,19 @@ async function alternarCorazon(id, boton) {
     }
 }
 
-async function borrarPublicacion(id, tarjeta) {
+async function borrarPublicacion(id) {
     if (!confirm('¿Borrar esta publicación? No se puede deshacer.')) return;
     try {
         await api(`/api/publicaciones/${id}`, { method: 'DELETE' });
-        enProceso.delete(id);
-        tarjeta.remove();
-        if (lista.children.length === 0) {
-            estadoFeed.hidden = false;
-            estadoFeed.textContent = 'Todavía nadie ha contado un sueño. ¡Sé el primero! 🌙';
-        }
+        buscarTarjeta(id)?.remove();
+        revisarVacio();
     } catch (err) {
         alert(err.message);
     }
 }
 
-function crearComentario(c, alBorrar) {
-    const item = crear('li', { class: 'comentario' },
+function crearComentario(c, idPublicacion) {
+    const item = crear('li', { class: 'comentario', 'data-comentario': c.id_comentario },
         crearAvatar(c.autor),
         crear('div', { class: 'comentario-cuerpo' },
             crear('div', { class: 'comentario-encabezado' },
@@ -303,9 +435,10 @@ function crearComentario(c, alBorrar) {
             onclick: async () => {
                 if (!confirm('¿Borrar tu comentario?')) return;
                 try {
-                    await api(`/api/comentarios/${c.id_comentario}`, { method: 'DELETE' });
+                    const { total_comentarios } = await api(`/api/comentarios/${c.id_comentario}`, { method: 'DELETE' });
                     item.remove();
-                    alBorrar();
+                    const boton = buscarTarjeta(idPublicacion)?.querySelector('.btn-comentarios');
+                    if (boton) pintarComentarios(boton, total_comentarios);
                 } catch (err) {
                     alert(err.message);
                 }
@@ -315,25 +448,26 @@ function crearComentario(c, alBorrar) {
     return item;
 }
 
-async function abrirComentarios(id, seccion, btnComentarios) {
+// Agrega un comentario a la lista abierta (si ya está, no lo duplica)
+function agregarComentario(tarjeta, comentario) {
+    const listaComentarios = tarjeta.querySelector('.comentarios:not([hidden]) .comentarios-lista');
+    if (!listaComentarios) return; // los comentarios están cerrados
+    if (listaComentarios.querySelector(`[data-comentario="${comentario.id_comentario}"]`)) return;
+    listaComentarios.append(crearComentario(comentario, Number(tarjeta.dataset.id)));
+}
+
+async function abrirComentarios(id, tarjeta) {
+    const seccion = tarjeta.querySelector('.comentarios');
     // Segundo clic: cerrar
     if (!seccion.hidden) { seccion.hidden = true; return; }
     seccion.hidden = false;
     seccion.replaceChildren(crear('p', { class: 'comentarios-vacio', text: 'Cargando comentarios…' }));
 
-    let total = 0;
-    const actualizarContador = () => { btnComentarios.textContent = `💬 ${total}`; };
-
     const listaComentarios = crear('ul', { class: 'comentarios-lista' });
-    const agregar = (c) => {
-        listaComentarios.append(crearComentario(c, () => { total--; actualizarContador(); }));
-    };
-
     try {
         const comentarios = await api(`/api/publicaciones/${id}/comentarios`);
-        comentarios.forEach(agregar);
-        total = comentarios.length;
-        actualizarContador();
+        comentarios.forEach((c) => listaComentarios.append(crearComentario(c, id)));
+        pintarComentarios(tarjeta.querySelector('.btn-comentarios'), comentarios.length);
     } catch (err) {
         seccion.replaceChildren(crear('p', { class: 'comentarios-vacio', text: err.message }));
         return;
@@ -347,13 +481,12 @@ async function abrirComentarios(id, seccion, btnComentarios) {
         if (!contenido) return;
         input.disabled = true;
         try {
-            const nuevo = await api(`/api/publicaciones/${id}/comentarios`, {
+            const { comentario, total_comentarios } = await api(`/api/publicaciones/${id}/comentarios`, {
                 method: 'POST',
                 body: JSON.stringify({ contenido })
             });
-            agregar(nuevo);
-            total++;
-            actualizarContador();
+            agregarComentario(tarjeta, comentario);
+            pintarComentarios(tarjeta.querySelector('.btn-comentarios'), total_comentarios);
             input.value = '';
         } catch (err) {
             alert(err.message);
@@ -367,7 +500,7 @@ async function abrirComentarios(id, seccion, btnComentarios) {
 }
 
 // =========================================================
-// 6. ARRANQUE
+// 7. ARRANQUE
 // =========================================================
 // Evitar publicar dos veces por doble clic
 document.getElementById('form-crear').addEventListener('submit', (e) => {
@@ -389,5 +522,6 @@ document.getElementById('form-crear').addEventListener('submit', (e) => {
     } catch {
         // si falla, el feed igual intenta cargar
     }
-    cargarFeed();
+    await cargarFeed();
+    conectarTiempoReal();
 })();
