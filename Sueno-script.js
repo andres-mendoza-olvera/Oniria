@@ -1,0 +1,437 @@
+// =========================================================
+// CHAT DEL SUEÑO
+// (íconos, tema, crear(), api(), crearAvatar() y crearCarrusel() vienen de Comun.js)
+//
+// La conversación vive solo en la memoria del servidor hasta que la persona
+// decide: "Publicar" la guarda en el feed; "Descartar" la borra sin guardar nada.
+// =========================================================
+const MAX_IMAGENES = 3;
+
+const listaMensajes = document.getElementById('mensajes');
+const bienvenida = document.getElementById('bienvenida');
+const estadoBot = document.getElementById('estado-bot');
+const form = document.getElementById('form-chat');
+const textarea = document.getElementById('texto');
+const btnEnviar = document.getElementById('btn-enviar');
+const btnMicrofono = document.getElementById('btn-microfono');
+const inputImagenes = document.getElementById('input-imagenes');
+const etiquetaAdjuntar = inputImagenes.closest('label');
+const contenedorAdjuntos = document.getElementById('adjuntos');
+const errorChat = document.getElementById('error-chat');
+const acciones = document.getElementById('acciones');
+const btnPublicar = document.getElementById('btn-publicar');
+const btnDescartar = document.getElementById('btn-descartar');
+const vistaPrevia = document.getElementById('vista-previa');
+
+const estado = {
+    yo: null,          // { idUsuario, apodo }
+    borrador: null,    // resumen del sueño en curso (lo que se publicaría)
+    adjuntos: [],      // imágenes elegidas que aún no se envían: { archivo, url }
+    enviando: false
+};
+
+// ---------------------------------------------------------
+// Utilidades de la interfaz
+// ---------------------------------------------------------
+function mostrarError(mensaje) {
+    errorChat.textContent = mensaje || '';
+    errorChat.hidden = !mensaje;
+}
+
+function bajarAlFinal() {
+    requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+}
+
+function ajustarAltura() {
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
+}
+
+function parrafos(texto) {
+    return String(texto || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p) => crear('p', { text: p }));
+}
+
+function urlImagenBorrador(cual) {
+    return `/api/sueno/imagen/${cual}?v=${estado.borrador?.version || Date.now()}`;
+}
+
+function imagenesDisponibles() {
+    return MAX_IMAGENES - (estado.borrador?.totalImagenes || 0) - estado.adjuntos.length;
+}
+
+// Actualiza botones y textos según haya o no un sueño en curso
+function actualizarInterfaz() {
+    const hayBorrador = Boolean(estado.borrador);
+    acciones.hidden = !hayBorrador;
+    bienvenida.hidden = listaMensajes.children.length > 0;
+    textarea.placeholder = hayBorrador ? 'Pregunta o cuenta más…' : '¿Qué soñaste?';
+    btnEnviar.disabled = estado.enviando;
+    btnPublicar.disabled = estado.enviando;
+    btnDescartar.disabled = estado.enviando;
+    etiquetaAdjuntar.classList.toggle('desactivado', imagenesDisponibles() <= 0 || estado.enviando);
+    estadoBot.textContent = estado.enviando ? 'escribiendo…' : 'Intérprete de sueños';
+    estadoBot.classList.toggle('escribiendo', estado.enviando);
+}
+
+// ---------------------------------------------------------
+// Dibujar mensajes
+// ---------------------------------------------------------
+function mensajeUsuario(texto, urlsImagenes) {
+    const li = crear('li', { class: 'mensaje usuario' });
+    if (urlsImagenes.length) {
+        const fotos = crear('div', { class: 'mensaje-imagenes' });
+        urlsImagenes.forEach((url) => fotos.append(crear('img', { src: url, alt: 'Imagen que adjuntaste' })));
+        li.append(fotos);
+    }
+    if (texto) li.append(crear('div', { class: 'burbuja', text: texto }));
+    return li;
+}
+
+function mensajeIA(m) {
+    const li = crear('li', { class: 'mensaje ia' });
+    const avatar = crear('div', { class: 'bot-avatar chico', 'aria-hidden': 'true' }, icono('destellos'));
+
+    // Primera respuesta: título, imagen creada por la IA e interpretación
+    if (m.tipo === 'interpretacion') {
+        const burbuja = crear('div', { class: 'burbuja interpretacion' });
+        if (m.imagenIA) {
+            burbuja.append(crear('img', { class: 'imagen-ia', src: urlImagenBorrador('ia'), alt: `Imagen creada por IA: ${m.titulo || 'tu sueño'}` }));
+        }
+        const contenido = crear('div', { class: 'contenido' });
+        if (m.titulo) contenido.append(crear('h3', { class: 'interpretacion-titulo', text: m.titulo }));
+        if (!m.imagenIA) contenido.append(crear('p', { class: 'sin-imagen', text: 'No pude crear la imagen esta vez, pero aquí está la interpretación.' }));
+        contenido.append(
+            crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), 'Interpretación psicológica'),
+            ...parrafos(m.texto)
+        );
+        burbuja.append(contenido);
+        li.append(avatar, burbuja);
+        return li;
+    }
+
+    // Respuestas siguientes
+    const burbuja = crear('div', { class: 'burbuja' }, ...parrafos(m.texto));
+    if (m.relatoActualizado || m.interpretacionActualizada) {
+        const cambios = crear('div', { class: 'cambios' });
+        if (m.relatoActualizado) cambios.append(crear('span', { class: 'cambio' }, icono('check', 'icono-xs'), 'Detalles agregados a tu relato'));
+        if (m.interpretacionActualizada) cambios.append(crear('span', { class: 'cambio' }, icono('destellos', 'icono-xs'), 'Interpretación actualizada'));
+        burbuja.append(cambios);
+    }
+    li.append(avatar, burbuja);
+    return li;
+}
+
+function mensajeEscribiendo(primero) {
+    return crear('li', { class: 'mensaje ia', id: 'escribiendo' },
+        crear('div', { class: 'bot-avatar chico', 'aria-hidden': 'true' }, icono('destellos')),
+        crear('div', { class: 'burbuja escribiendo-burbuja' },
+            crear('span', { class: 'puntos' }, crear('span'), crear('span'), crear('span')),
+            primero ? 'Interpretando tu sueño y creando su imagen…' : 'Pensando…'
+        )
+    );
+}
+
+// Reconstruye la conversación guardada en el servidor (al recargar la página)
+function pintarConversacion(mensajes) {
+    listaMensajes.replaceChildren();
+    for (const m of mensajes) {
+        if (m.rol === 'usuario') listaMensajes.append(mensajeUsuario(m.texto, (m.imagenes || []).map(urlImagenBorrador)));
+        else listaMensajes.append(mensajeIA(m));
+    }
+}
+
+// ---------------------------------------------------------
+// Imágenes adjuntas
+// ---------------------------------------------------------
+// Las fotos de celular pesan mucho: las reducimos a 1600 px antes de subirlas
+async function prepararImagen(archivo) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type)) return archivo; // HEIC se manda tal cual
+    try {
+        const bitmap = await createImageBitmap(archivo);
+        const escala = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+        if (escala === 1 && archivo.size < 1.5 * 1024 * 1024) return archivo;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(bitmap.width * escala);
+        canvas.height = Math.round(bitmap.height * escala);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; // fondo blanco por si el PNG es transparente
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((resolver) => canvas.toBlob(resolver, 'image/jpeg', 0.85));
+        if (!blob) return archivo;
+        return new File([blob], archivo.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+    } catch {
+        return archivo;
+    }
+}
+
+function pintarAdjuntos() {
+    contenedorAdjuntos.replaceChildren(...estado.adjuntos.map((adjunto, i) =>
+        crear('div', { class: 'adjunto' },
+            crear('img', { src: adjunto.url, alt: `Imagen adjunta ${i + 1}` }),
+            crear('button', {
+                type: 'button',
+                'aria-label': 'Quitar imagen',
+                onclick: () => {
+                    URL.revokeObjectURL(adjunto.url);
+                    estado.adjuntos.splice(i, 1);
+                    pintarAdjuntos();
+                }
+            }, icono('cerrar'))
+        )
+    ));
+    contenedorAdjuntos.hidden = estado.adjuntos.length === 0;
+    actualizarInterfaz();
+}
+
+inputImagenes.addEventListener('change', async () => {
+    mostrarError('');
+    const elegidos = [...inputImagenes.files];
+    inputImagenes.value = ''; // para poder elegir la misma imagen otra vez
+    const lugares = imagenesDisponibles();
+    if (elegidos.length > lugares) {
+        mostrarError(lugares > 0
+            ? `Solo puedes agregar ${lugares} imagen${lugares === 1 ? '' : 'es'} más (máximo ${MAX_IMAGENES} por sueño).`
+            : `Ya llegaste al máximo de ${MAX_IMAGENES} imágenes por sueño.`);
+    }
+    for (const original of elegidos.slice(0, Math.max(lugares, 0))) {
+        const archivo = await prepararImagen(original);
+        if (archivo.size > 5 * 1024 * 1024) {
+            mostrarError('Cada imagen debe pesar menos de 5 MB.');
+            continue;
+        }
+        estado.adjuntos.push({ archivo, url: URL.createObjectURL(archivo) });
+    }
+    pintarAdjuntos();
+});
+
+// ---------------------------------------------------------
+// Micrófono (dictado por voz con el reconocimiento del navegador)
+// ---------------------------------------------------------
+const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
+let dictado = null;
+
+function detenerDictado() {
+    if (dictado) dictado.stop();
+}
+
+function pintarMicrofono(grabando) {
+    btnMicrofono.classList.toggle('grabando', grabando);
+    btnMicrofono.setAttribute('aria-pressed', grabando ? 'true' : 'false');
+    btnMicrofono.title = grabando ? 'Detener el dictado' : 'Dictar con el micrófono';
+    btnMicrofono.replaceChildren(icono(grabando ? 'detener' : 'microfono'));
+}
+
+if (Reconocimiento) {
+    btnMicrofono.hidden = false;
+    btnMicrofono.addEventListener('click', () => {
+        if (dictado) return detenerDictado();
+        mostrarError('');
+
+        const rec = new Reconocimiento();
+        rec.lang = 'es-MX';
+        rec.continuous = true;
+        rec.interimResults = true;
+
+        // Lo dictado se agrega después de lo que ya estaba escrito
+        let base = textarea.value;
+        if (base && !/\s$/.test(base)) base += ' ';
+
+        rec.onresult = (e) => {
+            let texto = '';
+            for (const resultado of e.results) texto += resultado[0].transcript;
+            textarea.value = (base + texto).slice(0, 2000);
+            ajustarAltura();
+        };
+        rec.onerror = (e) => {
+            if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                mostrarError('No tengo permiso para usar el micrófono. Actívalo en la configuración del navegador.');
+            } else if (e.error === 'network') {
+                mostrarError('El dictado necesita conexión a internet.');
+            } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+                mostrarError('No pude escucharte bien. Intenta de nuevo.');
+            }
+        };
+        rec.onend = () => {
+            dictado = null;
+            pintarMicrofono(false);
+            textarea.focus();
+        };
+
+        try {
+            rec.start();
+            dictado = rec;
+            pintarMicrofono(true);
+        } catch {
+            mostrarError('No se pudo iniciar el micrófono.');
+        }
+    });
+}
+
+// ---------------------------------------------------------
+// Enviar un mensaje
+// ---------------------------------------------------------
+async function enviar() {
+    if (estado.enviando) return;
+    detenerDictado();
+    mostrarError('');
+
+    const texto = textarea.value.trim();
+    const adjuntos = [...estado.adjuntos];
+    if (!texto && adjuntos.length === 0) return;
+    if (!estado.borrador && !texto) {
+        return mostrarError('Cuéntame tu sueño con palabras; las imágenes lo acompañan.');
+    }
+
+    const datos = new FormData();
+    datos.append('texto', texto);
+    adjuntos.forEach((a) => datos.append('imagenes', a.archivo, a.archivo.name));
+
+    // Mostrar el mensaje de inmediato y limpiar la caja
+    const esPrimero = !estado.borrador;
+    const burbujaUsuario = mensajeUsuario(texto, adjuntos.map((a) => a.url));
+    listaMensajes.append(burbujaUsuario);
+    const escribiendo = mensajeEscribiendo(esPrimero);
+    listaMensajes.append(escribiendo);
+    textarea.value = '';
+    ajustarAltura();
+    estado.adjuntos = [];
+    contenedorAdjuntos.replaceChildren();
+    contenedorAdjuntos.hidden = true;
+    estado.enviando = true;
+    actualizarInterfaz();
+    bajarAlFinal();
+
+    try {
+        const { mensaje, borrador } = await api('/api/sueno/mensaje', { method: 'POST', body: datos });
+        if (borrador) estado.borrador = borrador;
+        escribiendo.replaceWith(mensajeIA(mensaje));
+    } catch (err) {
+        // Regresamos el texto y las imágenes para que pueda intentarlo otra vez
+        escribiendo.remove();
+        burbujaUsuario.remove();
+        if (!textarea.value) textarea.value = texto;
+        ajustarAltura();
+        estado.adjuntos = adjuntos;
+        pintarAdjuntos();
+        mostrarError(err.message);
+    } finally {
+        estado.enviando = false;
+        actualizarInterfaz();
+        bajarAlFinal();
+    }
+}
+
+form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    enviar();
+});
+
+// En computadora, Enter envía y Shift+Enter hace un salto de línea
+textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && window.matchMedia('(pointer: fine)').matches) {
+        e.preventDefault();
+        enviar();
+    }
+});
+textarea.addEventListener('input', ajustarAltura);
+
+// ---------------------------------------------------------
+// Publicar o descartar
+// ---------------------------------------------------------
+function construirVistaPrevia() {
+    const b = estado.borrador;
+    const imagenes = [];
+    if (b.tieneImagenIA) {
+        imagenes.push({ elemento: crear('img', { class: 'post-media', src: urlImagenBorrador('ia'), alt: 'Imagen creada por IA' }), etiqueta: 'Creada por IA' });
+    }
+    for (let i = 0; i < b.totalImagenes; i++) {
+        imagenes.push({ elemento: crear('img', { class: 'post-media', src: urlImagenBorrador(i), alt: 'Tu imagen' }), etiqueta: 'Tu imagen' });
+    }
+
+    const tarjeta = crear('article', { class: 'post-card' },
+        crear('div', { class: 'post-header' },
+            crearAvatar(estado.yo?.apodo, true),
+            crear('div', { class: 'user-info' },
+                crear('h2', { text: estado.yo?.apodo || 'Tú' }),
+                crear('span', { class: 'time', text: 'justo ahora' })
+            )
+        ),
+        imagenes.length ? crearCarrusel(imagenes) : null,
+        crear('div', { class: 'post-body' },
+            b.titulo ? crear('h3', { class: 'post-titulo', text: b.titulo }) : null,
+            crear('p', { class: 'sueno-texto', text: b.relato }),
+            crear('div', { class: 'interpretacion-ia' },
+                crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), 'Interpretación psicológica'),
+                crear('div', { class: 'interpretacion-texto' }, ...parrafos(b.interpretacion))
+            )
+        )
+    );
+    document.getElementById('vista-previa-contenido').replaceChildren(tarjeta);
+}
+
+btnPublicar.addEventListener('click', () => {
+    if (!estado.borrador || estado.enviando) return;
+    construirVistaPrevia();
+    vistaPrevia.showModal();
+});
+
+document.getElementById('btn-cerrar-vista').addEventListener('click', () => vistaPrevia.close());
+document.getElementById('btn-seguir').addEventListener('click', () => {
+    vistaPrevia.close();
+    textarea.focus();
+});
+// Cerrar al hacer clic fuera de la ventana
+vistaPrevia.addEventListener('click', (e) => { if (e.target === vistaPrevia) vistaPrevia.close(); });
+
+const btnConfirmar = document.getElementById('btn-confirmar-publicar');
+btnConfirmar.addEventListener('click', async () => {
+    btnConfirmar.disabled = true;
+    btnConfirmar.textContent = 'Publicando…';
+    try {
+        await api('/api/sueno/publicar', { method: 'POST' });
+        window.location.href = '/feed';
+    } catch (err) {
+        vistaPrevia.close();
+        mostrarError(err.message);
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent = 'Publicar';
+    }
+});
+
+btnDescartar.addEventListener('click', async () => {
+    if (!confirm('¿Descartar este sueño? Se borrará la conversación y no se guardará nada.')) return;
+    try {
+        await api('/api/sueno', { method: 'DELETE' });
+        estado.borrador = null;
+        listaMensajes.replaceChildren();
+        mostrarError('');
+        actualizarInterfaz();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        textarea.focus();
+    } catch (err) {
+        mostrarError(err.message);
+    }
+});
+
+// ---------------------------------------------------------
+// Arranque: quién soy y si había un sueño en curso
+// ---------------------------------------------------------
+(async () => {
+    actualizarInterfaz();
+    try {
+        const [yo, { borrador }] = await Promise.all([api('/api/yo'), api('/api/sueno')]);
+        estado.yo = yo;
+        if (borrador) {
+            const { mensajes, ...resumen } = borrador;
+            estado.borrador = resumen;
+            pintarConversacion(mensajes);
+            bajarAlFinal();
+        }
+    } catch (err) {
+        mostrarError(err.message);
+    }
+    actualizarInterfaz();
+    textarea.focus();
+})();

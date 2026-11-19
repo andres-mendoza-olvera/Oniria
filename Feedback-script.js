@@ -1,97 +1,5 @@
 // =========================================================
-// 0. ÍCONOS (SVG fijos escritos aquí; nunca contienen texto de usuarios)
-// =========================================================
-const ICONOS = {
-    inicio: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
-    mas: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/>',
-    'mas-simple': '<path d="M12 5v14M5 12h14"/>',
-    luna: '<path d="M20.5 13.2A8.5 8.5 0 1 1 10.8 3.5a6.6 6.6 0 0 0 9.7 9.7z"/>',
-    sol: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
-    escudo: '<path d="M12 3 4.5 6v5.5c0 4.4 3.2 8.3 7.5 9.5 4.3-1.2 7.5-5.1 7.5-9.5V6z"/>',
-    salir: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>',
-    imagen: '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4.5-4.5L6 21"/>',
-    destellos: '<path d="M11 3.5l1.7 4.6 4.6 1.7-4.6 1.7L11 16.1l-1.7-4.6-4.6-1.7 4.6-1.7z"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
-    corazon: '<path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.6 4.5 7.1 4.5c2 0 3.6 1.1 4.9 2.9 1.3-1.8 2.9-2.9 4.9-2.9 3.5 0 5.7 3.5 4.4 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/>',
-    'corazon-lleno': '<path fill="currentColor" d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.6 4.5 7.1 4.5c2 0 3.6 1.1 4.9 2.9 1.3-1.8 2.9-2.9 4.9-2.9 3.5 0 5.7 3.5 4.4 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/>',
-    comentario: '<path d="M20.5 11.5a8.5 8.5 0 0 1-12.4 7.6l-4.6 1.4 1.4-4.4A8.5 8.5 0 1 1 20.5 11.5z"/>',
-    basura: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
-    cerrar: '<path d="M6 6l12 12M18 6 6 18"/>',
-    alerta: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/>',
-    arriba: '<path d="M12 19V5M5 12l7-7 7 7"/>'
-};
-
-function svgIcono(nombre) {
-    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[nombre] || ''}</svg>`;
-}
-
-function icono(nombre, clase = '') {
-    const span = document.createElement('span');
-    span.className = `icono ${clase}`.trim();
-    span.innerHTML = svgIcono(nombre);
-    return span;
-}
-
-// Llenar los íconos que ya vienen en el HTML (<span data-icono="...">)
-document.querySelectorAll('[data-icono]').forEach((el) => { el.innerHTML = svgIcono(el.dataset.icono); });
-
-// =========================================================
-// 1. TEMA CLARO / OSCURO (Tema.js ya lo aplicó al cargar)
-// =========================================================
-function pintarBotonesTema() {
-    const oscuro = document.documentElement.classList.contains('dark-theme');
-    document.querySelectorAll('.js-tema').forEach((boton) => {
-        let span = boton.querySelector('.icono');
-        if (!span) { span = icono('luna'); boton.prepend(span); }
-        span.innerHTML = svgIcono(oscuro ? 'sol' : 'luna');
-        const texto = boton.querySelector('.js-tema-texto');
-        if (texto) texto.textContent = oscuro ? 'Tema claro' : 'Tema oscuro';
-    });
-}
-
-document.querySelectorAll('.js-tema').forEach((boton) => {
-    boton.addEventListener('click', () => {
-        const oscuro = document.documentElement.classList.toggle('dark-theme');
-        try { localStorage.setItem('vibe_tema', oscuro ? 'Oscuro' : 'Claro'); } catch { /* sin almacenamiento */ }
-        pintarBotonesTema();
-    });
-});
-pintarBotonesTema();
-
-// =========================================================
-// 1b. NAVEGACIÓN Y FORMULARIO DE CREAR
-// =========================================================
-const formCrear = document.getElementById('form-crear');
-const textareaCrear = formCrear.querySelector('textarea');
-
-document.querySelectorAll('.js-ir-inicio').forEach((enlace) => {
-    enlace.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-});
-
-document.querySelectorAll('.js-nuevo-sueno').forEach((boton) => {
-    boton.addEventListener('click', () => {
-        document.getElementById('crear').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        textareaCrear.focus({ preventScroll: true });
-    });
-});
-
-// El cuadro de texto crece conforme escribes
-textareaCrear.addEventListener('input', () => {
-    textareaCrear.style.height = 'auto';
-    textareaCrear.style.height = `${textareaCrear.scrollHeight + 2}px`;
-});
-
-// Mostrar el nombre de la imagen elegida
-const inputImagen = formCrear.querySelector('.file-input');
-const nombreArchivo = document.getElementById('nombre-archivo');
-inputImagen.addEventListener('change', () => {
-    nombreArchivo.textContent = inputImagen.files[0]?.name || 'Agregar imagen';
-});
-
-// =========================================================
-// 2. UTILIDADES
+// 1. ESTADO DEL FEED (íconos, tema, crear() y api() vienen de Comun.js)
 // =========================================================
 const lista = document.getElementById('lista-publicaciones');
 const estadoFeed = document.getElementById('estado-feed');
@@ -104,50 +12,6 @@ let idMasNuevo = 0;           // la publicación más reciente que ya tenemos
 let feedCargado = false;
 const pendientes = new Set(); // sueños nuevos de otros que aún no se muestran
 
-// Crea un elemento HTML. Usamos textContent (nunca innerHTML) para que el
-// texto que escriben los usuarios no se pueda ejecutar como código.
-function crear(etiqueta, props = {}, ...hijos) {
-    const el = document.createElement(etiqueta);
-    for (const [clave, valor] of Object.entries(props)) {
-        if (valor === undefined || valor === null || valor === false) continue;
-        if (clave === 'class') el.className = valor;
-        else if (clave === 'text') el.textContent = valor;
-        else if (clave.startsWith('on')) el.addEventListener(clave.slice(2), valor);
-        else el.setAttribute(clave, valor);
-    }
-    for (const hijo of hijos) if (hijo) el.append(hijo);
-    return el;
-}
-
-// Llama a la API del servidor y devuelve el JSON (o lanza un error con mensaje)
-async function api(url, opciones = {}) {
-    const respuesta = await fetch(url, {
-        ...opciones,
-        headers: opciones.body ? { 'Content-Type': 'application/json' } : undefined
-    });
-    if (respuesta.status === 401) {
-        window.location.href = '/'; // la sesión terminó
-        throw new Error('Sesión terminada');
-    }
-    const datos = await respuesta.json().catch(() => ({}));
-    if (!respuesta.ok) {
-        const error = new Error(datos.error || 'Ocurrió un error, intenta de nuevo.');
-        error.status = respuesta.status;
-        throw error;
-    }
-    return datos;
-}
-
-// Avatar automático a partir del apodo
-function urlAvatar(apodo) {
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(apodo || 'oniria')}`;
-}
-
-function crearAvatar(apodo, conAnillo = false) {
-    const avatar = crear('div', { class: 'avatar' });
-    avatar.style.backgroundImage = `url("${urlAvatar(apodo)}")`;
-    return conAnillo ? crear('div', { class: 'anillo' }, avatar) : avatar;
-}
 
 // Fila de "historias": los soñadores que aparecen en el feed, sin repetir
 const historias = document.getElementById('historias');
@@ -208,21 +72,21 @@ function revisarVacio() {
 // =========================================================
 // 3. DIBUJAR UNA PUBLICACIÓN
 // =========================================================
-function crearMedio(medio, titulo) {
+function crearMedio(medio, p) {
     if (medio.tipo === 'video') {
         return crear('video', { class: 'post-media', src: medio.url, controls: '', playsinline: '', preload: 'metadata' });
     }
-    return crear('img', { class: 'post-media', src: medio.url, alt: titulo || 'Imagen del sueño', loading: 'lazy' });
+    const alt = medio.es_ia ? `Imagen creada por IA: ${p.titulo || 'sueño'}` : `Imagen que compartió ${p.autor}`;
+    return crear('img', { class: 'post-media', src: medio.url, alt, loading: 'lazy' });
 }
 
+// Una sola imagen, o un carrusel con flechas si hay varias (la de la IA va primero)
 function crearMedios(p) {
     if (!p.medios || p.medios.length === 0) return null;
-    if (p.medios.length === 1) return crearMedio(p.medios[0], p.titulo);
-
-    // Varias imágenes: carrusel que se desliza de lado
-    const carrusel = crear('div', { class: 'carrusel' });
-    p.medios.forEach((m) => carrusel.append(crearMedio(m, p.titulo)));
-    return carrusel;
+    return crearCarrusel(p.medios.map((m) => ({
+        elemento: crearMedio(m, p),
+        etiqueta: m.es_ia ? 'Creada por IA' : 'Imagen del soñador'
+    })));
 }
 
 function crearInterpretacion(p) {
@@ -615,11 +479,11 @@ async function abrirComentarios(id, tarjeta) {
 // =========================================================
 // 7. ARRANQUE
 // =========================================================
-// Evitar publicar dos veces por doble clic
-formCrear.addEventListener('submit', () => {
-    const boton = formCrear.querySelector('.btn-publish');
-    boton.disabled = true;
-    boton.textContent = 'Publicando…';
+document.querySelectorAll('.js-ir-inicio').forEach((enlace) => {
+    enlace.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
 });
 
 (async () => {

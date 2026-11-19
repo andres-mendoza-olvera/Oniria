@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <title>Cuenta tu sueño - Oniria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Feedback.css trae los colores, íconos, avatares y el carrusel; Sueno.css lo propio del chat -->
+    <link rel="stylesheet" href="/Feedback.css">
+    <link rel="stylesheet" href="/Sueno.css">
+    <script src="/Tema.js"></script>
+</head>
+<body class="pagina-chat">
+
+    <!-- Encabezado -->
+    <header class="chat-top">
+        <a href="/feed" class="icon-btn" aria-label="Volver al feed" title="Volver al feed">
+            <span class="icono" data-icono="atras"></span>
+        </a>
+        <div class="bot-avatar" aria-hidden="true"><span class="icono" data-icono="destellos"></span></div>
+        <div class="chat-top-info">
+            <strong>Oniria</strong>
+            <span id="estado-bot">Intérprete de sueños</span>
+        </div>
+        <button type="button" class="icon-btn js-tema" title="Cambiar tema" aria-label="Cambiar tema"></button>
+    </header>
+
+    <!-- Conversación -->
+    <main class="chat">
+        <section id="bienvenida" class="bienvenida">
+            <div class="bienvenida-icono" aria-hidden="true"><span class="icono" data-icono="luna"></span></div>
+            <h1>Cuéntame tu sueño</h1>
+            <p>Escribe o dicta todo lo que recuerdes, aunque no tenga sentido. Te daré una imagen del sueño y una interpretación psicológica, y después podemos seguir platicando.</p>
+            <ul class="tips">
+                <li><span class="icono icono-sm" data-icono="microfono"></span>Usa el micrófono para dictarlo</li>
+                <li><span class="icono icono-sm" data-icono="imagen"></span>Adjunta dibujos o fotos (hasta 3)</li>
+                <li><span class="icono icono-sm" data-icono="escudo"></span>Nada se guarda hasta que decidas publicarlo</li>
+            </ul>
+        </section>
+
+        <ol id="mensajes" class="mensajes" aria-live="polite"></ol>
+    </main>
+
+    <!-- Parte de abajo: acciones, adjuntos y caja de texto -->
+    <footer class="chat-pie">
+        <div id="acciones" class="acciones" hidden>
+            <button type="button" id="btn-descartar" class="btn-descartar">
+                <span class="icono icono-sm" data-icono="basura"></span>Descartar
+            </button>
+            <button type="button" id="btn-publicar" class="btn-publish">
+                <span class="icono icono-sm" data-icono="check"></span>Publicar en el feed
+            </button>
+        </div>
+
+        <p id="error-chat" class="chat-error" role="alert" hidden></p>
+
+        <div id="adjuntos" class="adjuntos" hidden></div>
+
+        <form id="form-chat" class="compositor">
+            <label class="icon-btn btn-adjuntar" title="Adjuntar imágenes" aria-label="Adjuntar imágenes">
+                <span class="icono" data-icono="imagen"></span>
+                <input type="file" id="input-imagenes" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden>
+            </label>
+            <textarea id="texto" rows="1" maxlength="2000" placeholder="¿Qué soñaste?" aria-label="Escribe tu mensaje"></textarea>
+            <button type="button" id="btn-microfono" class="icon-btn btn-microfono" title="Dictar con el micrófono" aria-label="Dictar con el micrófono" aria-pressed="false" hidden>
+                <span class="icono" data-icono="microfono"></span>
+            </button>
+            <button type="submit" id="btn-enviar" class="btn-enviar-chat" aria-label="Enviar" title="Enviar">
+                <span class="icono" data-icono="enviar"></span>
+            </button>
+        </form>
+        <p class="chat-nota">Las interpretaciones las genera una IA como reflexión personal; no sustituyen la opinión de un profesional.</p>
+    </footer>
+
+    <!-- Vista previa antes de publicar -->
+    <dialog id="vista-previa" class="vista-previa" aria-labelledby="vista-previa-titulo">
+        <div class="vista-previa-encabezado">
+            <h2 id="vista-previa-titulo">Así se verá en el feed</h2>
+            <button type="button" class="icon-btn" id="btn-cerrar-vista" aria-label="Cerrar"><span class="icono" data-icono="cerrar"></span></button>
+        </div>
+        <div id="vista-previa-contenido" class="vista-previa-contenido"></div>
+        <div class="vista-previa-acciones">
+            <button type="button" class="btn-descartar" id="btn-seguir">Seguir platicando</button>
+            <button type="button" class="btn-publish" id="btn-confirmar-publicar">Publicar</button>
+        </div>
+    </dialog>
+
+    <script src="/Comun.js"></script>
+    <script src="/Sueno-script.js"></script>
+</body>
+</html>

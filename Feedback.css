@@ -324,69 +324,36 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* =========================================
-   CREAR PUBLICACIÓN
+   BOTÓN "¿QUÉ SOÑASTE ANOCHE?" (lleva al chat)
    ========================================= */
-.create-post-card { padding: 18px 20px; scroll-margin-top: calc(var(--alto-top) + 20px); }
-
-.create-post-top {
+.cta-sueno {
     display: flex;
     align-items: center;
-    gap: 12px;
-}
-.create-post-top h2 { font-size: 1rem; font-weight: 700; }
-
-.create-post-form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 14px;
-}
-
-.create-post-form textarea {
-    width: 100%;
-    min-height: 88px;
-    padding: 14px 16px;
-    background-color: var(--input-bg);
-    color: var(--text-main);
-    border: 1px solid transparent;
-    border-radius: 14px;
-    font-size: 0.97rem;
-    line-height: 1.5;
-    resize: none;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s ease;
-}
-.create-post-form textarea::placeholder { color: var(--text-muted); }
-.create-post-form textarea:focus {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 4px rgba(164, 99, 242, 0.15);
-}
-
-.form-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-}
-
-.file-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    padding: 8px 12px;
-    border-radius: 999px;
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--color-primary);
+    gap: 14px;
+    padding: 16px 18px;
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease;
 }
-.file-label:hover { background-color: var(--surface-2); }
-.file-label .icono { width: 20px; height: 20px; }
-#nombre-archivo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.file-input { display: none; }
+.cta-sueno:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(164, 99, 242, 0.15); }
 
+.cta-sueno-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cta-sueno-texto strong { font-size: 1rem; font-weight: 700; }
+.cta-sueno-texto span { font-size: 0.83rem; color: var(--text-muted); }
+
+.cta-sueno-iconos { display: flex; gap: 10px; color: var(--color-primary); }
+
+.cta-sueno-btn {
+    flex-shrink: 0;
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: var(--gradiente);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    box-shadow: 0 4px 14px rgba(164, 99, 242, 0.3);
+}
+
+/* Botón con degradado (se usa en los comentarios y en el chat) */
 .btn-publish {
     background: var(--gradiente);
     color: #fff;
@@ -402,9 +369,6 @@ a { color: inherit; text-decoration: none; }
 }
 .btn-publish:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(164, 99, 242, 0.4); }
 .btn-publish:disabled { opacity: 0.6; cursor: default; transform: none; }
-
-.form-nota { font-size: 0.8rem; color: var(--text-muted); }
-.form-nota .icono { color: var(--color-accent); }
 
 /* =========================================
    PUBLICACIONES
@@ -455,6 +419,9 @@ a { color: inherit; text-decoration: none; }
     background-color: var(--surface-2);
 }
 
+/* Carrusel de imágenes (la de la IA primero; flechas para cambiar) */
+.carrusel-marco { position: relative; background-color: var(--surface-2); }
+
 .carrusel {
     display: flex;
     overflow-x: auto;
@@ -462,7 +429,86 @@ a { color: inherit; text-decoration: none; }
     scrollbar-width: none;
 }
 .carrusel::-webkit-scrollbar { display: none; }
-.carrusel .post-media { flex: 0 0 100%; scroll-snap-align: start; }
+
+.carrusel-item {
+    position: relative;
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Con varias imágenes todas miden lo mismo para que no "brinque" la tarjeta */
+.carrusel-marco.multiple .carrusel-item { aspect-ratio: 1 / 1; }
+.carrusel-marco.multiple .post-media { width: 100%; height: 100%; max-height: none; }
+
+.carrusel-etiqueta {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(10, 12, 20, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.carrusel-flecha {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #12141f;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.carrusel-flecha:hover { background: #fff; transform: translateY(-50%) scale(1.08); }
+.carrusel-flecha .icono { width: 20px; height: 20px; }
+.carrusel-flecha.izquierda { left: 10px; }
+.carrusel-flecha.derecha { right: 10px; }
+
+.carrusel-puntos {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    pointer-events: none;
+}
+.carrusel-puntos span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.carrusel-puntos span.activo { background: #fff; transform: scale(1.2); }
+
+.carrusel-contador {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(10, 12, 20, 0.55);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    pointer-events: none;
+}
 
 /* Mientras la IA trabaja (ocupa el lugar de la imagen) */
 .post-procesando,
@@ -845,7 +891,9 @@ a { color: inherit; text-decoration: none; }
         border-right: none;
         box-shadow: none;
     }
-    .create-post-card { padding: 16px; }
+    .cta-sueno { padding: 14px 16px; }
+    .cta-sueno-iconos, .cta-sueno-texto span { display: none; }
+    .cta-sueno-btn { padding: 9px 16px; }
     .post-body { padding: 6px 16px 14px; }
     .comentario .btn-borrar { opacity: 1; }
 }

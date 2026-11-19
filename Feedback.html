@@ -37,9 +37,9 @@
                 <a href="#" class="menu-item activo js-ir-inicio">
                     <span class="icono" data-icono="inicio"></span><span>Inicio</span>
                 </a>
-                <button type="button" class="menu-item js-nuevo-sueno">
+                <a href="/sueno" class="menu-item">
                     <span class="icono" data-icono="mas"></span><span>Contar un sueño</span>
-                </button>
+                </a>
                 <button type="button" class="menu-item js-tema">
                     <span class="icono" data-icono="luna"></span><span class="js-tema-texto">Tema oscuro</span>
                 </button>
@@ -61,36 +61,29 @@
             <!-- Soñadores recientes (estilo "historias") -->
             <section class="historias-card" aria-label="Soñadores recientes">
                 <div id="historias" class="historias">
-                    <button type="button" class="historia js-nuevo-sueno">
+                    <a href="/sueno" class="historia">
                         <span class="anillo anillo-propio">
                             <span class="avatar avatar-md js-mi-avatar"></span>
                             <span class="historia-mas" aria-hidden="true">+</span>
                         </span>
                         <span class="historia-nombre">Tu sueño</span>
-                    </button>
+                    </a>
                 </div>
             </section>
 
-            <!-- Formulario para contar un sueño -->
-            <article class="card create-post-card" id="crear">
-                <div class="create-post-top">
-                    <div class="avatar avatar-md js-mi-avatar"></div>
-                    <h2>Cuenta tu sueño</h2>
+            <!-- Botón para ir al chat donde se cuenta el sueño -->
+            <a href="/sueno" class="card cta-sueno">
+                <div class="avatar avatar-md js-mi-avatar"></div>
+                <div class="cta-sueno-texto">
+                    <strong>¿Qué soñaste anoche?</strong>
+                    <span>Cuéntaselo a Oniria: lo ilustra y te ayuda a interpretarlo.</span>
                 </div>
-                <form id="form-crear" action="/crear-publicacion" method="POST" enctype="multipart/form-data" class="create-post-form">
-                    <textarea name="contenido" maxlength="2000" rows="3" placeholder="¿Qué soñaste anoche? Cuéntalo con todos los detalles que recuerdes…" required></textarea>
-
-                    <div class="form-footer">
-                        <label class="file-label" title="Agregar imagen (opcional)">
-                            <span class="icono" data-icono="imagen"></span>
-                            <span id="nombre-archivo">Agregar imagen</span>
-                            <input type="file" name="imagen_post" accept="image/*" class="file-input">
-                        </label>
-                        <button type="submit" class="btn-publish">Publicar</button>
-                    </div>
-                    <p class="form-nota"><span class="icono icono-xs" data-icono="destellos"></span> Oniria creará una imagen y una interpretación psicológica de tu sueño.</p>
-                </form>
-            </article>
+                <span class="cta-sueno-iconos" aria-hidden="true">
+                    <span class="icono icono-sm" data-icono="microfono"></span>
+                    <span class="icono icono-sm" data-icono="imagen"></span>
+                </span>
+                <span class="cta-sueno-btn">Contar mi sueño</span>
+            </a>
 
             <!-- Aviso de sueños nuevos que llegan en tiempo real -->
             <button id="aviso-nuevos" class="aviso-nuevos" hidden></button>
@@ -122,12 +115,13 @@
     <!-- Navegación inferior (solo en celular) -->
     <nav class="bottom-nav" aria-label="Navegación">
         <a href="#" class="bottom-nav-item js-ir-inicio" aria-label="Inicio"><span class="icono" data-icono="inicio"></span></a>
-        <button type="button" class="bottom-nav-item js-nuevo-sueno" aria-label="Contar un sueño"><span class="icono icono-mas" data-icono="mas-simple"></span></button>
+        <a href="/sueno" class="bottom-nav-item" aria-label="Contar un sueño"><span class="icono icono-mas" data-icono="mas-simple"></span></a>
         <form action="/cerrar-sesion" method="POST">
             <button type="submit" class="bottom-nav-item" aria-label="Cerrar sesión"><span class="icono" data-icono="salir"></span></button>
         </form>
     </nav>
 
+    <script src="Comun.js"></script>
     <script src="Feedback-script.js"></script>
 </body>
 </html>
