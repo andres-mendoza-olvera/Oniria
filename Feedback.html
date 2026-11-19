@@ -4,67 +4,129 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Oniria - Red Social</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="Feedback.css">
+    <script src="Tema.js"></script>
 </head>
 <body>
 
-    <!-- Barra de navegación (FIJA) -->
+    <!-- Barra superior (solo en celular) -->
     <header class="top-bar">
-        <div class="menu-icon">
-            <div class="bar"></div>
-            <div class="bar"></div>
-            <div class="bar short-bar"></div>
-        </div>
-
-        <!-- Nombre de la Red Social -->
         <h1 class="app-name">Oniria</h1>
-
-        <div class="action-buttons" style="display: flex; align-items: center; gap: 15px;">
-            <!-- Botón del tema -->
-            <button id="theme-toggle" class="theme-btn" title="Cambiar tema">☀️</button>
-
-            <!-- Foto de perfil (el script le pone el avatar según tu apodo) -->
-            <div id="mi-avatar" class="circle profile-pic" title=""></div>
-
-            <!-- Cerrar sesión -->
-            <form action="/cerrar-sesion" method="POST" style="margin: 0;">
-                <button type="submit" class="theme-btn" title="Cerrar sesión">🚪</button>
-            </form>
+        <div class="top-bar-acciones">
+            <button type="button" class="icon-btn js-tema" title="Cambiar tema" aria-label="Cambiar tema"></button>
+            <div class="avatar avatar-sm js-mi-avatar" role="img" aria-label="Tu foto de perfil"></div>
         </div>
     </header>
 
-    <!-- Contenido principal -->
-    <main class="feed">
+    <div class="app">
 
-        <!-- Formulario para contar un sueño -->
-        <article class="post-card create-post-card">
-            <div class="post-header">
-                <div class="avatar bg-blue" id="avatar-crear"></div>
-                <h2>Cuenta tu sueño</h2>
+        <!-- ===== Barra lateral izquierda (computadora) ===== -->
+        <aside class="sidebar">
+            <h1 class="app-name sidebar-logo">Oniria</h1>
+
+            <div class="perfil">
+                <div class="anillo anillo-lg"><div class="avatar avatar-lg js-mi-avatar"></div></div>
+                <strong class="perfil-apodo js-mi-apodo">…</strong>
+                <span class="perfil-sub">Soñador de Oniria</span>
             </div>
-            <form id="form-crear" action="/crear-publicacion" method="POST" enctype="multipart/form-data" class="create-post-form">
-                <textarea name="contenido" maxlength="2000" placeholder="¿Qué soñaste anoche? Cuéntalo con todos los detalles que recuerdes…" required></textarea>
 
-                <div class="form-footer">
-                    <label class="file-label">
-                        📎 Agregar imagen (opcional)
-                        <input type="file" name="imagen_post" accept="image/*" class="file-input">
-                    </label>
-                    <button type="submit" class="btn-publish">Publicar</button>
-                </div>
-                <p class="form-nota">✨ Oniria creará una imagen y una interpretación psicológica de tu sueño.</p>
+            <nav class="menu">
+                <a href="#" class="menu-item activo js-ir-inicio">
+                    <span class="icono" data-icono="inicio"></span><span>Inicio</span>
+                </a>
+                <button type="button" class="menu-item js-nuevo-sueno">
+                    <span class="icono" data-icono="mas"></span><span>Contar un sueño</span>
+                </button>
+                <button type="button" class="menu-item js-tema">
+                    <span class="icono" data-icono="luna"></span><span class="js-tema-texto">Tema oscuro</span>
+                </button>
+                <a href="/privacidad" class="menu-item">
+                    <span class="icono" data-icono="escudo"></span><span>Privacidad</span>
+                </a>
+            </nav>
+
+            <form action="/cerrar-sesion" method="POST" class="menu-salir">
+                <button type="submit" class="menu-item">
+                    <span class="icono" data-icono="salir"></span><span>Cerrar sesión</span>
+                </button>
             </form>
-        </article>
+        </aside>
 
-        <!-- Aviso de sueños nuevos que llegan en tiempo real -->
-        <button id="aviso-nuevos" class="aviso-nuevos" hidden></button>
+        <!-- ===== Columna central: el feed ===== -->
+        <main class="feed">
 
-        <!-- Aquí el script dibuja las publicaciones que vienen de la base de datos -->
-        <section id="lista-publicaciones" class="lista-publicaciones" aria-live="polite"></section>
+            <!-- Soñadores recientes (estilo "historias") -->
+            <section class="historias-card" aria-label="Soñadores recientes">
+                <div id="historias" class="historias">
+                    <button type="button" class="historia js-nuevo-sueno">
+                        <span class="anillo anillo-propio">
+                            <span class="avatar avatar-md js-mi-avatar"></span>
+                            <span class="historia-mas" aria-hidden="true">+</span>
+                        </span>
+                        <span class="historia-nombre">Tu sueño</span>
+                    </button>
+                </div>
+            </section>
 
-        <p id="estado-feed" class="feed-estado">Cargando sueños…</p>
-        <button id="btn-cargar-mas" class="btn-cargar-mas" hidden>Ver más sueños</button>
-    </main>
+            <!-- Formulario para contar un sueño -->
+            <article class="card create-post-card" id="crear">
+                <div class="create-post-top">
+                    <div class="avatar avatar-md js-mi-avatar"></div>
+                    <h2>Cuenta tu sueño</h2>
+                </div>
+                <form id="form-crear" action="/crear-publicacion" method="POST" enctype="multipart/form-data" class="create-post-form">
+                    <textarea name="contenido" maxlength="2000" rows="3" placeholder="¿Qué soñaste anoche? Cuéntalo con todos los detalles que recuerdes…" required></textarea>
+
+                    <div class="form-footer">
+                        <label class="file-label" title="Agregar imagen (opcional)">
+                            <span class="icono" data-icono="imagen"></span>
+                            <span id="nombre-archivo">Agregar imagen</span>
+                            <input type="file" name="imagen_post" accept="image/*" class="file-input">
+                        </label>
+                        <button type="submit" class="btn-publish">Publicar</button>
+                    </div>
+                    <p class="form-nota"><span class="icono icono-xs" data-icono="destellos"></span> Oniria creará una imagen y una interpretación psicológica de tu sueño.</p>
+                </form>
+            </article>
+
+            <!-- Aviso de sueños nuevos que llegan en tiempo real -->
+            <button id="aviso-nuevos" class="aviso-nuevos" hidden></button>
+
+            <!-- Aquí el script dibuja las publicaciones que vienen de la base de datos -->
+            <section id="lista-publicaciones" class="lista-publicaciones" aria-live="polite"></section>
+
+            <p id="estado-feed" class="feed-estado">Cargando sueños…</p>
+            <button id="btn-cargar-mas" class="btn-cargar-mas" hidden>Ver más sueños</button>
+        </main>
+
+        <!-- ===== Columna derecha (pantallas grandes) ===== -->
+        <aside class="lateral-derecho">
+            <section class="card info-card">
+                <h3>Cómo funciona</h3>
+                <ol class="pasos">
+                    <li><span class="paso-num">1</span><div><strong>Cuenta tu sueño</strong><p>Escribe todo lo que recuerdes, aunque no tenga sentido.</p></div></li>
+                    <li><span class="paso-num">2</span><div><strong>Oniria lo ilustra</strong><p>La IA crea una imagen inspirada en lo que soñaste.</p></div></li>
+                    <li><span class="paso-num">3</span><div><strong>Descubre qué significa</strong><p>Recibe una interpretación psicológica para reflexionar.</p></div></li>
+                </ol>
+            </section>
+            <footer class="pie">
+                <a href="/privacidad">Privacidad</a>
+                <span>© 2026 Oniria</span>
+            </footer>
+        </aside>
+    </div>
+
+    <!-- Navegación inferior (solo en celular) -->
+    <nav class="bottom-nav" aria-label="Navegación">
+        <a href="#" class="bottom-nav-item js-ir-inicio" aria-label="Inicio"><span class="icono" data-icono="inicio"></span></a>
+        <button type="button" class="bottom-nav-item js-nuevo-sueno" aria-label="Contar un sueño"><span class="icono icono-mas" data-icono="mas-simple"></span></button>
+        <form action="/cerrar-sesion" method="POST">
+            <button type="submit" class="bottom-nav-item" aria-label="Cerrar sesión"><span class="icono" data-icono="salir"></span></button>
+        </form>
+    </nav>
 
     <script src="Feedback-script.js"></script>
 </body>

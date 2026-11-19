@@ -1,57 +1,67 @@
 /* =========================================
    VARIABLES DE TEMA (CLARO Y OSCURO)
+   El tema oscuro se activa con la clase "dark-theme" en <html> (ver Tema.js)
    ========================================= */
 
-/* TEMA CLARO (Por defecto) */
 :root {
-    /* Paleta basada en tus azules + un toque morado */
-    --color-primary: #4e73a5;      /* Azul medio de tu paleta */
-    --color-primary-hover: #264373;/* Azul oscuro de tu paleta */
-    --color-accent: #9b59b6;       /* Morado de ensueño */
-    --color-accent-hover: #8e44ad;
-    
-    /* Fondos y Cajas */
-    --bg-body: #adc2dd;            /* El azul más clarito de tu paleta para el fondo */
-    --bg-box: #ffffff;             /* Caja blanca tradicional */
-    
+    /* Identidad de Oniria: degradado azul → morado → rosa */
+    --brand-1: #5b7cfa;
+    --brand-2: #a463f2;
+    --brand-3: #f36fb0;
+    --gradiente: linear-gradient(135deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+    --color-primary: #5b6cf0;
+    --color-primary-hover: #4553d6;
+    --color-accent: #a463f2;
+    --color-accent-hover: #8f4fe0;
+
+    /* Fondos y cajas */
+    --bg-body: #f5f6fa;
+    --bg-box: rgba(255, 255, 255, 0.82);
+    --box-border: rgba(255, 255, 255, 0.9);
+
     /* Textos */
-    --text-main: #1c1e21;          /* Texto principal oscuro */
-    --text-muted: #4e73a5;         /* Subtítulos en azul medio */
-    
-    /* Inputs y Bordes */
-    --input-bg: #ffffff;
-    --input-border: #7698c9;       /* Azul intermedio de tu paleta */
-    --input-text: #1c1e21;
-    --divider-color: #7698c9;
+    --text-main: #12141f;
+    --text-muted: #6b7086;
+
+    /* Inputs y bordes */
+    --input-bg: #f2f3f8;
+    --input-border: transparent;
+    --input-text: #12141f;
+    --divider-color: #e3e5ee;
+
+    /* Manchas de color del fondo */
+    --mancha-1: rgba(91, 124, 250, 0.35);
+    --mancha-2: rgba(164, 99, 242, 0.32);
+    --mancha-3: rgba(243, 111, 176, 0.28);
 }
 
-/* TEMA OSCURO (Se activará cuando le pongamos la clase "dark-theme" al body) */
-body.dark-theme {
-    --color-primary: #7698c9;      /* Azul más claro para que resalte en la oscuridad */
-    --color-primary-hover: #adc2dd;
-    --color-accent: #a970ff;       /* Un morado más brillante (neón suave) */
-    --color-accent-hover: #b98aff;
-    
-    /* Fondos y Cajas */
-    --bg-body: #0a0e17;            /* Un azul noche casi negro (Cielo nocturno) */
-    --bg-box: #151f32;             /* Un tono azul oscuro para la caja (como el tono más oscuro de tu imagen) */
-    
-    /* Textos */
-    --text-main: #e2e8f0;          /* Texto blanco/grisáceo para no lastimar la vista */
-    --text-muted: #adc2dd;         /* Subtítulos en el azul claro de tu paleta */
-    
-    /* Inputs y Bordes */
-    --input-bg: #0f1725;           /* Interior de la caja de texto oscuro */
-    --input-border: #264373;       /* Borde en azul oscuro de tu paleta */
-    --input-text: #e2e8f0;
-    --divider-color: #264373;
+.dark-theme {
+    --color-primary: #8a9bff;
+    --color-primary-hover: #a6b3ff;
+    --color-accent: #bb8cff;
+    --color-accent-hover: #ccaaff;
+
+    --bg-body: #0b0d14;
+    --bg-box: rgba(20, 24, 36, 0.8);
+    --box-border: rgba(255, 255, 255, 0.06);
+
+    --text-main: #eceef6;
+    --text-muted: #9aa1b8;
+
+    --input-bg: #10131d;
+    --input-border: #252b3c;
+    --input-text: #eceef6;
+    --divider-color: #252b3c;
+
+    --mancha-1: rgba(91, 124, 250, 0.22);
+    --mancha-2: rgba(164, 99, 242, 0.2);
+    --mancha-3: rgba(243, 111, 176, 0.14);
 }
 
 /* =========================================
    ESTILOS GENERALES
    ========================================= */
 
-/* Reseteo básico */
 * {
     margin: 0;
     padding: 0;
@@ -59,161 +69,212 @@ body.dark-theme {
 }
 
 body {
-    background-color: var(--bg-body); /* Usa la variable de fondo */
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: var(--text-main);          /* Usa la variable de texto */
+    min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    transition: background-color 0.4s ease, color 0.4s ease; /* Transición suave al cambiar de tema */
+    background-color: var(--bg-body);
+    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
+}
+
+/* Fondo "de ensueño": manchas de color difuminadas que flotan */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    z-index: -1;
+    width: 60vmax;
+    height: 60vmax;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+}
+body::before {
+    top: -25vmax;
+    left: -15vmax;
+    background: radial-gradient(circle, var(--mancha-1), transparent 65%);
+    animation: flotar-fondo 18s ease-in-out infinite alternate;
+}
+body::after {
+    bottom: -25vmax;
+    right: -15vmax;
+    background:
+        radial-gradient(circle at 30% 30%, var(--mancha-2), transparent 60%),
+        radial-gradient(circle at 70% 70%, var(--mancha-3), transparent 60%);
+    animation: flotar-fondo 22s ease-in-out infinite alternate-reverse;
+}
+@keyframes flotar-fondo {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(4vmax, 3vmax) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+    body::before, body::after { animation: none; }
+}
+
+:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
 }
 
 /* Contenedor responsivo */
 .login-container {
     width: 100%;
-    padding: 20px;
+    padding: 24px 16px;
     display: flex;
     justify-content: center;
 }
 
-/* La caja del login */
+/* La caja del login (efecto vidrio) */
 .login-box {
-    background-color: var(--bg-box);
     width: 100%;
     max-width: 400px;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2); /* Sombra un poco más profunda y de ensueño */
+    padding: 40px 32px 32px;
+    background-color: var(--bg-box);
+    border: 1px solid var(--box-border);
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(17, 20, 40, 0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     text-align: center;
-    transition: background-color 0.4s ease;
+    transition: background-color 0.3s ease;
+    animation: entrar 0.5s ease;
+}
+@keyframes entrar {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Nombre de la app con el degradado azul-morado */
+/* Nombre de la app con el degradado */
 .app-name {
-    font-size: 2.5rem;
+    font-size: 2.6rem;
     font-weight: 800;
-    /* Degradado usando nuestras variables */
-    background: linear-gradient(45deg, var(--color-primary), var(--color-accent));
+    letter-spacing: -1.5px;
+    background: var(--gradiente);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
-    letter-spacing: -1px;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
 }
 
 .subtitle {
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--text-muted);
-    margin-bottom: 25px;
-    font-style: italic; /* Un toque más literario/onírico */
+    margin-bottom: 28px;
 }
 
-/* ----- ESTILOS DEL FORMULARIO ----- */
+/* ----- FORMULARIO ----- */
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
 }
 
 .input-group input {
     width: 100%;
-    padding: 14px;
-    font-size: 1.05rem;
+    padding: 14px 16px;
+    font-family: inherit;
+    font-size: 0.97rem;
     background-color: var(--input-bg);
     color: var(--input-text);
     border: 1px solid var(--input-border);
-    border-radius: 8px;
+    border-radius: 12px;
     outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.4s ease;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s ease;
 }
+.input-group input::placeholder { color: var(--text-muted); }
 
-/* Efecto al hacer clic en el input */
 .input-group input:focus {
-    border-color: var(--color-accent); /* Brilla en morado al escribir */
-    box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.2); 
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px rgba(164, 99, 242, 0.15);
 }
 
-/* Botón principal */
+/* Botón principal (degradado) */
 .btn-primary {
-    background-color: var(--color-primary);
-    color: #ffffff; /* Este siempre será blanco */
-    font-size: 1.2rem;
-    font-weight: bold;
-    padding: 12px;
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px;
+    background: var(--gradiente);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: center;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     cursor: pointer;
-    transition: background-color 0.2s;
-    margin-top: 5px;
+    box-shadow: 0 8px 20px rgba(164, 99, 242, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
-
 .btn-primary:hover {
-    background-color: var(--color-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px rgba(164, 99, 242, 0.4);
+    filter: brightness(1.05);
 }
+.btn-primary:active { transform: translateY(0); }
 
 /* ----- SECCIÓN INFERIOR ----- */
 .login-footer {
-    margin-top: 15px;
+    margin-top: 18px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
 }
 
 .forgot-password {
-    color: var(--color-accent);
+    color: var(--color-primary);
     text-decoration: none;
-    font-size: 0.95rem;
-    font-weight: 500;
+    font-size: 0.9rem;
+    font-weight: 600;
     transition: color 0.2s;
 }
+.forgot-password:hover { color: var(--color-accent); }
 
-.forgot-password:hover {
-    color: var(--color-accent-hover);
-    text-decoration: underline;
-}
-
-/* La línea separadora */
+/* Línea separadora */
 .divider {
     border: none;
     border-top: 1px solid var(--divider-color);
-    opacity: 0.5;
 }
 
-/* Botón de crear cuenta (Morado para seguir la temática) */
+/* Botón de crear cuenta (con borde) */
 .btn-secondary {
-    background-color: var(--color-accent);
-    color: white;
-    font-size: 1.1rem;
-    font-weight: bold;
-    padding: 12px 20px;
-    border: none;
-    border-radius: 8px;
+    width: 100%;
+    padding: 13px 20px;
+    background: transparent;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.97rem;
+    font-weight: 700;
+    border: 1.5px solid var(--divider-color);
+    border-radius: 12px;
     cursor: pointer;
-    width: fit-content;
-    margin: 0 auto;
-    transition: background-color 0.2s;
+    transition: border-color 0.2s, color 0.2s, background-color 0.2s;
 }
-
 .btn-secondary:hover {
-    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
 }
 
-/* ----- ESTILOS DE ERROR (Igual que antes) ----- */
+/* ----- ERRORES ----- */
 .error-text {
-    color: #ff6b6b; /* Un rojo más suave que combine con tonos oscuros/claros */
-    font-size: 0.85rem;
-    text-align: left;
-    margin-top: 5px;
     display: none;
+    margin-top: 6px;
+    color: #ff4d6a;
+    font-size: 0.83rem;
     font-weight: 500;
+    text-align: left;
 }
 
 .input-error {
-    border-color: #ff6b6b !important;
-    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2) !important;
+    border-color: #ff4d6a !important;
+    box-shadow: 0 0 0 4px rgba(255, 77, 106, 0.15) !important;
 }
 
-/* ----- ESTILOS DEL OJO DE CONTRASEÑA ----- */
+/* ----- OJO DE CONTRASEÑA ----- */
 .password-container {
     position: relative;
     display: flex;
@@ -222,27 +283,25 @@ body {
 
 .password-container input {
     width: 100%;
-    padding-right: 45px; 
+    padding-right: 48px;
 }
 
 .toggle-password-btn {
     position: absolute;
-    right: 12px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
+    padding: 6px;
     background: none;
     border: none;
-    font-size: 1.2rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    line-height: 1;
     cursor: pointer;
-    color: var(--text-muted); /* Usa la variable para que se adapte al tema */
-    padding: 0;
-    outline: none;
+    opacity: 0.7;
     transition: opacity 0.2s;
 }
-
-.toggle-password-btn:hover {
-    opacity: 0.7;
-}
+.toggle-password-btn:hover { opacity: 1; }
 
 /* ----- MEDIDOR DE FUERZA DE CONTRASEÑA ----- */
 .fuerza-contrasena {
@@ -251,32 +310,27 @@ body {
     text-align: left;
 }
 
-.fuerza-contrasena.visible {
-    display: block;
-}
+.fuerza-contrasena.visible { display: block; }
 
-/* Barra gris de fondo */
 .fuerza-barra {
     height: 6px;
     width: 100%;
     background-color: var(--divider-color);
-    opacity: 0.9;
-    border-radius: 4px;
+    border-radius: 999px;
     overflow: hidden;
 }
 
-/* Parte de color que se va llenando */
 .fuerza-relleno {
     height: 100%;
     width: 0;
-    border-radius: 4px;
+    border-radius: 999px;
     transition: width 0.3s ease, background-color 0.3s ease;
 }
 
 .fuerza-texto {
     display: block;
-    margin-top: 5px;
-    font-size: 0.85rem;
+    margin-top: 6px;
+    font-size: 0.83rem;
     font-weight: 600;
 }
 
@@ -287,12 +341,18 @@ body {
 }
 
 /* Niveles */
-.nivel-corta   .fuerza-relleno { width: 10%;  background-color: #ff6b6b; }
-.nivel-debil   .fuerza-relleno { width: 33%;  background-color: #ff6b6b; }
+.nivel-corta   .fuerza-relleno { width: 10%;  background-color: #ff4d6a; }
+.nivel-debil   .fuerza-relleno { width: 33%;  background-color: #ff4d6a; }
 .nivel-mediana .fuerza-relleno { width: 66%;  background-color: #f5a623; }
-.nivel-fuerte  .fuerza-relleno { width: 100%; background-color: #2ecc71; }
+.nivel-fuerte  .fuerza-relleno { width: 100%; background-color: #22c55e; }
 
 .nivel-corta   .fuerza-texto,
-.nivel-debil   .fuerza-texto { color: #ff6b6b; }
+.nivel-debil   .fuerza-texto { color: #ff4d6a; }
 .nivel-mediana .fuerza-texto { color: #f5a623; }
-.nivel-fuerte  .fuerza-texto { color: #2ecc71; }
+.nivel-fuerte  .fuerza-texto { color: #22c55e; }
+
+/* ----- PANTALLAS PEQUEÑAS ----- */
+@media (max-width: 420px) {
+    .login-box { padding: 32px 22px 26px; border-radius: 20px; }
+    .app-name { font-size: 2.2rem; }
+}

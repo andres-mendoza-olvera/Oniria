@@ -13,9 +13,9 @@
     justify-content: center;
     align-items: center;
     font-size: 2rem;
-    border-radius: 50%;
-    background: linear-gradient(45deg, var(--color-primary), var(--color-accent));
-    box-shadow: 0 4px 15px rgba(155, 89, 182, 0.35);
+    border-radius: 24px;
+    background: var(--gradiente);
+    box-shadow: 0 10px 24px rgba(164, 99, 242, 0.35);
     animation: flotar 3s ease-in-out infinite; /* Efecto de ensueño */
 }
 
@@ -49,9 +49,9 @@
     font-weight: 500;
     text-align: left;
     color: var(--text-main);
-    background-color: rgba(155, 89, 182, 0.12);
-    border-left: 4px solid var(--color-accent);
-    border-radius: 8px;
+    background-color: rgba(164, 99, 242, 0.12);
+    border: 1px solid rgba(164, 99, 242, 0.35);
+    border-radius: 12px;
 }
 
 .success-message.visible {
