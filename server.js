@@ -259,6 +259,8 @@ app.get('/', (req, res) => {
 app.get('/registro', (req, res) => res.sendFile(path.join(__dirname, 'Registro.html')));
 app.get('/feed', requiereSesion, (req, res) => res.sendFile(path.join(__dirname, 'Feedback.html')));
 app.get('/sueno', requiereSesion, (req, res) => res.sendFile(path.join(__dirname, 'Sueno.html')));
+app.get('/perfil', requiereSesion, (req, res) => res.sendFile(path.join(__dirname, 'Perfil.html')));
+app.get('/perfil/:id', requiereSesion, (req, res) => res.sendFile(path.join(__dirname, 'Perfil.html')));
 app.get('/olvide-contrasena', (req, res) => res.sendFile(path.join(__dirname, 'OlvideContrasena.html')));
 app.get('/privacidad', (req, res) => res.sendFile(path.join(__dirname, 'Privacidad.html')));
 
@@ -477,6 +479,7 @@ app.post('/login', async (req, res) => {
                 }
                 req.session.idUsuario = usuario.id_usuario;
                 req.session.apodo = usuario.apodo || usuario.nombre;
+                req.session.foto = usuario.foto_perfil || null;
                 req.session.save(() => res.redirect('/feed'));
             });
         } else {
@@ -932,7 +935,7 @@ app.post('/api/sueno/publicar', requiereSesionApi, async (req, res) => {
 
         borradores.delete(idUsuario);
         res.status(201).json({ ok: true, id_publicacion: idPublicacion });
-        emitir('publicacion-actualizada', { id_publicacion: idPublicacion, estado: 'listo' });
+        emitir('publicacion-actualizada', { id_publicacion: idPublicacion, estado: 'listo', id_usuario: idUsuario });
     } catch (err) {
         await cliente.query('ROLLBACK').catch(() => {});
         console.error('Error publicando el sueño:', err.message);
@@ -1016,6 +1019,7 @@ setInterval(() => {
 const CONSULTA_PUBLICACIONES = `
     SELECT p.id_publicacion, p.id_usuario, p.sueno_texto, p.titulo, p.interpretacion_ia, p.estado, p.creado_en,
            COALESCE(NULLIF(u.apodo, ''), u.nombre) AS autor,
+           u.foto_perfil AS autor_foto,
            (SELECT COUNT(*)::int FROM corazones c WHERE c.id_publicacion = p.id_publicacion) AS total_corazones,
            EXISTS (SELECT 1 FROM corazones c WHERE c.id_publicacion = p.id_publicacion AND c.id_usuario = $1) AS di_corazon,
            (SELECT COUNT(*)::int FROM comentarios m WHERE m.id_publicacion = p.id_publicacion) AS total_comentarios,
@@ -1029,26 +1033,49 @@ const CONSULTA_PUBLICACIONES = `
 
 const POR_PAGINA = 10;
 
-// Quién soy (para el avatar del encabezado)
-app.get('/api/yo', requiereSesionApi, (req, res) => {
-    res.json({ idUsuario: req.session.idUsuario, apodo: req.session.apodo });
+// Condición SQL: "a" y "b" son amigos (la amistad está aceptada, en cualquier dirección)
+const SON_AMIGOS = (a, b) => `EXISTS (SELECT 1 FROM amistades am WHERE am.estado = 'aceptada'
+    AND ((am.id_solicitante = ${a} AND am.id_destinatario = ${b}) OR (am.id_solicitante = ${b} AND am.id_destinatario = ${a})))`;
+
+// Quién soy: apodo, foto y cuántas solicitudes de amistad tengo sin responder
+app.get('/api/yo', requiereSesionApi, async (req, res) => {
+    try {
+        const resultado = await db.query(
+            `SELECT COALESCE(NULLIF(apodo, ''), nombre) AS apodo, foto_perfil,
+                    (SELECT COUNT(*)::int FROM amistades WHERE id_destinatario = $1 AND estado = 'pendiente') AS solicitudes
+             FROM usuarios WHERE id_usuario = $1`,
+            [req.session.idUsuario]
+        );
+        const yo = resultado.rows[0];
+        if (!yo) return res.status(401).json({ error: 'Tu sesión terminó. Vuelve a iniciar sesión.' });
+        req.session.apodo = yo.apodo;
+        req.session.foto = yo.foto_perfil;
+        res.json({ idUsuario: req.session.idUsuario, apodo: yo.apodo, foto: yo.foto_perfil, solicitudes: yo.solicitudes });
+    } catch (err) {
+        console.error('Error cargando /api/yo:', err.message);
+        // Si la base falla, al menos lo que hay en la sesión
+        res.json({ idUsuario: req.session.idUsuario, apodo: req.session.apodo, foto: req.session.foto || null, solicitudes: 0 });
+    }
 });
 
 // Feed paginado:
 //   /api/feed                 -> las 10 más nuevas
 //   /api/feed?antes=<id>      -> las 10 anteriores a ese id ("Ver más")
 //   /api/feed?despues=<id>    -> las que llegaron después de ese id (al reconectar)
+//   ...&solo=amigos           -> solo las mías y las de mis amigos
 app.get('/api/feed', requiereSesionApi, async (req, res) => {
     const antes = idValido(req.query.antes);
     const despues = idValido(req.query.despues);
+    const soloAmigos = req.query.solo === 'amigos';
     try {
         const resultado = await db.query(
             `${CONSULTA_PUBLICACIONES}
                AND ($2::int IS NULL OR p.id_publicacion < $2)
                AND ($3::int IS NULL OR p.id_publicacion > $3)
+               AND (NOT $4::boolean OR p.id_usuario = $1 OR ${SON_AMIGOS('$1', 'p.id_usuario')})
              ORDER BY p.id_publicacion DESC
              LIMIT ${despues ? 50 : POR_PAGINA}`,
-            [req.session.idUsuario, antes, despues]
+            [req.session.idUsuario, antes, despues, soloAmigos]
         );
         res.json({ publicaciones: resultado.rows, hayMas: !despues && resultado.rows.length === POR_PAGINA });
     } catch (err) {
@@ -1163,7 +1190,8 @@ app.get('/api/publicaciones/:id/comentarios', requiereSesionApi, async (req, res
     try {
         const resultado = await db.query(
             `SELECT m.id_comentario, m.id_usuario, m.contenido, m.creado_en,
-                    COALESCE(NULLIF(u.apodo, ''), u.nombre) AS autor
+                    COALESCE(NULLIF(u.apodo, ''), u.nombre) AS autor,
+                    u.foto_perfil AS autor_foto
              FROM comentarios m
              JOIN usuarios u ON u.id_usuario = m.id_usuario
              WHERE m.id_publicacion = $1
@@ -1193,7 +1221,7 @@ app.post('/api/publicaciones/:id/comentarios', requiereSesionApi, async (req, re
         );
         if (resultado.rows.length === 0) return res.status(404).json({ error: 'Publicación no encontrada.' });
 
-        const comentario = { ...resultado.rows[0], autor: req.session.apodo };
+        const comentario = { ...resultado.rows[0], autor: req.session.apodo, autor_foto: req.session.foto || null };
         const total = await contarComentarios(id);
         res.status(201).json({ comentario, total_comentarios: total });
 
@@ -1223,6 +1251,289 @@ app.delete('/api/comentarios/:id', requiereSesionApi, async (req, res) => {
     } catch (err) {
         console.error('Error borrando comentario:', err.message);
         res.status(500).json({ error: 'No se pudo borrar el comentario.' });
+    }
+});
+
+// =========================================================
+// PERFIL (la usa Perfil-script.js)
+// =========================================================
+// Lo público de un perfil es el apodo, la foto, la biografía y sus sueños.
+// El nombre completo y el correo solo los ve la propia persona.
+
+const uploadFoto = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    fileFilter: (req, file, cb) => {
+        if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) return cb(null, true);
+        cb(Object.assign(new Error('tipo'), { code: 'TIPO_INVALIDO' }));
+    }
+});
+
+function recibirFotoPerfil(req, res, next) {
+    uploadFoto.single('foto')(req, res, (err) => {
+        if (!err) return next();
+        const mensaje = err.code === 'LIMIT_FILE_SIZE' ? 'La foto debe pesar menos de 5 MB.'
+            : err.code === 'TIPO_INVALIDO' ? 'La foto debe ser JPG, PNG o WEBP.'
+            : 'No se pudo recibir la foto.';
+        res.status(400).json({ error: mensaje });
+    });
+}
+
+// Estado de la amistad entre "yo" y "otro", visto desde mí:
+//   'ninguna' | 'enviada' (yo la mandé) | 'recibida' (me la mandaron) | 'amigos'
+async function estadoAmistad(yo, otro) {
+    if (yo === otro) return 'yo';
+    const resultado = await db.query(
+        `SELECT id_solicitante, estado FROM amistades
+         WHERE (id_solicitante = $1 AND id_destinatario = $2) OR (id_solicitante = $2 AND id_destinatario = $1)`,
+        [yo, otro]
+    );
+    const fila = resultado.rows[0];
+    if (!fila) return 'ninguna';
+    if (fila.estado === 'aceptada') return 'amigos';
+    return fila.id_solicitante === yo ? 'enviada' : 'recibida';
+}
+
+// Ver un perfil
+app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
+    const id = idValido(req.params.id);
+    const yo = req.session.idUsuario;
+    if (!id) return res.status(404).json({ error: 'Perfil no encontrado.' });
+    try {
+        const resultado = await db.query(
+            `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.apodo AS apodo_original,
+                    u.nombre, u.email, u.foto_perfil, u.biografia,
+                    (SELECT COUNT(*)::int FROM publicaciones p WHERE p.id_usuario = u.id_usuario AND p.estado = 'listo') AS total_suenos,
+                    (SELECT COUNT(*)::int FROM amistades a WHERE a.estado = 'aceptada'
+                        AND (a.id_solicitante = u.id_usuario OR a.id_destinatario = u.id_usuario)) AS total_amigos
+             FROM usuarios u WHERE u.id_usuario = $1 AND u.verificado IS TRUE`,
+            [id]
+        );
+        const perfil = resultado.rows[0];
+        if (!perfil) return res.status(404).json({ error: 'Perfil no encontrado.' });
+
+        const esYo = id === yo;
+        res.json({
+            id_usuario: perfil.id_usuario,
+            apodo: perfil.apodo,
+            foto_perfil: perfil.foto_perfil,
+            biografia: perfil.biografia,
+            total_suenos: perfil.total_suenos,
+            total_amigos: perfil.total_amigos,
+            amistad: await estadoAmistad(yo, id),
+            // Datos privados: solo para mí
+            ...(esYo ? { nombre: perfil.nombre, email: perfil.email, apodo_editable: perfil.apodo_original || '' } : {})
+        });
+    } catch (err) {
+        console.error('Error cargando perfil:', err.message);
+        res.status(500).json({ error: 'No se pudo cargar el perfil.' });
+    }
+});
+
+// Sueños publicados de una persona (para la cuadrícula del perfil)
+app.get('/api/perfil/:id/suenos', requiereSesionApi, async (req, res) => {
+    const id = idValido(req.params.id);
+    const antes = idValido(req.query.antes);
+    if (!id) return res.status(404).json({ error: 'Perfil no encontrado.' });
+    try {
+        const resultado = await db.query(
+            `${CONSULTA_PUBLICACIONES}
+               AND p.estado = 'listo' AND p.id_usuario = $2
+               AND ($3::int IS NULL OR p.id_publicacion < $3)
+             ORDER BY p.id_publicacion DESC
+             LIMIT 12`,
+            [req.session.idUsuario, id, antes]
+        );
+        res.json({ publicaciones: resultado.rows, hayMas: resultado.rows.length === 12 });
+    } catch (err) {
+        console.error('Error cargando sueños del perfil:', err.message);
+        res.status(500).json({ error: 'No se pudieron cargar los sueños.' });
+    }
+});
+
+// Editar mi perfil (apodo, nombre, biografía y foto)
+app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const apodo = String(req.body.apodo || '').trim();
+    const nombre = String(req.body.nombre || '').trim();
+    const biografia = String(req.body.biografia || '').trim();
+    const quitarFoto = req.body.quitar_foto === '1';
+
+    if (apodo.length < 2 || apodo.length > 30) return res.status(400).json({ error: 'El apodo debe tener entre 2 y 30 caracteres.' });
+    if (nombre.length < 2 || nombre.length > 80) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 80 caracteres.' });
+    if (biografia.length > 200) return res.status(400).json({ error: 'La biografía puede tener máximo 200 caracteres.' });
+
+    let nuevaFoto = null;
+    try {
+        const anterior = (await db.query('SELECT foto_perfil FROM usuarios WHERE id_usuario = $1', [yo])).rows[0];
+        if (!anterior) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+        if (req.file) {
+            const extension = { 'image/png': 'png', 'image/webp': 'webp' }[req.file.mimetype] || 'jpg';
+            nuevaFoto = await subirImagen(req.file.buffer, req.file.mimetype, `perfiles/usuario-${yo}-${Date.now()}.${extension}`);
+        }
+        const foto = nuevaFoto || (quitarFoto ? null : anterior.foto_perfil);
+
+        await db.query(
+            'UPDATE usuarios SET apodo = $1, nombre = $2, biografia = $3, foto_perfil = $4 WHERE id_usuario = $5',
+            [apodo, nombre, biografia || null, foto, yo]
+        );
+        // La foto vieja ya no se usa: se borra de Storage
+        if (anterior.foto_perfil && anterior.foto_perfil !== foto) borrarImagenesStorage([anterior.foto_perfil]);
+
+        req.session.apodo = apodo;
+        req.session.foto = foto;
+        res.json({ ok: true, apodo, nombre, biografia: biografia || null, foto_perfil: foto });
+    } catch (err) {
+        console.error('Error editando perfil:', err.message);
+        if (nuevaFoto) borrarImagenesStorage([nuevaFoto]);
+        res.status(500).json({ error: 'No se pudo guardar tu perfil.' });
+    }
+});
+
+// Buscar personas por apodo (para mandar solicitudes)
+app.get('/api/usuarios', requiereSesionApi, async (req, res) => {
+    const texto = String(req.query.buscar || '').trim().slice(0, 30);
+    if (texto.length < 2) return res.json([]);
+    const yo = req.session.idUsuario;
+    try {
+        // Escapamos % y _ para que se busquen como letras normales
+        const patron = `%${texto.replace(/[\\%_]/g, (c) => '\\' + c)}%`;
+        const resultado = await db.query(
+            `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.foto_perfil
+             FROM usuarios u
+             WHERE u.verificado IS TRUE AND u.id_usuario <> $1 AND u.apodo ILIKE $2
+             ORDER BY (LOWER(u.apodo) = LOWER($3)) DESC, LENGTH(u.apodo), u.apodo
+             LIMIT 20`,
+            [yo, patron, texto]
+        );
+        const personas = await Promise.all(resultado.rows.map(async (p) => ({ ...p, amistad: await estadoAmistad(yo, p.id_usuario) })));
+        res.json(personas);
+    } catch (err) {
+        console.error('Error buscando usuarios:', err.message);
+        res.status(500).json({ error: 'No se pudo buscar.' });
+    }
+});
+
+// =========================================================
+// AMIGOS
+// =========================================================
+
+// Avisa en tiempo real a las dos personas que su amistad cambió
+function avisarAmistad(a, b) {
+    emitir('amistad', { usuarios: [a, b] }, (cliente) => cliente.idUsuario === a || cliente.idUsuario === b);
+}
+
+// Lista de amigos de una persona
+app.get('/api/amigos/:id', requiereSesionApi, async (req, res) => {
+    const id = idValido(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Perfil no encontrado.' });
+    try {
+        const resultado = await db.query(
+            `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.foto_perfil
+             FROM amistades a
+             JOIN usuarios u ON u.id_usuario = CASE WHEN a.id_solicitante = $1 THEN a.id_destinatario ELSE a.id_solicitante END
+             WHERE a.estado = 'aceptada' AND (a.id_solicitante = $1 OR a.id_destinatario = $1)
+             ORDER BY a.respondido_en DESC NULLS LAST
+             LIMIT 500`,
+            [id]
+        );
+        res.json(resultado.rows);
+    } catch (err) {
+        console.error('Error cargando amigos:', err.message);
+        res.status(500).json({ error: 'No se pudieron cargar los amigos.' });
+    }
+});
+
+// Mis solicitudes: las que me llegaron y las que mandé
+app.get('/api/solicitudes', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    try {
+        const consulta = (columnaYo, columnaOtro) => db.query(
+            `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.foto_perfil, a.creado_en
+             FROM amistades a JOIN usuarios u ON u.id_usuario = a.${columnaOtro}
+             WHERE a.${columnaYo} = $1 AND a.estado = 'pendiente'
+             ORDER BY a.creado_en DESC`,
+            [yo]
+        );
+        const [recibidas, enviadas] = await Promise.all([
+            consulta('id_destinatario', 'id_solicitante'),
+            consulta('id_solicitante', 'id_destinatario')
+        ]);
+        res.json({ recibidas: recibidas.rows, enviadas: enviadas.rows });
+    } catch (err) {
+        console.error('Error cargando solicitudes:', err.message);
+        res.status(500).json({ error: 'No se pudieron cargar las solicitudes.' });
+    }
+});
+
+// Mandar solicitud (si la otra persona ya me había mandado una, se aceptan las dos)
+app.post('/api/amigos/:id/solicitud', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const otro = idValido(req.params.id);
+    if (!otro || otro === yo) return res.status(400).json({ error: 'No puedes mandarte solicitud a ti mismo.' });
+    try {
+        const existe = await db.query('SELECT 1 FROM usuarios WHERE id_usuario = $1 AND verificado IS TRUE', [otro]);
+        if (existe.rows.length === 0) return res.status(404).json({ error: 'Esa persona no existe.' });
+
+        const actual = await estadoAmistad(yo, otro);
+        if (actual === 'recibida') {
+            await db.query(
+                "UPDATE amistades SET estado = 'aceptada', respondido_en = NOW() WHERE id_solicitante = $1 AND id_destinatario = $2",
+                [otro, yo]
+            );
+        } else if (actual === 'ninguna') {
+            // ON CONFLICT: si justo al mismo tiempo la otra persona me mandó una, no se duplica
+            await db.query(
+                'INSERT INTO amistades (id_solicitante, id_destinatario) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [yo, otro]
+            );
+        }
+        const amistad = await estadoAmistad(yo, otro);
+        res.json({ amistad });
+        if (amistad !== actual) avisarAmistad(yo, otro);
+    } catch (err) {
+        console.error('Error mandando solicitud:', err.message);
+        res.status(500).json({ error: 'No se pudo mandar la solicitud.' });
+    }
+});
+
+// Aceptar una solicitud que me llegó
+app.post('/api/amigos/:id/aceptar', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const otro = idValido(req.params.id);
+    if (!otro) return res.status(404).json({ error: 'Solicitud no encontrada.' });
+    try {
+        const resultado = await db.query(
+            `UPDATE amistades SET estado = 'aceptada', respondido_en = NOW()
+             WHERE id_solicitante = $1 AND id_destinatario = $2 AND estado = 'pendiente'`,
+            [otro, yo]
+        );
+        if (resultado.rowCount === 0) return res.status(404).json({ error: 'Esa solicitud ya no existe.' });
+        res.json({ amistad: 'amigos' });
+        avisarAmistad(yo, otro);
+    } catch (err) {
+        console.error('Error aceptando solicitud:', err.message);
+        res.status(500).json({ error: 'No se pudo aceptar la solicitud.' });
+    }
+});
+
+// Rechazar, cancelar mi solicitud o dejar de ser amigos: en los tres casos se borra la fila
+app.delete('/api/amigos/:id', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const otro = idValido(req.params.id);
+    if (!otro) return res.status(404).json({ error: 'No encontrado.' });
+    try {
+        const resultado = await db.query(
+            `DELETE FROM amistades
+             WHERE (id_solicitante = $1 AND id_destinatario = $2) OR (id_solicitante = $2 AND id_destinatario = $1)`,
+            [yo, otro]
+        );
+        res.json({ amistad: 'ninguna' });
+        if (resultado.rowCount > 0) avisarAmistad(yo, otro);
+    } catch (err) {
+        console.error('Error quitando amistad:', err.message);
+        res.status(500).json({ error: 'No se pudo completar la acción.' });
     }
 });
 

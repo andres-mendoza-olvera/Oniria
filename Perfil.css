@@ -1,0 +1,286 @@
+/* =========================================
+   PERFIL Y AMIGOS
+   (Se carga DESPUÉS de Feedback.css: usa sus colores, menú y componentes)
+   ========================================= */
+
+/* Sin columna derecha: el perfil usa más ancho */
+.app.sin-derecha { grid-template-columns: 250px minmax(0, 1fr); }
+
+.perfil-pagina {
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 36px 0 60px;
+}
+
+/* ----- Cabecera ----- */
+.perfil-cabecera {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    padding: 0 24px 32px;
+    animation: aparecer 0.35s ease;
+}
+
+.anillo-perfil { padding: 4px; }
+.avatar-perfil { width: 150px; height: 150px; border-width: 5px !important; }
+
+.perfil-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.perfil-fila { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 20px; }
+.perfil-fila h1 { font-size: 1.6rem; font-weight: 700; overflow-wrap: anywhere; }
+.perfil-acciones { display: flex; gap: 8px; }
+
+.perfil-numeros { list-style: none; display: flex; gap: 28px; font-size: 0.97rem; }
+.perfil-numeros strong { font-weight: 700; }
+.enlace-numero { background: none; border: none; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+.enlace-numero:hover { text-decoration: underline; }
+
+.perfil-bio { white-space: pre-line; line-height: 1.5; font-size: 0.95rem; overflow-wrap: anywhere; }
+.perfil-bio:empty { display: none; }
+.perfil-privado { font-size: 0.85rem; color: var(--text-muted); }
+
+/* ----- Botones (amistad, editar) ----- */
+.botones-amistad { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-amistad {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: none;
+    background-color: var(--surface-2);
+    color: var(--text-main);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, filter 0.15s ease;
+}
+.btn-amistad:hover { background-color: var(--surface-hover); }
+.btn-amistad.principal { background: var(--gradiente); color: #fff; }
+.btn-amistad.principal:hover { filter: brightness(1.07); }
+.btn-amistad:disabled { opacity: 0.6; cursor: default; }
+
+/* ----- Pestañas ----- */
+.pestanas {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    border-top: 1px solid var(--border-color);
+    margin-bottom: 4px;
+}
+.pestana {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 2px;
+    margin-top: -1px;
+    background: none;
+    border: none;
+    border-top: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.pestana:hover { color: var(--text-main); }
+.pestana.activa { color: var(--text-main); border-top-color: var(--text-main); }
+
+/* ----- Paneles ----- */
+.panel { padding-top: 4px; }
+.panel-titulo { font-size: 0.95rem; font-weight: 700; margin: 22px 4px 10px; }
+.panel-vacio { text-align: center; color: var(--text-muted); padding: 40px 16px; font-size: 0.95rem; }
+
+/* Cuadrícula de sueños */
+.cuadricula {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+.mosaico {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    background: var(--gradiente);
+    color: #fff;
+    border-radius: 6px;
+}
+.mosaico img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
+.mosaico:hover img { transform: scale(1.04); }
+.mosaico-texto {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 14px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.3;
+}
+.mosaico-varias { position: absolute; top: 8px; right: 8px; color: #fff; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.mosaico-varias .icono { width: 18px; height: 18px; }
+.mosaico-info {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: rgba(8, 10, 18, 0.45);
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.mosaico-info span { display: inline-flex; align-items: center; gap: 5px; }
+.mosaico-info .icono { width: 20px; height: 20px; }
+.mosaico:hover .mosaico-info, .mosaico:focus-visible .mosaico-info { opacity: 1; }
+
+.panel .btn-cargar-mas { display: block; margin: 20px auto 0; }
+
+/* Buscador de personas */
+.buscador {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0 8px;
+    padding: 0 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    color: var(--text-muted);
+    transition: border-color 0.2s ease;
+}
+.buscador:focus-within { border-color: var(--color-accent); }
+.buscador input {
+    flex: 1;
+    min-width: 0;
+    padding: 13px 0;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-main);
+    font-size: 0.95rem;
+}
+
+/* Lista de personas (amigos, solicitudes, búsqueda) */
+.lista-personas { display: flex; flex-direction: column; gap: 4px; }
+.lista-personas:empty { display: none; }
+.lista-personas .panel-vacio { padding: 16px; }
+.persona {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    transition: background-color 0.15s ease;
+}
+.persona:hover { background-color: var(--surface); }
+.persona-enlace { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.persona-enlace .avatar { width: 46px; height: 46px; }
+.persona-nombre { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.persona-sub { display: block; font-size: 0.78rem; color: var(--text-muted); font-weight: 400; }
+#resultados-busqueda { padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+
+/* ----- Ventanas (ver sueño / editar perfil) ----- */
+.dialogo {
+    width: min(560px, calc(100% - 24px));
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    flex-direction: column;
+}
+.dialogo[open] { display: flex; animation: aparecer 0.25s ease; }
+.dialogo > form { display: flex; flex-direction: column; min-height: 0; max-height: inherit; }
+.dialogo::backdrop { background: rgba(8, 10, 18, 0.55); backdrop-filter: blur(3px); }
+.dialogo-encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 12px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+.dialogo-encabezado h2 { font-size: 1rem; font-weight: 700; }
+.dialogo-contenido { overflow-y: auto; padding: 16px; }
+.dialogo-contenido .post-card { animation: none; }
+.dialogo-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.editar { display: flex; flex-direction: column; gap: 16px; padding: 20px; }
+.editar-foto { display: flex; align-items: center; gap: 20px; }
+.editar-foto .avatar-perfil { width: 96px; height: 96px; border-width: 4px !important; }
+.editar-foto-botones { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.editar-foto-botones label { cursor: pointer; }
+
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo > span { font-size: 0.85rem; font-weight: 600; display: flex; justify-content: space-between; }
+.campo small { font-weight: 400; color: var(--text-muted); }
+.campo input, .campo textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.campo input:focus, .campo textarea:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px rgba(164, 99, 242, 0.12);
+}
+.campo-correo { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
+.chat-error {
+    padding: 10px 14px;
+    border-radius: 12px;
+    background-color: rgba(255, 59, 92, 0.1);
+    border: 1px solid rgba(255, 59, 92, 0.3);
+    color: var(--corazon);
+    font-size: 0.88rem;
+}
+
+/* ----- Tablet y celular ----- */
+@media (max-width: 960px) {
+    .app.sin-derecha { grid-template-columns: 76px minmax(0, 1fr); }
+    .perfil-cabecera { gap: 28px; }
+    .avatar-perfil { width: 110px; height: 110px; }
+}
+
+@media (max-width: 640px) {
+    .perfil-pagina { padding: calc(var(--alto-top) + 16px) 0 calc(80px + env(safe-area-inset-bottom)); }
+    .perfil-cabecera { gap: 18px; padding: 0 16px 20px; align-items: flex-start; }
+    .avatar-perfil { width: 84px; height: 84px; border-width: 3px !important; }
+    .anillo-perfil { padding: 3px; }
+    .perfil-fila h1 { font-size: 1.25rem; }
+    .perfil-numeros { gap: 18px; font-size: 0.9rem; }
+    .pestanas { gap: 24px; }
+    .pestana { font-size: 0.75rem; }
+    .cuadricula { gap: 2px; }
+    .mosaico { border-radius: 0; }
+    .mosaico-texto { font-size: 0.75rem; padding: 8px; }
+    .panel { padding-left: 12px; padding-right: 12px; }
+    .panel:first-of-type, #panel-suenos { padding-left: 0; padding-right: 0; }
+    .dialogo-contenido { padding: 0; }
+    .dialogo-contenido.editar { padding: 18px; }
+    .dialogo-contenido .post-card { border: none; box-shadow: none; }
+}

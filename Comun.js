@@ -29,6 +29,15 @@ const ICONOS = {
     enviar: '<path d="M5 12h13M12 5l7 7-7 7"/>',
     detener: '<rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    perfil: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+    amigos: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.8"/><path d="M17 14.2c2.7.2 4.5 2.2 4.5 5"/>',
+    'agregar-amigo': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M19 8v6M16 11h6"/>',
+    reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    lapiz: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/>',
+    buscar: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+    camara: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>',
+    cuadricula: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    sobre: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
     clip: '<path d="m20.5 11.5-8.3 8.3a5.3 5.3 0 0 1-7.5-7.5l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.6 8.6a1.8 1.8 0 0 1-2.5-2.5l7.9-7.9"/>'
 };
 
@@ -107,15 +116,85 @@ async function api(url, opciones = {}) {
     return datos;
 }
 
-// Avatar automático a partir del apodo
-function urlAvatar(apodo) {
+// La foto de perfil si la subió; si no, un avatar automático a partir del apodo
+function urlAvatar(apodo, foto) {
+    if (foto && /^https?:\/\//.test(foto)) return foto;
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(apodo || 'oniria')}`;
 }
 
-function crearAvatar(apodo, conAnillo = false) {
+function pintarAvatar(elemento, apodo, foto) {
+    elemento.style.backgroundImage = `url("${urlAvatar(apodo, foto).replace(/"/g, '%22')}")`;
+}
+
+function crearAvatar(apodo, conAnillo = false, foto = null) {
     const avatar = crear('div', { class: 'avatar' });
-    avatar.style.backgroundImage = `url("${urlAvatar(apodo)}")`;
+    pintarAvatar(avatar, apodo, foto);
     return conAnillo ? crear('div', { class: 'anillo' }, avatar) : avatar;
+}
+
+// Pone mi foto, mi apodo y mis solicitudes pendientes en el menú y la barra de arriba
+function pintarMiPerfil(yo) {
+    document.querySelectorAll('.js-mi-avatar').forEach((avatar) => {
+        pintarAvatar(avatar, yo.apodo, yo.foto);
+        avatar.title = yo.apodo;
+    });
+    document.querySelectorAll('.js-mi-apodo').forEach((el) => { el.textContent = yo.apodo; });
+    pintarSolicitudes(yo.solicitudes || 0);
+}
+
+function pintarSolicitudes(total) {
+    document.querySelectorAll('.js-solicitudes').forEach((globo) => {
+        globo.textContent = total > 9 ? '9+' : String(total);
+        globo.hidden = total === 0;
+        globo.title = `${total} solicitud${total === 1 ? '' : 'es'} de amistad`;
+    });
+}
+
+// ---------------------------------------------------------
+// Botones de amistad (perfil, buscador y solicitudes)
+// ---------------------------------------------------------
+// persona = { id_usuario, apodo, amistad: 'ninguna' | 'enviada' | 'recibida' | 'amigos' }
+// alCambiar(nuevoEstado) se llama después de cada acción
+function crearBotonesAmistad(persona, alCambiar) {
+    const caja = crear('div', { class: 'botones-amistad' });
+
+    async function accion(boton, url, metodo, confirmar) {
+        if (confirmar && !confirm(confirmar)) return;
+        boton.disabled = true;
+        try {
+            const { amistad } = await api(url, { method: metodo });
+            persona.amistad = amistad;
+            pintar();
+            alCambiar?.(amistad);
+        } catch (err) {
+            alert(err.message);
+            boton.disabled = false;
+        }
+    }
+
+    function boton(texto, clase, nombreIcono, alClic) {
+        const b = crear('button', { type: 'button', class: clase }, nombreIcono ? icono(nombreIcono, 'icono-sm') : null, texto);
+        b.addEventListener('click', () => alClic(b));
+        return b;
+    }
+
+    function pintar() {
+        const id = persona.id_usuario;
+        const base = `/api/amigos/${id}`;
+        const botones = {
+            ninguna: [boton('Agregar amigo', 'btn-amistad principal', 'agregar-amigo', (b) => accion(b, `${base}/solicitud`, 'POST'))],
+            enviada: [boton('Solicitud enviada', 'btn-amistad', 'reloj', (b) => accion(b, base, 'DELETE', `¿Cancelar la solicitud a ${persona.apodo}?`))],
+            recibida: [
+                boton('Aceptar', 'btn-amistad principal', 'check', (b) => accion(b, `${base}/aceptar`, 'POST')),
+                boton('Rechazar', 'btn-amistad', null, (b) => accion(b, base, 'DELETE'))
+            ],
+            amigos: [boton('Amigos', 'btn-amistad', 'amigos', (b) => accion(b, base, 'DELETE', `¿Dejar de ser amigo de ${persona.apodo}?`))]
+        };
+        caja.replaceChildren(...(botones[persona.amistad] || []));
+    }
+
+    pintar();
+    return caja;
 }
 
 // Carrusel de imágenes con flechas, puntitos y contador (si hay más de una).

@@ -795,6 +795,61 @@ a { color: inherit; text-decoration: none; }
 .icon-btn:hover { background-color: var(--surface-2); }
 
 /* =========================================
+   MI PERFIL EN EL MENÚ (globito de solicitudes) Y ENLACES
+   ========================================= */
+/* Globito rojo con el número de solicitudes */
+.globo {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background-color: var(--corazon);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1;
+}
+.globo-pestana { margin-left: 2px; }
+.menu-icono-globo { position: relative; display: inline-flex; flex-shrink: 0; }
+.menu-icono-globo .globo { position: absolute; top: -6px; right: -8px; border: 2px solid var(--bg-body); }
+.avatar-xs { width: 26px; height: 26px; border: 1.5px solid var(--border-color); }
+
+.menu-item .menu-icono-globo .avatar-xs { width: 24px; height: 24px; }
+.menu-item.activo .avatar-xs { border-color: var(--text-main); }
+.bottom-nav-item .avatar-xs { width: 28px; height: 28px; }
+.enlace { color: var(--color-primary); font-weight: 600; }
+.enlace:hover { text-decoration: underline; }
+a.autor-enlace:hover { text-decoration: underline; }
+.post-header > a { display: inline-flex; }
+
+/* Selector "Todos / Amigos" del feed */
+.filtro-feed {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    align-self: center;
+}
+.filtro-feed button {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.filtro-feed button:hover { color: var(--text-main); }
+.filtro-feed button.activo { background: var(--gradiente); color: #fff; }
+
+/* =========================================
    RESPONSIVIDAD
    ========================================= */
 
@@ -897,3 +952,7 @@ a { color: inherit; text-decoration: none; }
     .post-body { padding: 6px 16px 14px; }
     .comentario .btn-borrar { opacity: 1; }
 }
+
+/* La tarjeta de perfil del menú es un enlace */
+a.perfil { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+a.perfil:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(164, 99, 242, 0.15); }

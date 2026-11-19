@@ -352,7 +352,7 @@ function construirVistaPrevia() {
 
     const tarjeta = crear('article', { class: 'post-card' },
         crear('div', { class: 'post-header' },
-            crearAvatar(estado.yo?.apodo, true),
+            crearAvatar(estado.yo?.apodo, true, estado.yo?.foto),
             crear('div', { class: 'user-info' },
                 crear('h2', { text: estado.yo?.apodo || 'Tú' }),
                 crear('span', { class: 'time', text: 'justo ahora' })

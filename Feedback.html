@@ -17,7 +17,9 @@
         <h1 class="app-name">Oniria</h1>
         <div class="top-bar-acciones">
             <button type="button" class="icon-btn js-tema" title="Cambiar tema" aria-label="Cambiar tema"></button>
-            <div class="avatar avatar-sm js-mi-avatar" role="img" aria-label="Tu foto de perfil"></div>
+            <form action="/cerrar-sesion" method="POST">
+                <button type="submit" class="icon-btn" aria-label="Cerrar sesión" title="Cerrar sesión"><span class="icono" data-icono="salir"></span></button>
+            </form>
         </div>
     </header>
 
@@ -27,11 +29,11 @@
         <aside class="sidebar">
             <h1 class="app-name sidebar-logo">Oniria</h1>
 
-            <div class="perfil">
+            <a href="/perfil" class="perfil" title="Ver mi perfil">
                 <div class="anillo anillo-lg"><div class="avatar avatar-lg js-mi-avatar"></div></div>
                 <strong class="perfil-apodo js-mi-apodo">…</strong>
-                <span class="perfil-sub">Soñador de Oniria</span>
-            </div>
+                <span class="perfil-sub">Ver mi perfil</span>
+            </a>
 
             <nav class="menu">
                 <a href="#" class="menu-item activo js-ir-inicio">
@@ -39,6 +41,9 @@
                 </a>
                 <a href="/sueno" class="menu-item">
                     <span class="icono" data-icono="mas"></span><span>Contar un sueño</span>
+                </a>
+                <a href="/perfil" class="menu-item">
+                    <span class="menu-icono-globo"><span class="avatar avatar-xs js-mi-avatar"></span><span class="globo js-solicitudes" hidden></span></span><span>Mi perfil</span>
                 </a>
                 <button type="button" class="menu-item js-tema">
                     <span class="icono" data-icono="luna"></span><span class="js-tema-texto">Tema oscuro</span>
@@ -85,6 +90,12 @@
                 <span class="cta-sueno-btn">Contar mi sueño</span>
             </a>
 
+            <!-- Ver los sueños de todos o solo los de mis amigos -->
+            <div class="filtro-feed" role="tablist" aria-label="Qué sueños ver">
+                <button type="button" role="tab" class="activo" data-filtro="todos">Todos</button>
+                <button type="button" role="tab" data-filtro="amigos">Amigos</button>
+            </div>
+
             <!-- Aviso de sueños nuevos que llegan en tiempo real -->
             <button id="aviso-nuevos" class="aviso-nuevos" hidden></button>
 
@@ -116,9 +127,9 @@
     <nav class="bottom-nav" aria-label="Navegación">
         <a href="#" class="bottom-nav-item js-ir-inicio" aria-label="Inicio"><span class="icono" data-icono="inicio"></span></a>
         <a href="/sueno" class="bottom-nav-item" aria-label="Contar un sueño"><span class="icono icono-mas" data-icono="mas-simple"></span></a>
-        <form action="/cerrar-sesion" method="POST">
-            <button type="submit" class="bottom-nav-item" aria-label="Cerrar sesión"><span class="icono" data-icono="salir"></span></button>
-        </form>
+        <a href="/perfil" class="bottom-nav-item" aria-label="Mi perfil">
+            <span class="menu-icono-globo"><span class="avatar avatar-xs js-mi-avatar"></span><span class="globo js-solicitudes" hidden></span></span>
+        </a>
     </nav>
 
     <script src="Comun.js"></script>

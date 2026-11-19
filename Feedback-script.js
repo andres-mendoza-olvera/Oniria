@@ -15,10 +15,11 @@ const pendientes = new Set(); // sueños nuevos de otros que aún no se muestran
 
 // Fila de "historias": los soñadores que aparecen en el feed, sin repetir
 const historias = document.getElementById('historias');
-let miApodo = null;
+let soloAmigos = false;        // filtro "Todos / Amigos"
+const misAmigos = new Set();  // ids de mis amigos (para el aviso de sueños nuevos en modo "Amigos")
 
-function irAPublicacionDe(apodo) {
-    const tarjeta = [...lista.querySelectorAll('.post-card')].find((t) => t.dataset.autor === apodo);
+function irAPublicacionDe(idAutor) {
+    const tarjeta = [...lista.querySelectorAll('.post-card')].find((t) => t.dataset.autor === idAutor);
     if (!tarjeta) return;
     tarjeta.scrollIntoView({ behavior: 'smooth', block: 'start' });
     tarjeta.classList.add('resaltada');
@@ -29,16 +30,17 @@ function actualizarHistorias() {
     historias.querySelectorAll('.historia[data-autor]').forEach((h) => h.remove());
     const vistos = new Set();
     for (const tarjeta of lista.querySelectorAll('.post-card')) {
-        const apodo = tarjeta.dataset.autor;
-        if (!apodo || apodo === miApodo || vistos.has(apodo)) continue;
-        vistos.add(apodo);
+        const idAutor = tarjeta.dataset.autor;
+        if (!idAutor || Number(idAutor) === miId || vistos.has(idAutor)) continue;
+        vistos.add(idAutor);
+        const apodo = tarjeta.dataset.apodo;
         const historia = crear('button', {
             type: 'button',
             class: 'historia',
-            'data-autor': apodo,
+            'data-autor': idAutor,
             title: `Ver el sueño de ${apodo}`,
-            onclick: () => irAPublicacionDe(apodo)
-        }, crearAvatar(apodo, true), crear('span', { class: 'historia-nombre', text: apodo }));
+            onclick: () => irAPublicacionDe(idAutor)
+        }, crearAvatar(apodo, true, tarjeta.dataset.foto || null), crear('span', { class: 'historia-nombre', text: apodo }));
         historias.append(historia);
         if (vistos.size >= 20) break;
     }
@@ -62,7 +64,12 @@ function buscarTarjeta(id) {
 function revisarVacio() {
     if (lista.children.length === 0) {
         estadoFeed.hidden = false;
-        estadoFeed.textContent = 'Todavía nadie ha contado un sueño. ¡Sé el primero! 🌙';
+        if (soloAmigos) {
+            estadoFeed.replaceChildren('Tus amigos todavía no han publicado sueños. ',
+                crear('a', { href: '/perfil#amigos', class: 'enlace', text: 'Busca más amigos' }));
+        } else {
+            estadoFeed.textContent = 'Todavía nadie ha contado un sueño. ¡Sé el primero! 🌙';
+        }
     } else {
         estadoFeed.hidden = true;
     }
@@ -138,14 +145,17 @@ function crearPublicacion(p) {
         class: 'post-card',
         'data-id': p.id_publicacion,
         'data-estado': p.estado,
-        'data-autor': p.autor
+        'data-autor': String(p.id_usuario),
+        'data-apodo': p.autor,
+        'data-foto': p.autor_foto || undefined
     });
+    const perfilAutor = `/perfil/${p.id_usuario}`;
 
     // --- Encabezado ---
     const encabezado = crear('div', { class: 'post-header' },
-        crearAvatar(p.autor, true),
+        crear('a', { href: perfilAutor, 'aria-label': `Perfil de ${p.autor}` }, crearAvatar(p.autor, true, p.autor_foto)),
         crear('div', { class: 'user-info' },
-            crear('h2', { text: p.autor }),
+            crear('h2', {}, crear('a', { href: perfilAutor, class: 'autor-enlace', text: p.autor })),
             crear('span', { class: 'time', text: tiempoRelativo(p.creado_en) })
         )
     );
@@ -225,7 +235,10 @@ async function cargarFeed() {
     estadoFeed.textContent = 'Cargando sueños…';
 
     try {
-        const url = idMasViejo ? `/api/feed?antes=${idMasViejo}` : '/api/feed';
+        const parametros = new URLSearchParams();
+        if (idMasViejo) parametros.set('antes', idMasViejo);
+        if (soloAmigos) parametros.set('solo', 'amigos');
+        const url = `/api/feed?${parametros}`;
         const { publicaciones, hayMas } = await api(url);
 
         publicaciones.forEach((p) => {
@@ -287,7 +300,7 @@ async function sincronizar() {
 
     // Sueños nuevos de otros
     try {
-        const { publicaciones } = await api(`/api/feed?despues=${idMasNuevo}`);
+        const { publicaciones } = await api(`/api/feed?despues=${idMasNuevo}${soloAmigos ? '&solo=amigos' : ''}`);
         publicaciones.forEach((p) => {
             if (!buscarTarjeta(p.id_publicacion) && p.estado === 'listo') pendientes.add(p.id_publicacion);
         });
@@ -298,11 +311,19 @@ async function sincronizar() {
 }
 
 const manejadores = {
+    // Alguien me mandó/aceptó una solicitud: actualizar el globito y mi lista de amigos
+    amistad: () => {
+        api('/api/yo').then(pintarMiPerfil).catch(() => {});
+        cargarMisAmigos();
+    },
+
     // Un sueño terminó de procesarse
-    'publicacion-actualizada': ({ id_publicacion, estado }) => {
+    'publicacion-actualizada': ({ id_publicacion, estado, id_usuario }) => {
+        // En modo "Amigos" solo avisamos de sueños míos o de mis amigos
+        const loVeo = !soloAmigos || id_usuario === miId || misAmigos.has(id_usuario);
         if (buscarTarjeta(id_publicacion)) {
             refrescarPublicacion(id_publicacion); // es mío (o ya lo tenía): mostrar el resultado
-        } else if (estado === 'listo') {
+        } else if (estado === 'listo' && loVeo) {
             pendientes.add(id_publicacion);
             actualizarAviso();
         }
@@ -395,10 +416,10 @@ async function borrarPublicacion(id) {
 
 function crearComentario(c, idPublicacion) {
     const item = crear('li', { class: 'comentario', 'data-comentario': c.id_comentario },
-        crearAvatar(c.autor),
+        crear('a', { href: `/perfil/${c.id_usuario}`, 'aria-label': `Perfil de ${c.autor}` }, crearAvatar(c.autor, false, c.autor_foto)),
         crear('div', { class: 'comentario-cuerpo' },
             crear('div', { class: 'comentario-encabezado' },
-                crear('strong', { text: c.autor }),
+                crear('strong', {}, crear('a', { href: `/perfil/${c.id_usuario}`, class: 'autor-enlace', text: c.autor })),
                 crear('span', { class: 'time', text: tiempoRelativo(c.creado_en) })
             ),
             crear('p', { text: c.contenido })
@@ -486,16 +507,49 @@ document.querySelectorAll('.js-ir-inicio').forEach((enlace) => {
     });
 });
 
+async function cargarMisAmigos() {
+    if (!miId) return;
+    try {
+        const amigos = await api(`/api/amigos/${miId}`);
+        misAmigos.clear();
+        amigos.forEach((a) => misAmigos.add(a.id_usuario));
+    } catch {
+        // no es grave: solo afecta el aviso de sueños nuevos en modo "Amigos"
+    }
+}
+
+// Filtro "Todos / Amigos" (se recuerda en este navegador)
+const botonesFiltro = document.querySelectorAll('[data-filtro]');
+function pintarFiltro() {
+    botonesFiltro.forEach((b) => {
+        const activo = (b.dataset.filtro === 'amigos') === soloAmigos;
+        b.classList.toggle('activo', activo);
+        b.setAttribute('aria-selected', activo ? 'true' : 'false');
+    });
+}
+botonesFiltro.forEach((b) => b.addEventListener('click', () => {
+    const nuevo = b.dataset.filtro === 'amigos';
+    if (nuevo === soloAmigos) return;
+    soloAmigos = nuevo;
+    try { localStorage.setItem('oniria_filtro', soloAmigos ? 'amigos' : 'todos'); } catch { /* sin almacenamiento */ }
+    pintarFiltro();
+    // Empezar de cero con el nuevo filtro
+    lista.replaceChildren();
+    idMasViejo = null;
+    idMasNuevo = 0;
+    pendientes.clear();
+    actualizarAviso();
+    cargarFeed();
+}));
+try { soloAmigos = localStorage.getItem('oniria_filtro') === 'amigos'; } catch { /* sin almacenamiento */ }
+pintarFiltro();
+
 (async () => {
     try {
         const yo = await api('/api/yo');
         miId = yo.idUsuario;
-        miApodo = yo.apodo;
-        document.querySelectorAll('.js-mi-avatar').forEach((avatar) => {
-            avatar.style.backgroundImage = `url("${urlAvatar(yo.apodo)}")`;
-            avatar.title = yo.apodo;
-        });
-        document.querySelectorAll('.js-mi-apodo').forEach((el) => { el.textContent = yo.apodo; });
+        pintarMiPerfil(yo);
+        cargarMisAmigos();
     } catch {
         // si falla, el feed igual intenta cargar
     }

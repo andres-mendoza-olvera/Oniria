@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil - Oniria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/Feedback.css">
+    <link rel="stylesheet" href="/Perfil.css">
+    <script src="/Tema.js"></script>
+</head>
+<body>
+
+    <!-- Barra superior (solo en celular) -->
+    <header class="top-bar">
+        <a href="/feed" class="app-name">Oniria</a>
+        <div class="top-bar-acciones">
+            <button type="button" class="icon-btn js-tema" title="Cambiar tema" aria-label="Cambiar tema"></button>
+            <form action="/cerrar-sesion" method="POST">
+                <button type="submit" class="icon-btn" aria-label="Cerrar sesión" title="Cerrar sesión"><span class="icono" data-icono="salir"></span></button>
+            </form>
+        </div>
+    </header>
+
+    <div class="app sin-derecha">
+
+        <!-- ===== Barra lateral (igual que en el feed) ===== -->
+        <aside class="sidebar">
+            <a href="/feed" class="app-name sidebar-logo">Oniria</a>
+            <nav class="menu">
+                <a href="/feed" class="menu-item">
+                    <span class="icono" data-icono="inicio"></span><span>Inicio</span>
+                </a>
+                <a href="/sueno" class="menu-item">
+                    <span class="icono" data-icono="mas"></span><span>Contar un sueño</span>
+                </a>
+                <a href="/perfil" class="menu-item js-menu-perfil">
+                    <span class="menu-icono-globo"><span class="avatar avatar-xs js-mi-avatar"></span><span class="globo js-solicitudes" hidden></span></span><span>Mi perfil</span>
+                </a>
+                <button type="button" class="menu-item js-tema">
+                    <span class="icono" data-icono="luna"></span><span class="js-tema-texto">Tema oscuro</span>
+                </button>
+                <a href="/privacidad" class="menu-item">
+                    <span class="icono" data-icono="escudo"></span><span>Privacidad</span>
+                </a>
+            </nav>
+            <form action="/cerrar-sesion" method="POST" class="menu-salir">
+                <button type="submit" class="menu-item">
+                    <span class="icono" data-icono="salir"></span><span>Cerrar sesión</span>
+                </button>
+            </form>
+        </aside>
+
+        <!-- ===== Perfil ===== -->
+        <main class="perfil-pagina">
+            <p id="estado-perfil" class="feed-estado">Cargando perfil…</p>
+
+            <section id="perfil" class="perfil-cabecera" hidden>
+                <div class="anillo anillo-perfil"><div id="perfil-avatar" class="avatar avatar-perfil"></div></div>
+                <div class="perfil-datos">
+                    <div class="perfil-fila">
+                        <h1 id="perfil-apodo"></h1>
+                        <div id="perfil-acciones" class="perfil-acciones"></div>
+                    </div>
+                    <ul class="perfil-numeros">
+                        <li><strong id="perfil-suenos">0</strong> <span id="etiqueta-suenos">sueños</span></li>
+                        <li><button type="button" class="enlace-numero" data-ir-pestana="amigos"><strong id="perfil-amigos">0</strong> <span id="etiqueta-amigos">amigos</span></button></li>
+                    </ul>
+                    <p id="perfil-bio" class="perfil-bio"></p>
+                    <p id="perfil-privado" class="perfil-privado" hidden></p>
+                </div>
+            </section>
+
+            <nav id="pestanas" class="pestanas" role="tablist" hidden>
+                <button type="button" role="tab" class="pestana activa" data-pestana="suenos"><span class="icono icono-sm" data-icono="cuadricula"></span>Sueños</button>
+                <button type="button" role="tab" class="pestana" data-pestana="amigos"><span class="icono icono-sm" data-icono="amigos"></span>Amigos</button>
+                <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="solicitudes" hidden><span class="icono icono-sm" data-icono="sobre"></span>Solicitudes<span class="globo globo-pestana js-solicitudes" hidden></span></button>
+            </nav>
+
+            <!-- Sueños: cuadrícula -->
+            <section id="panel-suenos" class="panel">
+                <div id="cuadricula" class="cuadricula"></div>
+                <p id="suenos-vacio" class="panel-vacio" hidden></p>
+                <button type="button" id="btn-mas-suenos" class="btn-cargar-mas" hidden>Ver más</button>
+            </section>
+
+            <!-- Amigos: buscador (en mi perfil) y lista -->
+            <section id="panel-amigos" class="panel" hidden>
+                <div class="buscador js-solo-mio" hidden>
+                    <span class="icono icono-sm" data-icono="buscar"></span>
+                    <input type="search" id="buscar-personas" placeholder="Buscar personas por su apodo…" autocomplete="off" maxlength="30" aria-label="Buscar personas">
+                </div>
+                <div id="resultados-busqueda" class="lista-personas" hidden></div>
+                <h2 class="panel-titulo" id="titulo-amigos">Amigos</h2>
+                <div id="lista-amigos" class="lista-personas"></div>
+            </section>
+
+            <!-- Solicitudes (solo en mi perfil) -->
+            <section id="panel-solicitudes" class="panel" hidden>
+                <h2 class="panel-titulo">Te quieren agregar</h2>
+                <div id="lista-recibidas" class="lista-personas"></div>
+                <h2 class="panel-titulo">Solicitudes que enviaste</h2>
+                <div id="lista-enviadas" class="lista-personas"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Navegación inferior (solo en celular) -->
+    <nav class="bottom-nav" aria-label="Navegación">
+        <a href="/feed" class="bottom-nav-item" aria-label="Inicio"><span class="icono" data-icono="inicio"></span></a>
+        <a href="/sueno" class="bottom-nav-item" aria-label="Contar un sueño"><span class="icono icono-mas" data-icono="mas-simple"></span></a>
+        <a href="/perfil" class="bottom-nav-item" aria-label="Mi perfil">
+            <span class="menu-icono-globo"><span class="avatar avatar-xs js-mi-avatar"></span><span class="globo js-solicitudes" hidden></span></span>
+        </a>
+    </nav>
+
+    <!-- Ver un sueño de la cuadrícula -->
+    <dialog id="dialogo-sueno" class="dialogo" aria-label="Sueño">
+        <div class="dialogo-encabezado">
+            <h2>Sueño</h2>
+            <button type="button" class="icon-btn js-cerrar-dialogo" aria-label="Cerrar"><span class="icono" data-icono="cerrar"></span></button>
+        </div>
+        <div id="dialogo-sueno-contenido" class="dialogo-contenido"></div>
+    </dialog>
+
+    <!-- Editar perfil -->
+    <dialog id="dialogo-editar" class="dialogo" aria-labelledby="titulo-editar">
+        <form id="form-editar" method="dialog" novalidate>
+            <div class="dialogo-encabezado">
+                <h2 id="titulo-editar">Editar perfil</h2>
+                <button type="button" class="icon-btn js-cerrar-dialogo" aria-label="Cerrar"><span class="icono" data-icono="cerrar"></span></button>
+            </div>
+            <div class="dialogo-contenido editar">
+                <div class="editar-foto">
+                    <div class="anillo anillo-perfil"><div id="editar-avatar" class="avatar avatar-perfil"></div></div>
+                    <div class="editar-foto-botones">
+                        <label class="btn-amistad principal">
+                            <span class="icono icono-sm" data-icono="camara"></span>Cambiar foto
+                            <input type="file" id="input-foto" accept="image/jpeg,image/png,image/webp" hidden>
+                        </label>
+                        <button type="button" id="btn-quitar-foto" class="btn-amistad">Quitar foto</button>
+                    </div>
+                </div>
+
+                <label class="campo">
+                    <span>Apodo <small>(público)</small></span>
+                    <input type="text" id="editar-apodo" maxlength="30" required>
+                </label>
+                <label class="campo">
+                    <span>Nombre <small>(privado, solo lo ves tú)</small></span>
+                    <input type="text" id="editar-nombre" maxlength="80" required>
+                </label>
+                <label class="campo">
+                    <span>Biografía <small id="contador-bio">0/200</small></span>
+                    <textarea id="editar-bio" maxlength="200" rows="3" placeholder="Cuéntale a los demás algo de ti…"></textarea>
+                </label>
+                <p class="campo-correo"><span class="icono icono-xs" data-icono="sobre"></span> <span id="editar-correo"></span> <small>(privado)</small></p>
+                <p id="error-editar" class="chat-error" role="alert" hidden></p>
+            </div>
+            <div class="dialogo-acciones">
+                <button type="button" class="btn-amistad js-cerrar-dialogo">Cancelar</button>
+                <button type="submit" id="btn-guardar" class="btn-publish">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="/Comun.js"></script>
+    <script src="/Perfil-script.js"></script>
+</body>
+</html>
