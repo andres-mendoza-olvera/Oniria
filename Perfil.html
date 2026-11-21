@@ -80,6 +80,7 @@
                 <button type="button" role="tab" class="pestana activa" data-pestana="suenos"><span class="icono icono-sm" data-icono="cuadricula"></span>Sueños</button>
                 <button type="button" role="tab" class="pestana" data-pestana="amigos"><span class="icono icono-sm" data-icono="amigos"></span>Amigos</button>
                 <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="solicitudes" hidden><span class="icono icono-sm" data-icono="sobre"></span>Solicitudes<span class="globo globo-pestana js-solicitudes" hidden></span></button>
+                <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="bloqueados" hidden><span class="icono icono-sm" data-icono="bloquear"></span>Bloqueados</button>
             </nav>
 
             <!-- Sueños: cuadrícula -->
@@ -106,10 +107,13 @@
                 <div id="lista-recibidas" class="lista-personas"></div>
                 <h2 class="panel-titulo">Solicitudes que enviaste</h2>
                 <div id="lista-enviadas" class="lista-personas"></div>
-                <div id="bloque-bloqueados" hidden>
-                    <h2 class="panel-titulo">Personas que bloqueaste</h2>
-                    <div id="lista-bloqueados" class="lista-personas"></div>
-                </div>
+            </section>
+
+            <!-- Bloqueados (solo en mi perfil) -->
+            <section id="panel-bloqueados" class="panel" hidden>
+                <h2 class="panel-titulo">Personas que bloqueaste <small id="total-bloqueados" class="panel-contador"></small></h2>
+                <p class="panel-explicacion">No ven tus sueños ni tus comentarios, no te encuentran en el buscador y no pueden mandarte solicitudes. Al desbloquear a alguien no vuelven a ser amigos automáticamente.</p>
+                <div id="lista-bloqueados" class="lista-personas"></div>
             </section>
         </main>
     </div>

@@ -956,3 +956,75 @@ a.autor-enlace:hover { text-decoration: underline; }
 /* La tarjeta de perfil del menú es un enlace */
 a.perfil { transition: transform 0.15s ease, box-shadow 0.15s ease; }
 a.perfil:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(164, 99, 242, 0.15); }
+
+/* =========================================
+   VENTANA PARA CONFIRMAR / AVISAR (preguntar() en Comun.js)
+   ========================================= */
+.pregunta {
+    width: min(380px, calc(100% - 32px));
+    margin: auto;
+    padding: 28px 24px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    background-color: var(--surface);
+    color: var(--text-main);
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+}
+.pregunta[open] { animation: pregunta-entra 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.pregunta.saliendo { animation: pregunta-sale 0.15s ease forwards; }
+.pregunta::backdrop { background: rgba(8, 10, 18, 0.55); backdrop-filter: blur(4px); }
+
+@keyframes pregunta-entra {
+    from { opacity: 0; transform: translateY(12px) scale(0.95); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes pregunta-sale {
+    to { opacity: 0; transform: scale(0.96); }
+}
+
+/* Ícono redondo con el degradado de Oniria (rojizo si es algo peligroso) */
+.pregunta-icono {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    background: var(--gradiente);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(164, 99, 242, 0.35);
+}
+.pregunta-icono .icono { width: 26px; height: 26px; }
+.pregunta.peligro .pregunta-icono {
+    background: linear-gradient(135deg, #ff6b81, var(--corazon));
+    box-shadow: 0 10px 24px rgba(255, 59, 92, 0.3);
+}
+
+.pregunta-titulo { font-size: 1.15rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.pregunta-texto { margin-top: 8px; font-size: 0.92rem; line-height: 1.5; color: var(--text-muted); }
+
+.pregunta-acciones { display: flex; gap: 10px; margin-top: 22px; }
+.pregunta-btn {
+    flex: 1;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 12px;
+    background-color: var(--surface-2);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+}
+.pregunta-btn:hover { background-color: var(--surface-hover); }
+.pregunta-btn.principal { background: var(--gradiente); color: #fff; box-shadow: 0 4px 14px rgba(164, 99, 242, 0.3); }
+.pregunta-btn.principal.peligro { background: var(--corazon); box-shadow: 0 4px 14px rgba(255, 59, 92, 0.3); }
+.pregunta-btn.principal:hover { filter: brightness(1.07); transform: translateY(-1px); }
+.pregunta-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .pregunta[open], .pregunta.saliendo { animation: none; }
+}

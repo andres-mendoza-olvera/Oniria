@@ -101,6 +101,49 @@ function crear(etiqueta, props = {}, ...hijos) {
     return el;
 }
 
+// ---------------------------------------------------------
+// Ventanita para confirmar o avisar (en lugar de confirm() y alert() del navegador)
+// ---------------------------------------------------------
+// const si = await preguntar({ titulo, texto, aceptar: 'Eliminar', peligro: true, icono: 'basura' });
+//   -> true si picó el botón principal; false si canceló, picó fuera o presionó Esc.
+// soloAceptar: un solo botón (para avisos).
+function preguntar({ titulo, texto = '', aceptar = 'Aceptar', cancelar = 'Cancelar', peligro = false, icono: nombreIcono = 'alerta', soloAceptar = false }) {
+    return new Promise((resolver) => {
+        const dialogo = crear('dialog', { class: `pregunta${peligro ? ' peligro' : ''}`, 'aria-labelledby': 'pregunta-titulo' });
+        const btnAceptar = crear('button', { type: 'button', class: `pregunta-btn principal${peligro ? ' peligro' : ''}`, text: aceptar });
+        const btnCancelar = soloAceptar ? null : crear('button', { type: 'button', class: 'pregunta-btn', text: cancelar });
+
+        dialogo.append(
+            crear('div', { class: 'pregunta-icono' }, icono(nombreIcono)),
+            crear('h2', { id: 'pregunta-titulo', class: 'pregunta-titulo', text: titulo }),
+            texto ? crear('p', { class: 'pregunta-texto', text: texto }) : null,
+            crear('div', { class: 'pregunta-acciones' }, btnCancelar, btnAceptar)
+        );
+
+        let respuesta = false;
+        const cerrar = (valor) => { respuesta = valor; dialogo.close(); };
+        btnAceptar.addEventListener('click', () => cerrar(true));
+        btnCancelar?.addEventListener('click', () => cerrar(false));
+        // Clic en lo oscuro de afuera = cancelar
+        dialogo.addEventListener('click', (e) => { if (e.target === dialogo) cerrar(false); });
+        dialogo.addEventListener('close', () => {
+            dialogo.classList.add('saliendo');
+            setTimeout(() => dialogo.remove(), 150);
+            resolver(respuesta);
+        });
+
+        document.body.append(dialogo);
+        dialogo.showModal();
+        // En acciones peligrosas el foco queda en "Cancelar" (Enter no borra nada por accidente)
+        (peligro && btnCancelar ? btnCancelar : btnAceptar).focus();
+    });
+}
+
+// Aviso de error con el mismo diseño (en lugar de alert)
+function avisar(texto, titulo = 'Algo salió mal') {
+    return preguntar({ titulo, texto, aceptar: 'Entendido', soloAceptar: true, icono: 'alerta' });
+}
+
 // Llama a la API del servidor y devuelve el JSON (o lanza un error con mensaje)
 async function api(url, opciones = {}) {
     // Si el cuerpo es texto (JSON) se avisa; si es FormData (con imágenes) el navegador pone el tipo solo
@@ -197,8 +240,9 @@ function crearBotonesAmistad(persona, alCambiar, { conMenu = false } = {}) {
         return envoltura;
     }
 
+    // confirmar = opciones de preguntar() (o nada si no hace falta preguntar)
     async function accion(boton, url, metodo, confirmar) {
-        if (confirmar && !confirm(confirmar)) return;
+        if (confirmar && !(await preguntar(confirmar))) return;
         boton.disabled = true;
         try {
             const { amistad } = await api(url, { method: metodo });
@@ -206,10 +250,30 @@ function crearBotonesAmistad(persona, alCambiar, { conMenu = false } = {}) {
             pintar();
             alCambiar?.(amistad);
         } catch (err) {
-            alert(err.message);
+            avisar(err.message);
             boton.disabled = false;
         }
     }
+
+    const p = persona.apodo;
+    const preguntas = {
+        cancelar: { titulo: '¿Cancelar la solicitud?', texto: `${p} ya no verá tu solicitud de amistad.`, aceptar: 'Cancelar solicitud', cancelar: 'No, dejarla', icono: 'reloj' },
+        eliminar: {
+            titulo: `¿Eliminar a ${p} de tus amigos?`,
+            texto: 'Dejarán de aparecer en la lista de amigos del otro y en el feed de "Amigos". Pueden volver a mandarse solicitud cuando quieran.',
+            aceptar: 'Eliminar', peligro: true, icono: 'quitar-amigo'
+        },
+        bloquear: {
+            titulo: `¿Bloquear a ${p}?`,
+            texto: 'Ya no verán los sueños ni los comentarios del otro, no podrán mandarse solicitudes y, si son amigos, dejarán de serlo. Puedes desbloquearlo cuando quieras.',
+            aceptar: 'Bloquear', peligro: true, icono: 'bloquear'
+        },
+        desbloquear: {
+            titulo: `¿Desbloquear a ${p}?`,
+            texto: 'Podrán volver a ver los sueños del otro y mandarse solicitudes. No vuelven a ser amigos automáticamente.',
+            aceptar: 'Desbloquear', icono: 'bloquear'
+        }
+    };
 
     function boton(texto, clase, nombreIcono, alClic) {
         const b = crear('button', { type: 'button', class: clase }, nombreIcono ? icono(nombreIcono, 'icono-sm') : null, texto);
@@ -222,20 +286,19 @@ function crearBotonesAmistad(persona, alCambiar, { conMenu = false } = {}) {
         const base = `/api/amigos/${id}`;
         const botones = {
             ninguna: [boton('Agregar amigo', 'btn-amistad principal', 'agregar-amigo', (b) => accion(b, `${base}/solicitud`, 'POST'))],
-            enviada: [boton('Solicitud enviada', 'btn-amistad', 'reloj', (b) => accion(b, base, 'DELETE', `¿Cancelar la solicitud a ${persona.apodo}?`))],
+            enviada: [boton('Solicitud enviada', 'btn-amistad', 'reloj', (b) => accion(b, base, 'DELETE', preguntas.cancelar))],
             recibida: [
                 boton('Aceptar', 'btn-amistad principal', 'check', (b) => accion(b, `${base}/aceptar`, 'POST')),
                 boton('Rechazar', 'btn-amistad', null, (b) => accion(b, base, 'DELETE'))
             ],
-            amigos: [boton('Amigos', 'btn-amistad', 'amigos', (b) => accion(b, base, 'DELETE', `¿Eliminar a ${persona.apodo} de tus amigos?`))],
-            bloqueado: [boton('Desbloquear', 'btn-amistad', 'bloquear', (b) => accion(b, `/api/bloqueos/${id}`, 'DELETE', `¿Desbloquear a ${persona.apodo}? Podrán volver a ver sus sueños y mandarse solicitudes.`))]
+            amigos: [boton('Amigos', 'btn-amistad', 'amigos', (b) => accion(b, base, 'DELETE', preguntas.eliminar))],
+            bloqueado: [boton('Desbloquear', 'btn-amistad', 'bloquear', (b) => accion(b, `/api/bloqueos/${id}`, 'DELETE', preguntas.desbloquear))]
         };
 
-        const eliminar = { texto: 'Eliminar de amigos', nombreIcono: 'quitar-amigo', alClic: (b) => accion(b, base, 'DELETE', `¿Eliminar a ${persona.apodo} de tus amigos?`) };
+        const eliminar = { texto: 'Eliminar de amigos', nombreIcono: 'quitar-amigo', alClic: (b) => accion(b, base, 'DELETE', preguntas.eliminar) };
         const bloquear = {
             texto: 'Bloquear', nombreIcono: 'bloquear', peligro: true,
-            alClic: (b) => accion(b, `/api/bloqueos/${id}`, 'POST',
-                `¿Bloquear a ${persona.apodo}?\n\nYa no verán los sueños ni los comentarios del otro, no podrán mandarse solicitudes y, si son amigos, dejarán de serlo. Puedes desbloquearlo cuando quieras.`)
+            alClic: (b) => accion(b, `/api/bloqueos/${id}`, 'POST', preguntas.bloquear)
         };
 
         if (conMenu && persona.amistad === 'amigos') {

@@ -63,19 +63,20 @@ function irAPestana(nombre) {
     // "#buscar" (acceso directo del menú) = pestaña Amigos con el cursor en el buscador
     const enfocarBuscador = nombre === 'buscar';
     if (enfocarBuscador) nombre = 'amigos';
-    if (!['suenos', 'amigos', 'solicitudes'].includes(nombre)) nombre = 'suenos';
-    if (!estado.esMio && nombre === 'solicitudes') nombre = 'suenos';
+    if (!['suenos', 'amigos', 'solicitudes', 'bloqueados'].includes(nombre)) nombre = 'suenos';
+    if (!estado.esMio && (nombre === 'solicitudes' || nombre === 'bloqueados')) nombre = 'suenos';
     estado.pestana = nombre;
     document.querySelectorAll('.pestana').forEach((b) => {
         const activa = b.dataset.pestana === nombre;
         b.classList.toggle('activa', activa);
         b.setAttribute('aria-selected', activa ? 'true' : 'false');
     });
-    ['suenos', 'amigos', 'solicitudes'].forEach((p) => { $(`panel-${p}`).hidden = p !== nombre; });
+    ['suenos', 'amigos', 'solicitudes', 'bloqueados'].forEach((p) => { $(`panel-${p}`).hidden = p !== nombre; });
     history.replaceState(null, '', nombre === 'suenos' ? location.pathname : `${location.pathname}#${nombre}`);
 
     if (nombre === 'amigos') cargarAmigos();
     if (nombre === 'solicitudes') cargarSolicitudes();
+    if (nombre === 'bloqueados') cargarBloqueados();
     if (enfocarBuscador && estado.esMio) {
         $('buscar-personas').focus();
         $('buscar-personas').scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -221,12 +222,28 @@ async function cargarSolicitudes() {
         $('lista-enviadas').replaceChildren(...(enviadas.length
             ? enviadas.map((p) => filaPersona({ ...p, amistad: 'enviada' }, { subtitulo: tiempoRelativo(p.creado_en), conBotones: true, alCambiar }))
             : [mensajeVacio('No tienes solicitudes pendientes.')]));
-        const bloqueados = await api('/api/bloqueos');
-        $('bloque-bloqueados').hidden = bloqueados.length === 0;
-        $('lista-bloqueados').replaceChildren(...bloqueados.map((p) =>
-            filaPersona({ ...p, amistad: 'bloqueado' }, { subtitulo: `Bloqueado ${tiempoRelativo(p.creado_en)}`, conBotones: true, alCambiar })));
     } catch (err) {
         $('lista-recibidas').replaceChildren(mensajeVacio(err.message));
+    }
+}
+
+// Personas que bloqueé (pestaña "Bloqueados", solo en mi perfil)
+async function cargarBloqueados() {
+    const lista = $('lista-bloqueados');
+    try {
+        const bloqueados = await api('/api/bloqueos');
+        $('total-bloqueados').textContent = bloqueados.length
+            ? `${bloqueados.length} ${bloqueados.length === 1 ? 'persona bloqueada' : 'personas bloqueadas'}`
+            : '';
+        lista.replaceChildren(...(bloqueados.length
+            ? bloqueados.map((p) => filaPersona({ ...p, amistad: 'bloqueado' }, {
+                subtitulo: `Bloqueado ${tiempoRelativo(p.creado_en)}`,
+                conBotones: true,
+                alCambiar: () => { cargarBloqueados(); recargarPerfil(); }
+            }))
+            : [mensajeVacio('No has bloqueado a nadie. Para bloquear a alguien, abre su perfil y usa el botón "⋯".')]));
+    } catch (err) {
+        lista.replaceChildren(mensajeVacio(err.message));
     }
 }
 
@@ -628,8 +645,8 @@ function telefonoAMedias() {
 // Al corregir algo en el teléfono se quita el resaltado rojo
 ['tel-input', 'tel-codigo'].forEach((id) => $(id).addEventListener('input', () => $('telefono').classList.remove('pendiente')));
 
-$('btn-tel-quitar').addEventListener('click', () => {
-    if (!confirm('¿Quitar tu teléfono de Oniria?')) return;
+$('btn-tel-quitar').addEventListener('click', async () => {
+    if (!(await preguntar({ titulo: '¿Quitar tu teléfono?', texto: 'Ya no podrás recibir códigos ni avisos por SMS; te llegarán por correo.', aceptar: 'Quitar', peligro: true, icono: 'telefono' }))) return;
     botonOcupado($('btn-tel-quitar'), 'Quitando…', async () => {
         try {
             await api('/api/telefono', { method: 'DELETE' });

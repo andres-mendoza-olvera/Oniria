@@ -401,7 +401,7 @@ btnConfirmar.addEventListener('click', async () => {
 });
 
 btnDescartar.addEventListener('click', async () => {
-    if (!confirm('¿Descartar este sueño? Se borrará la conversación y no se guardará nada.')) return;
+    if (!(await preguntar({ titulo: '¿Descartar este sueño?', texto: 'Se borrará la conversación y no se guardará nada.', aceptar: 'Descartar', cancelar: 'Seguir contando', peligro: true, icono: 'basura' }))) return;
     try {
         await api('/api/sueno', { method: 'DELETE' });
         estado.borrador = null;

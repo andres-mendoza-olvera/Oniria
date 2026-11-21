@@ -397,20 +397,20 @@ async function alternarCorazon(id, boton) {
             boton.classList.add('latido');
         }
     } catch (err) {
-        alert(err.message);
+        avisar(err.message);
     } finally {
         boton.disabled = false;
     }
 }
 
 async function borrarPublicacion(id) {
-    if (!confirm('¿Borrar esta publicación? No se puede deshacer.')) return;
+    if (!(await preguntar({ titulo: '¿Borrar esta publicación?', texto: 'Se borrará tu sueño con sus imágenes, corazones y comentarios. No se puede deshacer.', aceptar: 'Borrar', peligro: true, icono: 'basura' }))) return;
     try {
         await api(`/api/publicaciones/${id}`, { method: 'DELETE' });
         buscarTarjeta(id)?.remove();
         revisarVacio();
     } catch (err) {
-        alert(err.message);
+        avisar(err.message);
     }
 }
 
@@ -431,14 +431,14 @@ function crearComentario(c, idPublicacion) {
             title: 'Borrar comentario',
             'aria-label': 'Borrar comentario',
             onclick: async () => {
-                if (!confirm('¿Borrar tu comentario?')) return;
+                if (!(await preguntar({ titulo: '¿Borrar tu comentario?', texto: 'No se puede deshacer.', aceptar: 'Borrar', peligro: true, icono: 'basura' }))) return;
                 try {
                     const { total_comentarios } = await api(`/api/comentarios/${c.id_comentario}`, { method: 'DELETE' });
                     item.remove();
                     const boton = buscarTarjeta(idPublicacion)?.querySelector('.btn-comentarios');
                     if (boton) pintarComentarios(boton, total_comentarios);
                 } catch (err) {
-                    alert(err.message);
+                    avisar(err.message);
                 }
             }
         }, icono('cerrar', 'icono-sm')));
@@ -487,7 +487,7 @@ async function abrirComentarios(id, tarjeta) {
             pintarComentarios(tarjeta.querySelector('.btn-comentarios'), total_comentarios);
             input.value = '';
         } catch (err) {
-            alert(err.message);
+            avisar(err.message);
         } finally {
             input.disabled = false;
             input.focus();

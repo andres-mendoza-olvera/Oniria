@@ -127,6 +127,8 @@
 /* ----- Paneles ----- */
 .panel { padding-top: 4px; }
 .panel-titulo { font-size: 0.95rem; font-weight: 700; margin: 22px 4px 10px; }
+.panel-contador { font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-left: 6px; }
+.panel-explicacion { margin: -4px 4px 12px; font-size: 0.85rem; line-height: 1.5; color: var(--text-muted); }
 .panel-vacio { text-align: center; color: var(--text-muted); padding: 40px 16px; font-size: 0.95rem; }
 
 /* Cuadrícula de sueños */
@@ -471,8 +473,11 @@
     .anillo-perfil { padding: 3px; }
     .perfil-fila h1 { font-size: 1.25rem; }
     .perfil-numeros { gap: 18px; font-size: 0.9rem; }
-    .pestanas { gap: 24px; }
-    .pestana { font-size: 0.75rem; }
+    /* Con 4 pestañas en celular: más juntas y, si no caben, se deslizan de lado */
+    .pestanas { gap: 18px; justify-content: safe center; overflow-x: auto; scrollbar-width: none; padding: 0 12px; }
+    .pestanas::-webkit-scrollbar { display: none; }
+    .pestana { font-size: 0.72rem; letter-spacing: 0.03em; flex-shrink: 0; }
+    .pestana .icono-sm { width: 16px; height: 16px; }
     .cuadricula { gap: 2px; }
     .mosaico { border-radius: 0; }
     .mosaico-texto { font-size: 0.75rem; padding: 8px; }
