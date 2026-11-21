@@ -399,6 +399,11 @@
     color: var(--color-accent); font: inherit; font-size: 0.82rem; cursor: pointer;
 }
 .enlace-tel:hover { text-decoration: underline; }
+.enlace-tel-gris { color: var(--text-muted); }
+.tel-enlaces { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+/* Resalta la sección del teléfono cuando falta terminar la verificación */
+.telefono.pendiente .tel-entrada,
+.telefono.pendiente .tel-codigo input { border-color: var(--corazon); }
 .chat-error.ok { background-color: rgba(31, 157, 85, 0.1); border-color: rgba(31, 157, 85, 0.3); color: #1f9d55; }
 
 .chat-error {

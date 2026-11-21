@@ -285,6 +285,10 @@ function abrirEditar() {
     $('btn-quitar-foto').hidden = !p.foto_perfil;
     $('error-editar').hidden = true;
     actualizarContador();
+    // Lo que quedó escrito en el teléfono la vez pasada se descarta
+    $('tel-input').value = '';
+    $('tel-codigo').value = '';
+    elegirPais(PAISES[0], { enfocar: false });
     pintarTelefono();
     $('dialogo-editar').showModal();
 }
@@ -450,6 +454,7 @@ function mensajeTelefono(texto, ok = false) {
 function pintarTelefono(paso) {
     const tel = estado.perfil.telefono;
     paso = paso || (tel ? 'verificado' : 'numero');
+    $('telefono').classList.remove('pendiente');
     $('tel-verificado').hidden = paso !== 'verificado';
     $('tel-paso-numero').hidden = paso !== 'numero';
     $('tel-paso-codigo').hidden = paso !== 'codigo';
@@ -500,6 +505,30 @@ $('btn-tel-verificar').addEventListener('click', () => botonOcupado($('btn-tel-v
 }));
 
 $('btn-tel-cambiar').addEventListener('click', () => pintarTelefono('numero'));
+
+// Cancelar: se olvida el número escrito y vuelve como estaba (con o sin teléfono verificado)
+$('btn-tel-cancelar').addEventListener('click', () => {
+    $('tel-input').value = '';
+    $('tel-codigo').value = '';
+    $('telefono').classList.remove('pendiente');
+    pintarTelefono();
+});
+
+// ¿Dejó la verificación del teléfono a medias?
+//   - ya pidió el código pero no lo ha verificado, o
+//   - escribió un número pero no pidió el código
+function telefonoAMedias() {
+    if (!$('tel-paso-codigo').hidden) {
+        return 'Te falta verificar tu teléfono: escribe el código que te llegó por SMS y pica "Verificar", o pica "Cancelar verificación".';
+    }
+    if (!$('tel-paso-numero').hidden && $('tel-input').value.replace(/\D/g, '')) {
+        return 'Escribiste un teléfono pero no lo has verificado. Pica "Enviarme un código por SMS" o borra el número.';
+    }
+    return null;
+}
+
+// Al corregir algo en el teléfono se quita el resaltado rojo
+['tel-input', 'tel-codigo'].forEach((id) => $(id).addEventListener('input', () => $('telefono').classList.remove('pendiente')));
 
 $('btn-tel-quitar').addEventListener('click', () => {
     if (!confirm('¿Quitar tu teléfono de Oniria?')) return;
@@ -571,6 +600,15 @@ $('btn-quitar-foto').addEventListener('click', () => {
 
 $('form-editar').addEventListener('submit', async (e) => {
     e.preventDefault();
+    // No se guarda con la verificación del teléfono a medias
+    const pendiente = telefonoAMedias();
+    if (pendiente) {
+        mensajeTelefono(pendiente);
+        $('telefono').classList.add('pendiente');
+        $('telefono').scrollIntoView({ block: 'center', behavior: 'smooth' });
+        (!$('tel-paso-codigo').hidden ? $('tel-codigo') : $('tel-input')).focus({ preventScroll: true });
+        return;
+    }
     const boton = $('btn-guardar');
     const datos = new FormData();
     datos.append('apodo', $('editar-apodo').value.trim());
