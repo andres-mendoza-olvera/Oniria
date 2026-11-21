@@ -389,7 +389,6 @@ a { color: inherit; text-decoration: none; }
     animation: aparecer 0.35s ease;
     transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
-.post-card.resaltada { box-shadow: 0 0 0 3px var(--color-accent), var(--sombra); }
 
 .post-header {
     display: flex;

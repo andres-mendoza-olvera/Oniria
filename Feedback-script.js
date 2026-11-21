@@ -18,14 +18,6 @@ const historias = document.getElementById('historias');
 let soloAmigos = false;        // filtro "Todos / Amigos"
 const misAmigos = new Set();  // ids de mis amigos (para el aviso de sueños nuevos en modo "Amigos")
 
-function irAPublicacionDe(idAutor) {
-    const tarjeta = [...lista.querySelectorAll('.post-card')].find((t) => t.dataset.autor === idAutor);
-    if (!tarjeta) return;
-    tarjeta.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    tarjeta.classList.add('resaltada');
-    setTimeout(() => tarjeta.classList.remove('resaltada'), 1600);
-}
-
 function actualizarHistorias() {
     historias.querySelectorAll('.historia[data-autor]').forEach((h) => h.remove());
     const vistos = new Set();
@@ -34,13 +26,13 @@ function actualizarHistorias() {
         if (!idAutor || Number(idAutor) === miId || vistos.has(idAutor)) continue;
         vistos.add(idAutor);
         const apodo = tarjeta.dataset.apodo;
-        const historia = crear('button', {
-            type: 'button',
+        // Al picarla se abre el perfil de esa persona
+        const historia = crear('a', {
+            href: `/perfil/${idAutor}`,
             class: 'historia',
             'data-autor': idAutor,
-            title: `Ver el sueño de ${apodo}`,
-            onclick: () => irAPublicacionDe(idAutor)
-        }, crearAvatar(apodo, true, tarjeta.dataset.foto || null), crear('span', { class: 'historia-nombre', text: apodo }));
+            title: `Ver el perfil de ${apodo}`
+        },crearAvatar(apodo, true, tarjeta.dataset.foto || null), crear('span', { class: 'historia-nombre', text: apodo }));
         historias.append(historia);
         if (vistos.size >= 20) break;
     }
