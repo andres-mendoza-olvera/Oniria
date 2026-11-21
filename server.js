@@ -24,6 +24,8 @@ for (const variable of ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'SUPABA
     if (!process.env[variable]) console.warn(`Aviso: falta ${variable}; no se podrán generar/guardar imágenes.`);
 }
 if (!process.env.GEMINI_API_KEY) console.warn('Aviso: falta GEMINI_API_KEY; el chat para interpretar sueños no funcionará.');
+const TWILIO_LISTO = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SID'].every((v) => process.env[v]);
+if (!TWILIO_LISTO) console.warn('Aviso: faltan las variables de Twilio; no se podrá verificar el teléfono por SMS/WhatsApp.');
 
 // =========================================================
 // 1. CONFIGURACIÓN DE LA BASE DE DATOS (PostgreSQL en Supabase)
@@ -935,7 +937,9 @@ app.post('/api/sueno/publicar', requiereSesionApi, async (req, res) => {
 
         borradores.delete(idUsuario);
         res.status(201).json({ ok: true, id_publicacion: idPublicacion });
-        emitir('publicacion-actualizada', { id_publicacion: idPublicacion, estado: 'listo', id_usuario: idUsuario });
+        const bloqueados = await bloqueosDe(idUsuario).catch(() => new Set());
+        emitir('publicacion-actualizada', { id_publicacion: idPublicacion, estado: 'listo', id_usuario: idUsuario },
+            (c) => !bloqueados.has(c.idUsuario));
     } catch (err) {
         await cliente.query('ROLLBACK').catch(() => {});
         console.error('Error publicando el sueño:', err.message);
@@ -1016,6 +1020,22 @@ setInterval(() => {
 // Cada publicación con su autor, contadores, si YO le di corazón y sus medios.
 // Se ven las publicaciones 'listo' de todos + las mías aunque sigan procesando.
 // $1 = mi id_usuario
+
+// Condición SQL: "a" bloqueó a "b" o "b" bloqueó a "a"
+const HAY_BLOQUEO = (a, b) => `EXISTS (SELECT 1 FROM bloqueos bq
+    WHERE (bq.id_bloqueador = ${a} AND bq.id_bloqueado = ${b}) OR (bq.id_bloqueador = ${b} AND bq.id_bloqueado = ${a}))`;
+
+// Ids de las personas con las que "id" tiene un bloqueo (en cualquier dirección).
+// Sirve para no mandarles en tiempo real lo que publica o comenta.
+async function bloqueosDe(id) {
+    const resultado = await db.query(
+        `SELECT id_bloqueado AS otro FROM bloqueos WHERE id_bloqueador = $1
+         UNION SELECT id_bloqueador FROM bloqueos WHERE id_bloqueado = $1`,
+        [id]
+    );
+    return new Set(resultado.rows.map((r) => r.otro));
+}
+
 const CONSULTA_PUBLICACIONES = `
     SELECT p.id_publicacion, p.id_usuario, p.sueno_texto, p.titulo, p.interpretacion_ia, p.estado, p.creado_en,
            COALESCE(NULLIF(u.apodo, ''), u.nombre) AS autor,
@@ -1029,7 +1049,8 @@ const CONSULTA_PUBLICACIONES = `
                        FROM medios_publicacion mp WHERE mp.id_publicacion = p.id_publicacion), '[]') AS medios
     FROM publicaciones p
     JOIN usuarios u ON u.id_usuario = p.id_usuario
-    WHERE (p.estado = 'listo' OR p.id_usuario = $1)`;
+    WHERE (p.estado = 'listo' OR p.id_usuario = $1)
+      AND NOT ${HAY_BLOQUEO('$1', 'p.id_usuario')}`;
 
 const POR_PAGINA = 10;
 
@@ -1158,7 +1179,8 @@ app.post('/api/publicaciones/:id/corazon', requiereSesionApi, async (req, res) =
         if (quitado.rowCount === 0) {
             const puesto = await db.query(
                 `INSERT INTO corazones (id_usuario, id_publicacion)
-                 SELECT $1, id_publicacion FROM publicaciones WHERE id_publicacion = $2 AND estado = 'listo'
+                 SELECT $1, p.id_publicacion FROM publicaciones p
+                 WHERE p.id_publicacion = $2 AND p.estado = 'listo' AND NOT ${HAY_BLOQUEO('$1', 'p.id_usuario')}
                  ON CONFLICT DO NOTHING`,
                 [yo, id]
             );
@@ -1194,10 +1216,10 @@ app.get('/api/publicaciones/:id/comentarios', requiereSesionApi, async (req, res
                     u.foto_perfil AS autor_foto
              FROM comentarios m
              JOIN usuarios u ON u.id_usuario = m.id_usuario
-             WHERE m.id_publicacion = $1
+             WHERE m.id_publicacion = $1 AND NOT ${HAY_BLOQUEO('$2', 'm.id_usuario')}
              ORDER BY m.creado_en ASC
              LIMIT 200`,
-            [id]
+            [id, req.session.idUsuario]
         );
         res.json(resultado.rows);
     } catch (err) {
@@ -1215,7 +1237,8 @@ app.post('/api/publicaciones/:id/comentarios', requiereSesionApi, async (req, re
     try {
         const resultado = await db.query(
             `INSERT INTO comentarios (id_publicacion, id_usuario, contenido)
-             SELECT id_publicacion, $2, $3 FROM publicaciones WHERE id_publicacion = $1 AND estado = 'listo'
+             SELECT p.id_publicacion, $2, $3 FROM publicaciones p
+             WHERE p.id_publicacion = $1 AND p.estado = 'listo' AND NOT ${HAY_BLOQUEO('$2', 'p.id_usuario')}
              RETURNING id_comentario, id_usuario, contenido, creado_en`,
             [id, req.session.idUsuario, contenido]
         );
@@ -1225,7 +1248,10 @@ app.post('/api/publicaciones/:id/comentarios', requiereSesionApi, async (req, re
         const total = await contarComentarios(id);
         res.status(201).json({ comentario, total_comentarios: total });
 
-        emitir('comentario-nuevo', { id_publicacion: id, comentario, total_comentarios: total });
+        // A quien tenga un bloqueo con quien comentó solo le llega el nuevo total, no el comentario
+        const bloqueados = await bloqueosDe(req.session.idUsuario).catch(() => new Set());
+        emitir('comentario-nuevo', { id_publicacion: id, comentario, total_comentarios: total }, (c) => !bloqueados.has(c.idUsuario));
+        if (bloqueados.size) emitir('comentario-nuevo', { id_publicacion: id, comentario: null, total_comentarios: total }, (c) => bloqueados.has(c.idUsuario));
     } catch (err) {
         console.error('Error guardando comentario:', err.message);
         res.status(500).json({ error: 'No se pudo guardar tu comentario.' });
@@ -1281,8 +1307,15 @@ function recibirFotoPerfil(req, res, next) {
 
 // Estado de la amistad entre "yo" y "otro", visto desde mí:
 //   'ninguna' | 'enviada' (yo la mandé) | 'recibida' (me la mandaron) | 'amigos'
+//   'bloqueado' (yo lo bloqueé) | 'me_bloqueo' (me bloqueó; nunca se manda al navegador)
 async function estadoAmistad(yo, otro) {
     if (yo === otro) return 'yo';
+    const bloqueo = await db.query(
+        'SELECT id_bloqueador FROM bloqueos WHERE (id_bloqueador = $1 AND id_bloqueado = $2) OR (id_bloqueador = $2 AND id_bloqueado = $1)',
+        [yo, otro]
+    );
+    if (bloqueo.rows.some((b) => b.id_bloqueador === yo)) return 'bloqueado';
+    if (bloqueo.rows.length) return 'me_bloqueo';
     const resultado = await db.query(
         `SELECT id_solicitante, estado FROM amistades
          WHERE (id_solicitante = $1 AND id_destinatario = $2) OR (id_solicitante = $2 AND id_destinatario = $1)`,
@@ -1302,7 +1335,7 @@ app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
     try {
         const resultado = await db.query(
             `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.apodo AS apodo_original,
-                    u.nombre, u.email, u.foto_perfil, u.biografia,
+                    u.nombre, u.email, u.foto_perfil, u.biografia, u.telefono, u.telefono_canal,
                     (SELECT COUNT(*)::int FROM publicaciones p WHERE p.id_usuario = u.id_usuario AND p.estado = 'listo') AS total_suenos,
                     (SELECT COUNT(*)::int FROM amistades a WHERE a.estado = 'aceptada'
                         AND (a.id_solicitante = u.id_usuario OR a.id_destinatario = u.id_usuario)) AS total_amigos
@@ -1311,6 +1344,8 @@ app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
         );
         const perfil = resultado.rows[0];
         if (!perfil) return res.status(404).json({ error: 'Perfil no encontrado.' });
+        const amistad = await estadoAmistad(yo, id);
+        if (amistad === 'me_bloqueo') return res.status(404).json({ error: 'Perfil no encontrado.' });
 
         const esYo = id === yo;
         res.json({
@@ -1320,9 +1355,12 @@ app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
             biografia: perfil.biografia,
             total_suenos: perfil.total_suenos,
             total_amigos: perfil.total_amigos,
-            amistad: await estadoAmistad(yo, id),
+            amistad,
             // Datos privados: solo para mí
-            ...(esYo ? { nombre: perfil.nombre, email: perfil.email, apodo_editable: perfil.apodo_original || '' } : {})
+            ...(esYo ? {
+                nombre: perfil.nombre, email: perfil.email, apodo_editable: perfil.apodo_original || '',
+                telefono: perfil.telefono, telefono_canal: perfil.telefono_canal
+            } : {})
         });
     } catch (err) {
         console.error('Error cargando perfil:', err.message);
@@ -1391,6 +1429,124 @@ app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) =>
     }
 });
 
+// =========================================================
+// TELÉFONO: verificación con código por SMS o WhatsApp (Twilio Verify)
+// =========================================================
+// Twilio genera el código, lo manda, lo revisa y lo hace caducar (10 min).
+// Nosotros solo guardamos el número cuando Twilio dice que el código es correcto.
+// Mientras tanto, el número "pendiente" vive en la sesión.
+
+async function twilioVerify(ruta, parametros) {
+    const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+    const respuesta = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SID}/${ruta}`, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(parametros)
+    });
+    const datos = await respuesta.json().catch(() => ({}));
+    if (!respuesta.ok) throw Object.assign(new Error(datos.message || `Twilio respondió ${respuesta.status}`), { codigoTwilio: datos.code, status: respuesta.status });
+    return datos;
+}
+
+// Errores de Twilio -> mensajes entendibles
+function mensajeTwilio(err) {
+    switch (err.codigoTwilio) {
+        case 60200: case 21211: case 21614: return 'Ese número no es válido. Revisa que tenga lada y 10 dígitos.';
+        case 60203: return 'Ya pediste demasiados códigos para este número. Espera unos minutos.';
+        case 60202: return 'Demasiados intentos con códigos incorrectos. Pide un código nuevo en unos minutos.';
+        case 60205: return 'Ese número no puede recibir SMS (¿es un fijo?). Prueba por WhatsApp.';
+        case 21608: case 21408: return 'En modo de prueba de Twilio solo se puede mandar a números registrados en tu cuenta de Twilio.';
+        default: return 'No se pudo mandar el código. Intenta de nuevo en un momento.';
+    }
+}
+
+// Acepta "55 1234 5678", "+52 1 55...", "(55) 1234-5678"... y lo deja como +52XXXXXXXXXX.
+// Sin "+" y con 10 dígitos se asume que es de México.
+function normalizarTelefono(texto) {
+    const limpio = String(texto || '').trim();
+    const digitos = limpio.replace(/\D/g, '');
+    let e164;
+    if (limpio.startsWith('+')) e164 = '+' + digitos;
+    else if (digitos.length === 10) e164 = '+52' + digitos;
+    else if (digitos.length === 12 && digitos.startsWith('52')) e164 = '+' + digitos;
+    else return null;
+    if (e164.startsWith('+521') && e164.length === 14) e164 = '+52' + e164.slice(4); // el "1" viejo de celulares en México
+    return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null;
+}
+
+// Para mostrar en pantalla sin enseñar todo el número: +52 ••• ••• 5678
+const ocultarTelefono = (t) => `${t.slice(0, 3)} ••• ••• ${t.slice(-4)}`;
+
+// 1) Mandar el código
+app.post('/api/telefono/enviar', requiereSesionApi, async (req, res) => {
+    if (!TWILIO_LISTO) return res.status(503).json({ error: 'La verificación por teléfono todavía no está configurada en el servidor.' });
+    const yo = req.session.idUsuario;
+    const canal = req.body.canal === 'whatsapp' ? 'whatsapp' : 'sms';
+    const telefono = normalizarTelefono(req.body.telefono);
+    if (!telefono) return res.status(400).json({ error: 'Escribe un número válido: 10 dígitos, o con + y lada de tu país.' });
+
+    // Un código cada 30 segundos como máximo (Twilio además pone sus propios límites)
+    const pendiente = req.session.telefonoPendiente;
+    if (pendiente && Date.now() - pendiente.enviado < 30 * 1000) {
+        return res.status(429).json({ error: 'Espera unos segundos antes de pedir otro código.' });
+    }
+
+    try {
+        const ocupado = await db.query('SELECT 1 FROM usuarios WHERE telefono = $1 AND id_usuario <> $2', [telefono, yo]);
+        if (ocupado.rowCount) return res.status(409).json({ error: 'Ese número ya está registrado en otra cuenta.' });
+
+        await twilioVerify('Verifications', { To: telefono, Channel: canal, Locale: 'es' });
+        req.session.telefonoPendiente = { telefono, canal, enviado: Date.now() };
+        res.json({ ok: true, canal, telefono: ocultarTelefono(telefono) });
+    } catch (err) {
+        console.error('Error mandando código de teléfono:', err.codigoTwilio, err.message);
+        res.status(err.status === 400 || err.status === 429 ? 400 : 502).json({ error: mensajeTwilio(err) });
+    }
+});
+
+// 2) Revisar el código que escribió el usuario
+app.post('/api/telefono/verificar', requiereSesionApi, async (req, res) => {
+    if (!TWILIO_LISTO) return res.status(503).json({ error: 'La verificación por teléfono todavía no está configurada en el servidor.' });
+    const yo = req.session.idUsuario;
+    const codigo = String(req.body.codigo || '').replace(/\D/g, '');
+    const pendiente = req.session.telefonoPendiente;
+    if (!pendiente) return res.status(400).json({ error: 'Primero pide un código.' });
+    if (codigo.length < 4 || codigo.length > 10) return res.status(400).json({ error: 'Escribe el código que te llegó.' });
+
+    try {
+        const resultado = await twilioVerify('VerificationCheck', { To: pendiente.telefono, Code: codigo });
+        if (resultado.status !== 'approved') return res.status(400).json({ error: 'El código no es correcto. Revisa e intenta de nuevo.' });
+
+        await db.query(
+            'UPDATE usuarios SET telefono = $1, telefono_canal = $2, telefono_verificado_en = NOW() WHERE id_usuario = $3',
+            [pendiente.telefono, pendiente.canal, yo]
+        );
+        delete req.session.telefonoPendiente;
+        res.json({ ok: true, telefono: pendiente.telefono, telefono_canal: pendiente.canal });
+    } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: 'Ese número ya está registrado en otra cuenta.' });
+        // 20404 = el código ya caducó o se usó
+        if (err.codigoTwilio === 20404) {
+            delete req.session.telefonoPendiente;
+            return res.status(400).json({ error: 'El código caducó. Pide uno nuevo.' });
+        }
+        console.error('Error verificando código de teléfono:', err.codigoTwilio || err.code, err.message);
+        res.status(502).json({ error: mensajeTwilio(err) });
+    }
+});
+
+// 3) Quitar mi teléfono
+app.delete('/api/telefono', requiereSesionApi, async (req, res) => {
+    try {
+        await db.query('UPDATE usuarios SET telefono = NULL, telefono_canal = NULL, telefono_verificado_en = NULL WHERE id_usuario = $1', [req.session.idUsuario]);
+        delete req.session.telefonoPendiente;
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('Error quitando teléfono:', err.message);
+        res.status(500).json({ error: 'No se pudo quitar el teléfono.' });
+    }
+});
+
 // Buscar personas por apodo (para mandar solicitudes)
 app.get('/api/usuarios', requiereSesionApi, async (req, res) => {
     const texto = String(req.query.buscar || '').trim().slice(0, 30);
@@ -1403,6 +1559,8 @@ app.get('/api/usuarios', requiereSesionApi, async (req, res) => {
             `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.foto_perfil
              FROM usuarios u
              WHERE u.verificado IS TRUE AND u.id_usuario <> $1 AND u.apodo ILIKE $2
+               -- quien me bloqueó no aparece (a quien yo bloqueé sí, para poder desbloquearlo)
+               AND NOT EXISTS (SELECT 1 FROM bloqueos bq WHERE bq.id_bloqueador = u.id_usuario AND bq.id_bloqueado = $1)
              ORDER BY (LOWER(u.apodo) = LOWER($3)) DESC, LENGTH(u.apodo), u.apodo
              LIMIT 20`,
             [yo, patron, texto]
@@ -1434,9 +1592,10 @@ app.get('/api/amigos/:id', requiereSesionApi, async (req, res) => {
              FROM amistades a
              JOIN usuarios u ON u.id_usuario = CASE WHEN a.id_solicitante = $1 THEN a.id_destinatario ELSE a.id_solicitante END
              WHERE a.estado = 'aceptada' AND (a.id_solicitante = $1 OR a.id_destinatario = $1)
+               AND NOT ${HAY_BLOQUEO('$2', 'u.id_usuario')}
              ORDER BY a.respondido_en DESC NULLS LAST
              LIMIT 500`,
-            [id]
+            [id, req.session.idUsuario]
         );
         res.json(resultado.rows);
     } catch (err) {
@@ -1477,6 +1636,8 @@ app.post('/api/amigos/:id/solicitud', requiereSesionApi, async (req, res) => {
         if (existe.rows.length === 0) return res.status(404).json({ error: 'Esa persona no existe.' });
 
         const actual = await estadoAmistad(yo, otro);
+        if (actual === 'bloqueado') return res.status(403).json({ error: 'Bloqueaste a esta persona. Desbloquéala primero.' });
+        if (actual === 'me_bloqueo') return res.status(404).json({ error: 'Esa persona no existe.' });
         if (actual === 'recibida') {
             await db.query(
                 "UPDATE amistades SET estado = 'aceptada', respondido_en = NOW() WHERE id_solicitante = $1 AND id_destinatario = $2",
@@ -1534,6 +1695,71 @@ app.delete('/api/amigos/:id', requiereSesionApi, async (req, res) => {
     } catch (err) {
         console.error('Error quitando amistad:', err.message);
         res.status(500).json({ error: 'No se pudo completar la acción.' });
+    }
+});
+
+// =========================================================
+// BLOQUEOS
+// =========================================================
+
+// Personas que yo bloqueé
+app.get('/api/bloqueos', requiereSesionApi, async (req, res) => {
+    try {
+        const resultado = await db.query(
+            `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.foto_perfil, bq.creado_en
+             FROM bloqueos bq JOIN usuarios u ON u.id_usuario = bq.id_bloqueado
+             WHERE bq.id_bloqueador = $1
+             ORDER BY bq.creado_en DESC`,
+            [req.session.idUsuario]
+        );
+        res.json(resultado.rows);
+    } catch (err) {
+        console.error('Error cargando bloqueos:', err.message);
+        res.status(500).json({ error: 'No se pudo cargar la lista de bloqueados.' });
+    }
+});
+
+// Bloquear: también borra la amistad o solicitud que hubiera
+app.post('/api/bloqueos/:id', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const otro = idValido(req.params.id);
+    if (!otro || otro === yo) return res.status(400).json({ error: 'No puedes bloquearte a ti mismo.' });
+    const cliente = await db.connect();
+    try {
+        await cliente.query('BEGIN');
+        const existe = await cliente.query('SELECT 1 FROM usuarios WHERE id_usuario = $1', [otro]);
+        if (existe.rows.length === 0) {
+            await cliente.query('ROLLBACK');
+            return res.status(404).json({ error: 'Esa persona no existe.' });
+        }
+        await cliente.query('INSERT INTO bloqueos (id_bloqueador, id_bloqueado) VALUES ($1, $2) ON CONFLICT DO NOTHING', [yo, otro]);
+        await cliente.query(
+            'DELETE FROM amistades WHERE (id_solicitante = $1 AND id_destinatario = $2) OR (id_solicitante = $2 AND id_destinatario = $1)',
+            [yo, otro]
+        );
+        await cliente.query('COMMIT');
+        res.json({ amistad: 'bloqueado' });
+        avisarAmistad(yo, otro);
+    } catch (err) {
+        await cliente.query('ROLLBACK').catch(() => {});
+        console.error('Error bloqueando:', err.message);
+        res.status(500).json({ error: 'No se pudo bloquear.' });
+    } finally {
+        cliente.release();
+    }
+});
+
+// Desbloquear (la amistad NO regresa; tendrían que mandarse solicitud otra vez)
+app.delete('/api/bloqueos/:id', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const otro = idValido(req.params.id);
+    if (!otro) return res.status(404).json({ error: 'No encontrado.' });
+    try {
+        await db.query('DELETE FROM bloqueos WHERE id_bloqueador = $1 AND id_bloqueado = $2', [yo, otro]);
+        res.json({ amistad: await estadoAmistad(yo, otro) });
+    } catch (err) {
+        console.error('Error desbloqueando:', err.message);
+        res.status(500).json({ error: 'No se pudo desbloquear.' });
     }
 });
 

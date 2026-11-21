@@ -31,13 +31,18 @@ const ICONOS = {
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
     perfil: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
     amigos: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.8"/><path d="M17 14.2c2.7.2 4.5 2.2 4.5 5"/>',
-    'agregar-amigo': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M19 8v6M16 11h6"/>',
+    'quitar-amigo': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 11h6"/>',
+    bloquear: '<circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/>',
+    puntos: '<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>',
+    abajo: '<path d="m6 9 6 6 6-6"/>',
+    'agregar-amigo':'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M19 8v6M16 11h6"/>',
     reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     lapiz: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/>',
     buscar: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     camara: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>',
     cuadricula: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     sobre: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
+    telefono: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
     clip: '<path d="m20.5 11.5-8.3 8.3a5.3 5.3 0 0 1-7.5-7.5l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.6 8.6a1.8 1.8 0 0 1-2.5-2.5l7.9-7.9"/>'
 };
 
@@ -153,10 +158,44 @@ function pintarSolicitudes(total) {
 // ---------------------------------------------------------
 // Botones de amistad (perfil, buscador y solicitudes)
 // ---------------------------------------------------------
-// persona = { id_usuario, apodo, amistad: 'ninguna' | 'enviada' | 'recibida' | 'amigos' }
+// persona = { id_usuario, apodo, amistad: 'ninguna' | 'enviada' | 'recibida' | 'amigos' | 'bloqueado' }
 // alCambiar(nuevoEstado) se llama después de cada acción
-function crearBotonesAmistad(persona, alCambiar) {
+// conMenu: agrega un menú "…" con "Eliminar de amigos" y "Bloquear" (en el perfil de la persona)
+function crearBotonesAmistad(persona, alCambiar, { conMenu = false } = {}) {
     const caja = crear('div', { class: 'botones-amistad' });
+
+    // Menú desplegable con opciones extra
+    function menu(etiqueta, opciones, { conTexto = false, clase = 'btn-amistad' } = {}) {
+        const envoltura = crear('div', { class: 'menu-opciones' });
+        const lista = crear('div', { class: 'menu-opciones-lista', role: 'menu', hidden: true });
+        const abrir = crear('button', {
+            type: 'button', class: clase, 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+            'aria-label': conTexto ? null : etiqueta, title: conTexto ? null : etiqueta
+        }, ...(conTexto ? [icono('amigos', 'icono-sm'), etiqueta, icono('abajo', 'icono-xs')] : [icono('puntos', 'icono-sm')]));
+
+        const cerrar = () => {
+            lista.hidden = true;
+            abrir.setAttribute('aria-expanded', 'false');
+            document.removeEventListener('click', alClicFuera, true);
+        };
+        const alClicFuera = (e) => { if (!envoltura.contains(e.target)) cerrar(); };
+        abrir.addEventListener('click', () => {
+            if (!lista.hidden) return cerrar();
+            lista.hidden = false;
+            abrir.setAttribute('aria-expanded', 'true');
+            document.addEventListener('click', alClicFuera, true);
+        });
+        envoltura.addEventListener('keydown', (e) => { if (e.key === 'Escape') { cerrar(); abrir.focus(); } });
+
+        for (const { texto, nombreIcono, peligro, alClic } of opciones) {
+            const opcion = crear('button', { type: 'button', role: 'menuitem', class: `menu-opcion${peligro ? ' peligro' : ''}` },
+                icono(nombreIcono, 'icono-sm'), texto);
+            opcion.addEventListener('click', () => { cerrar(); alClic(abrir); });
+            lista.append(opcion);
+        }
+        envoltura.append(abrir, lista);
+        return envoltura;
+    }
 
     async function accion(boton, url, metodo, confirmar) {
         if (confirmar && !confirm(confirmar)) return;
@@ -188,9 +227,25 @@ function crearBotonesAmistad(persona, alCambiar) {
                 boton('Aceptar', 'btn-amistad principal', 'check', (b) => accion(b, `${base}/aceptar`, 'POST')),
                 boton('Rechazar', 'btn-amistad', null, (b) => accion(b, base, 'DELETE'))
             ],
-            amigos: [boton('Amigos', 'btn-amistad', 'amigos', (b) => accion(b, base, 'DELETE', `¿Dejar de ser amigo de ${persona.apodo}?`))]
+            amigos: [boton('Amigos', 'btn-amistad', 'amigos', (b) => accion(b, base, 'DELETE', `¿Eliminar a ${persona.apodo} de tus amigos?`))],
+            bloqueado: [boton('Desbloquear', 'btn-amistad', 'bloquear', (b) => accion(b, `/api/bloqueos/${id}`, 'DELETE', `¿Desbloquear a ${persona.apodo}? Podrán volver a ver sus sueños y mandarse solicitudes.`))]
         };
-        caja.replaceChildren(...(botones[persona.amistad] || []));
+
+        const eliminar = { texto: 'Eliminar de amigos', nombreIcono: 'quitar-amigo', alClic: (b) => accion(b, base, 'DELETE', `¿Eliminar a ${persona.apodo} de tus amigos?`) };
+        const bloquear = {
+            texto: 'Bloquear', nombreIcono: 'bloquear', peligro: true,
+            alClic: (b) => accion(b, `/api/bloqueos/${id}`, 'POST',
+                `¿Bloquear a ${persona.apodo}?\n\nYa no verán los sueños ni los comentarios del otro, no podrán mandarse solicitudes y, si son amigos, dejarán de serlo. Puedes desbloquearlo cuando quieras.`)
+        };
+
+        if (conMenu && persona.amistad === 'amigos') {
+            // "Amigos ▾" abre: Eliminar de amigos / Bloquear
+            caja.replaceChildren(menu('Amigos', [eliminar, bloquear], { conTexto: true }));
+        } else if (conMenu && persona.amistad !== 'bloqueado') {
+            caja.replaceChildren(...(botones[persona.amistad] || []), menu('Más opciones', [bloquear]));
+        } else {
+            caja.replaceChildren(...(botones[persona.amistad] || []));
+        }
     }
 
     pintar();

@@ -61,6 +61,41 @@
 .btn-amistad.principal:hover { filter: brightness(1.07); }
 .btn-amistad:disabled { opacity: 0.6; cursor: default; }
 
+/* Menú desplegable ("Amigos ▾" y "…") */
+.menu-opciones { position: relative; }
+.menu-opciones > .btn-amistad:has(> .icono:only-child) { padding: 8px 10px; }
+.menu-opciones-lista {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 50;
+    min-width: 200px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.menu-opciones-lista[hidden] { display: none; }
+.menu-opcion {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+}
+.menu-opcion:hover, .menu-opcion:focus-visible { background-color: var(--surface-hover); outline: none; }
+.menu-opcion.peligro { color: var(--corazon); }
+
 /* ----- Pestañas ----- */
 .pestanas {
     display: flex;
@@ -250,6 +285,29 @@
     box-shadow: 0 0 0 4px rgba(164, 99, 242, 0.12);
 }
 .campo-correo { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
+/* Teléfono */
+.telefono { display: flex; flex-direction: column; gap: 8px; }
+.tel-paso { display: flex; flex-direction: column; gap: 8px; }
+.tel-botones { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.tel-botones .btn-amistad { flex: 1 1 auto; }
+.tel-codigo { flex: 1 1 120px; }
+.tel-codigo input { letter-spacing: 0.3em; font-variant-numeric: tabular-nums; }
+.tel-ayuda { font-size: 0.8rem; color: var(--text-muted); }
+.tel-verificado { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.92rem; }
+.tel-verificado .btn-amistad { margin-left: auto; }
+.tel-insignia {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600;
+    color: #1f9d55; background-color: rgba(31, 157, 85, 0.12);
+}
+.enlace-tel {
+    align-self: flex-start; background: none; border: none; padding: 0;
+    color: var(--color-accent); font: inherit; font-size: 0.82rem; cursor: pointer;
+}
+.enlace-tel:hover { text-decoration: underline; }
+.chat-error.ok { background-color: rgba(31, 157, 85, 0.1); border-color: rgba(31, 157, 85, 0.3); color: #1f9d55; }
+
 .chat-error {
     padding: 10px 14px;
     border-radius: 12px;

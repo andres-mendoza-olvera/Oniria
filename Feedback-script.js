@@ -347,7 +347,7 @@ const manejadores = {
         if (!tarjeta) return;
         const boton = tarjeta.querySelector('.btn-comentarios');
         if (boton) pintarComentarios(boton, total_comentarios);
-        agregarComentario(tarjeta, comentario);
+        if (comentario) agregarComentario(tarjeta, comentario); // null = es de alguien con quien hay un bloqueo
     },
 
     'comentario-borrado': ({ id_publicacion, id_comentario, total_comentarios }) => {

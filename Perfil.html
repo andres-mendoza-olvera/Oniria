@@ -36,6 +36,9 @@
                 <a href="/sueno" class="menu-item">
                     <span class="icono" data-icono="mas"></span><span>Contar un sueño</span>
                 </a>
+                <a href="/perfil#buscar" class="menu-item js-menu-buscar">
+                    <span class="icono" data-icono="buscar"></span><span>Buscar amigos</span>
+                </a>
                 <a href="/perfil" class="menu-item js-menu-perfil">
                     <span class="menu-icono-globo"><span class="avatar avatar-xs js-mi-avatar"></span><span class="globo js-solicitudes" hidden></span></span><span>Mi perfil</span>
                 </a>
@@ -103,6 +106,10 @@
                 <div id="lista-recibidas" class="lista-personas"></div>
                 <h2 class="panel-titulo">Solicitudes que enviaste</h2>
                 <div id="lista-enviadas" class="lista-personas"></div>
+                <div id="bloque-bloqueados" hidden>
+                    <h2 class="panel-titulo">Personas que bloqueaste</h2>
+                    <div id="lista-bloqueados" class="lista-personas"></div>
+                </div>
             </section>
         </main>
     </div>
@@ -111,6 +118,7 @@
     <nav class="bottom-nav" aria-label="Navegación">
         <a href="/feed" class="bottom-nav-item" aria-label="Inicio"><span class="icono" data-icono="inicio"></span></a>
         <a href="/sueno" class="bottom-nav-item" aria-label="Contar un sueño"><span class="icono icono-mas" data-icono="mas-simple"></span></a>
+        <a href="/perfil#buscar" class="bottom-nav-item js-menu-buscar" aria-label="Buscar amigos"><span class="icono" data-icono="buscar"></span></a>
         <a href="/perfil" class="bottom-nav-item" aria-label="Mi perfil">
             <span class="menu-icono-globo"><span class="avatar avatar-xs js-mi-avatar"></span><span class="globo js-solicitudes" hidden></span></span>
         </a>
@@ -157,6 +165,42 @@
                     <textarea id="editar-bio" maxlength="200" rows="3" placeholder="Cuéntale a los demás algo de ti…"></textarea>
                 </label>
                 <p class="campo-correo"><span class="icono icono-xs" data-icono="sobre"></span> <span id="editar-correo"></span> <small>(privado)</small></p>
+
+                <!-- Teléfono: se verifica con un código por SMS o WhatsApp (independiente de "Guardar") -->
+                <div class="telefono" id="telefono">
+                    <div class="campo"><span>Teléfono <small>(privado, opcional)</small></span></div>
+
+                    <!-- Ya verificado -->
+                    <div id="tel-verificado" class="tel-verificado" hidden>
+                        <span class="icono icono-sm" data-icono="telefono"></span>
+                        <span id="tel-numero"></span>
+                        <span class="tel-insignia"><span class="icono icono-xs" data-icono="check"></span>Verificado</span>
+                        <button type="button" id="btn-tel-quitar" class="btn-amistad">Quitar</button>
+                    </div>
+
+                    <!-- Paso 1: escribir el número y elegir por dónde llega el código -->
+                    <div id="tel-paso-numero" class="tel-paso">
+                        <div class="campo"><input type="tel" id="tel-input" placeholder="55 1234 5678" autocomplete="tel" maxlength="20" aria-label="Número de teléfono"></div>
+                        <div class="tel-botones">
+                            <button type="button" class="btn-amistad" data-tel-canal="sms">Enviar código por SMS</button>
+                            <button type="button" class="btn-amistad" data-tel-canal="whatsapp">Enviar por WhatsApp</button>
+                        </div>
+                        <small class="tel-ayuda">10 dígitos si es de México; de otro país, empieza con + y la lada.</small>
+                    </div>
+
+                    <!-- Paso 2: escribir el código -->
+                    <div id="tel-paso-codigo" class="tel-paso" hidden>
+                        <small class="tel-ayuda" id="tel-enviado"></small>
+                        <div class="tel-botones">
+                            <div class="campo tel-codigo"><input type="text" id="tel-codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Código" aria-label="Código de verificación"></div>
+                            <button type="button" id="btn-tel-verificar" class="btn-amistad principal">Verificar</button>
+                        </div>
+                        <button type="button" id="btn-tel-cambiar" class="enlace-tel">Cambiar número o reenviar</button>
+                    </div>
+
+                    <p id="tel-mensaje" class="chat-error" role="alert" hidden></p>
+                </div>
+
                 <p id="error-editar" class="chat-error" role="alert" hidden></p>
             </div>
             <div class="dialogo-acciones">

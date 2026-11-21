@@ -40,7 +40,14 @@ function pintarCabecera() {
         acciones.replaceChildren(crearBotonesAmistad(p, async () => {
             await recargarPerfil();
             if (estado.pestana === 'amigos') cargarAmigos();
-        }));
+            if (estado.pestana === 'suenos') cargarSuenos(true);
+        }, { conMenu: true }));
+    }
+
+    // Si yo la bloqueé, un aviso (sus sueños no se muestran)
+    if (p.amistad === 'bloqueado') {
+        $('perfil-privado').hidden = false;
+        $('perfil-privado').textContent = `Bloqueaste a ${p.apodo}. No ven los sueños del otro ni pueden mandarse solicitudes.`;
     }
 }
 
@@ -53,6 +60,10 @@ async function recargarPerfil() {
 // Pestañas
 // ---------------------------------------------------------
 function irAPestana(nombre) {
+    // "#buscar" (acceso directo del menú) = pestaña Amigos con el cursor en el buscador
+    const enfocarBuscador = nombre === 'buscar';
+    if (enfocarBuscador) nombre = 'amigos';
+    if (!['suenos', 'amigos', 'solicitudes'].includes(nombre)) nombre = 'suenos';
     if (!estado.esMio && nombre === 'solicitudes') nombre = 'suenos';
     estado.pestana = nombre;
     document.querySelectorAll('.pestana').forEach((b) => {
@@ -65,7 +76,14 @@ function irAPestana(nombre) {
 
     if (nombre === 'amigos') cargarAmigos();
     if (nombre === 'solicitudes') cargarSolicitudes();
+    if (enfocarBuscador && estado.esMio) {
+        $('buscar-personas').focus();
+        $('buscar-personas').scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
 }
+
+// Si ya estoy en /perfil y pico "Buscar amigos" en el menú, la página no se recarga: solo cambia el #
+window.addEventListener('hashchange', () => { if (estado.perfil) irAPestana(location.hash.slice(1) || 'suenos'); });
 
 document.querySelectorAll('[data-pestana]').forEach((b) => b.addEventListener('click', () => irAPestana(b.dataset.pestana)));
 document.querySelectorAll('[data-ir-pestana]').forEach((b) => b.addEventListener('click', () => irAPestana(b.dataset.irPestana)));
@@ -94,7 +112,12 @@ function crearMosaico(p) {
     return mosaico;
 }
 
-async function cargarSuenos() {
+// desdeCero = vaciar la cuadrícula y volver a pedir (p. ej. al bloquear o desbloquear)
+async function cargarSuenos(desdeCero = false) {
+    if (desdeCero) {
+        estado.idMasViejo = null;
+        $('cuadricula').replaceChildren();
+    }
     const boton = $('btn-mas-suenos');
     boton.hidden = true;
     try {
@@ -109,7 +132,9 @@ async function cargarSuenos() {
         if (vacio) {
             $('suenos-vacio').replaceChildren(estado.esMio
                 ? crear('span', {}, 'Aún no has publicado sueños. ', crear('a', { href: '/sueno', class: 'enlace', text: 'Cuenta el primero' }))
-                : `${estado.perfil.apodo} todavía no ha publicado sueños.`);
+                : estado.perfil.amistad === 'bloqueado'
+                    ? 'No ves los sueños de las personas que bloqueaste.'
+                    : `${estado.perfil.apodo} todavía no ha publicado sueños.`);
         }
     } catch (err) {
         $('suenos-vacio').hidden = false;
@@ -196,6 +221,10 @@ async function cargarSolicitudes() {
         $('lista-enviadas').replaceChildren(...(enviadas.length
             ? enviadas.map((p) => filaPersona({ ...p, amistad: 'enviada' }, { subtitulo: tiempoRelativo(p.creado_en), conBotones: true, alCambiar }))
             : [mensajeVacio('No tienes solicitudes pendientes.')]));
+        const bloqueados = await api('/api/bloqueos');
+        $('bloque-bloqueados').hidden = bloqueados.length === 0;
+        $('lista-bloqueados').replaceChildren(...bloqueados.map((p) =>
+            filaPersona({ ...p, amistad: 'bloqueado' }, { subtitulo: `Bloqueado ${tiempoRelativo(p.creado_en)}`, conBotones: true, alCambiar })));
     } catch (err) {
         $('lista-recibidas').replaceChildren(mensajeVacio(err.message));
     }
@@ -256,8 +285,91 @@ function abrirEditar() {
     $('btn-quitar-foto').hidden = !p.foto_perfil;
     $('error-editar').hidden = true;
     actualizarContador();
+    pintarTelefono();
     $('dialogo-editar').showModal();
 }
+
+// ---------------------------------------------------------
+// Teléfono: código por SMS o WhatsApp (se guarda solo al verificar,
+// no depende del botón "Guardar")
+// ---------------------------------------------------------
+function mensajeTelefono(texto, ok = false) {
+    $('tel-mensaje').textContent = texto || '';
+    $('tel-mensaje').classList.toggle('ok', ok);
+    $('tel-mensaje').hidden = !texto;
+}
+
+function pintarTelefono(paso) {
+    const tel = estado.perfil.telefono;
+    paso = paso || (tel ? 'verificado' : 'numero');
+    $('tel-verificado').hidden = paso !== 'verificado';
+    $('tel-paso-numero').hidden = paso !== 'numero';
+    $('tel-paso-codigo').hidden = paso !== 'codigo';
+    if (tel) $('tel-numero').textContent = tel;
+    if (paso !== 'codigo') mensajeTelefono('');
+}
+
+async function botonOcupado(boton, texto, tarea) {
+    const original = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = texto;
+    try { await tarea(); } finally { boton.disabled = false; boton.textContent = original; }
+}
+
+document.querySelectorAll('[data-tel-canal]').forEach((boton) => {
+    boton.addEventListener('click', () => botonOcupado(boton, 'Enviando…', async () => {
+        mensajeTelefono('');
+        try {
+            const r = await api('/api/telefono/enviar', {
+                method: 'POST',
+                body: JSON.stringify({ telefono: $('tel-input').value, canal: boton.dataset.telCanal })
+            });
+            $('tel-enviado').textContent = `Te mandamos un código por ${r.canal === 'whatsapp' ? 'WhatsApp' : 'SMS'} al ${r.telefono}. Caduca en 10 minutos.`;
+            $('tel-codigo').value = '';
+            pintarTelefono('codigo');
+            $('tel-codigo').focus();
+        } catch (err) {
+            mensajeTelefono(err.message);
+        }
+    }));
+});
+
+$('btn-tel-verificar').addEventListener('click', () => botonOcupado($('btn-tel-verificar'), 'Revisando…', async () => {
+    mensajeTelefono('');
+    try {
+        const r = await api('/api/telefono/verificar', { method: 'POST', body: JSON.stringify({ codigo: $('tel-codigo').value }) });
+        estado.perfil.telefono = r.telefono;
+        estado.perfil.telefono_canal = r.telefono_canal;
+        pintarTelefono('verificado');
+        mensajeTelefono('¡Listo! Tu teléfono quedó verificado.', true);
+    } catch (err) {
+        mensajeTelefono(err.message);
+    }
+}));
+
+$('btn-tel-cambiar').addEventListener('click', () => pintarTelefono('numero'));
+
+$('btn-tel-quitar').addEventListener('click', () => {
+    if (!confirm('¿Quitar tu teléfono de Oniria?')) return;
+    botonOcupado($('btn-tel-quitar'), 'Quitando…', async () => {
+        try {
+            await api('/api/telefono', { method: 'DELETE' });
+            estado.perfil.telefono = null;
+            $('tel-input').value = '';
+            pintarTelefono('numero');
+        } catch (err) {
+            mensajeTelefono(err.message);
+        }
+    });
+});
+
+// "Enter" en estos campos no debe mandar el formulario de "Guardar"
+$('tel-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-tel-canal="sms"]').click(); }
+});
+$('tel-codigo').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('btn-tel-verificar').click(); }
+});
 
 function actualizarContador() {
     $('contador-bio').textContent = `${$('editar-bio').value.length}/200`;
