@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Código de acceso - Oniria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/LogIn.css">
+    <link rel="stylesheet" href="/OlvideContrasena.css">
+    <link rel="stylesheet" href="/VerificarAcceso.css">
+    <script src="/Tema.js"></script>
+</head>
+<body>
+
+    <!-- Paso 2 de 2 del inicio de sesión: escribir el código que llegó por correo o SMS -->
+    <div class="login-container">
+        <div class="login-box">
+
+            <div class="recover-icon" aria-hidden="true">🔐</div>
+            <h1 class="app-name recover-title">Revisa tu <span id="titulo-medio">correo</span></h1>
+            <p class="recover-instructions" id="instrucciones">Te estamos mandando un código de 6 dígitos…</p>
+
+            <form id="form-codigo" class="login-form" novalidate>
+                <div class="input-group">
+                    <input type="text" id="codigo" class="codigo-acceso" inputmode="numeric" autocomplete="one-time-code"
+                           maxlength="6" placeholder="••••••" aria-label="Código de 6 dígitos" required>
+                    <span id="error-codigo" class="error-text" role="alert"></span>
+                </div>
+                <button type="submit" id="btn-verificar" class="btn-primary">Entrar</button>
+            </form>
+
+            <div id="aviso" class="success-message" role="status"></div>
+
+            <div class="acceso-opciones">
+                <button type="button" id="btn-reenviar" class="enlace-acceso">Reenviar código</button>
+                <button type="button" id="btn-otro-metodo" class="enlace-acceso" hidden></button>
+            </div>
+
+            <div class="login-footer">
+                <hr class="divider">
+                <a href="/" class="back-link">← Volver a iniciar sesión</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="/VerificarAcceso-script.js"></script>
+</body>
+</html>

@@ -473,17 +473,22 @@ app.post('/login', async (req, res) => {
         // Comparar contraseñas
         const match = await bcrypt.compare(password, usuario.contrasena);
         if (match) {
-            // regenerate() crea un ID de sesión nuevo al entrar (evita que
-            // alguien reutilice un ID viejo para hacerse pasar por el usuario)
-            req.session.regenerate((err) => {
+            // Contraseña correcta = paso 1 de 2. Todavía NO entra: queda "pendiente"
+            // hasta que escriba el código que le mandamos (ver "DOBLE AUTENTICACIÓN").
+            // regenerate() crea un ID de sesión nuevo (evita que alguien reutilice uno viejo).
+            req.session.regenerate(async (err) => {
                 if (err) {
                     console.error('Error creando sesión:', err.message);
                     return res.redirect('/?error=' + encodeURIComponent('Ocurrió un error, intenta de nuevo.') + '&field=email');
                 }
-                req.session.idUsuario = usuario.id_usuario;
-                req.session.apodo = usuario.apodo || usuario.nombre;
-                req.session.foto = usuario.foto_perfil || null;
-                req.session.save(() => res.redirect('/feed'));
+                req.session.accesoPendiente = { idUsuario: usuario.id_usuario, inicio: Date.now() };
+                try {
+                    await mandarCodigoAcceso(req, 'correo');
+                } catch (errorEnvio) {
+                    // Se queda en la pantalla del código; desde ahí puede reenviar o pedirlo por SMS
+                    req.session.accesoPendiente.errorEnvio = errorEnvio.mensaje || 'No se pudo mandar el código. Intenta reenviarlo.';
+                }
+                req.session.save(() => res.redirect('/verificar-acceso'));
             });
         } else {
             res.redirect('/?error=' + encodeURIComponent('Contraseña incorrecta.') + '&field=password');
@@ -1557,6 +1562,174 @@ app.delete('/api/telefono', requiereSesionApi, async (req, res) => {
     } catch (err) {
         console.error('Error quitando teléfono:', err.message);
         res.status(500).json({ error: 'No se pudo quitar el teléfono.' });
+    }
+});
+
+// =========================================================
+// DOBLE AUTENTICACIÓN (código al iniciar sesión)
+// =========================================================
+// 1) /login revisa correo y contraseña y deja la sesión "pendiente" (sin idUsuario).
+// 2) Le mandamos un código de 6 dígitos al correo (siempre) o por SMS (si ya
+//    verificó su teléfono en el perfil).
+// 3) /api/acceso/verificar revisa el código y, si es correcto, ahora sí inicia la sesión.
+// El código caduca en 10 minutos y tiene 5 intentos; todo el proceso, en 15 minutos.
+
+const ACCESO_DURA_MS = 15 * 60 * 1000;
+const enviosAcceso = new Map(); // idUsuario -> fechas de los envíos de la última hora
+
+// "diego@gmail.com" -> "d•••o@gmail.com"
+function ocultarCorreo(correo) {
+    const [nombre, dominio] = String(correo).split('@');
+    if (!dominio) return '•••';
+    const visible = nombre.length <= 2 ? nombre[0] : `${nombre[0]}•••${nombre.at(-1)}`;
+    return `${visible}@${dominio}`;
+}
+
+// El inicio de sesión pendiente (o null si no hay / ya caducó)
+function accesoPendiente(req) {
+    const pendiente = req.session.accesoPendiente;
+    if (!pendiente) return null;
+    if (Date.now() - pendiente.inicio > ACCESO_DURA_MS) {
+        delete req.session.accesoPendiente;
+        return null;
+    }
+    return pendiente;
+}
+
+const errorAcceso = (status, mensaje) => Object.assign(new Error(mensaje), { status, mensaje });
+
+// Genera un código nuevo y lo manda por 'correo' o 'sms'. Devuelve a dónde se mandó (oculto).
+async function mandarCodigoAcceso(req, metodo) {
+    const pendiente = req.session.accesoPendiente;
+    const id = pendiente.idUsuario;
+
+    if (pendiente.enviado && Date.now() - pendiente.enviado < 60 * 1000) {
+        throw errorAcceso(429, 'Espera un minuto antes de pedir otro código.');
+    }
+    const recientes = (enviosAcceso.get(id) || []).filter((t) => Date.now() - t < 60 * 60 * 1000);
+    if (recientes.length >= 6) throw errorAcceso(429, 'Ya pediste muchos códigos. Intenta de nuevo en una hora.');
+
+    const usuario = (await db.query('SELECT email, nombre, telefono FROM usuarios WHERE id_usuario = $1', [id])).rows[0];
+    if (!usuario) throw errorAcceso(401, 'Tu cuenta ya no existe.');
+
+    const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    let destino;
+    if (metodo === 'sms') {
+        if (!usuario.telefono) throw errorAcceso(400, 'No tienes un teléfono verificado. Agrégalo en tu perfil.');
+        if (!SMS_LISTO) throw errorAcceso(503, 'Los SMS no están disponibles por ahora. Usa el correo.');
+        try {
+            await enviarSms(usuario.telefono, `Tu código para entrar a Oniria es ${codigo}. Caduca en 10 minutos. Si no fuiste tú, cambia tu contraseña.`);
+        } catch (err) {
+            console.error('Error mandando SMS de acceso:', err.message);
+            throw errorAcceso(502, 'No se pudo mandar el SMS. Prueba con el correo.');
+        }
+        destino = ocultarTelefono(usuario.telefono);
+    } else {
+        metodo = 'correo';
+        try {
+            await enviarCorreo({
+                to: usuario.email,
+                subject: `${codigo} es tu código para entrar a Oniria`,
+                text: `Hola ${usuario.nombre}, tu código para iniciar sesión en Oniria es: ${codigo}\n\nCaduca en 10 minutos. Si no fuiste tú, alguien conoce tu contraseña: cámbiala en ${BASE_URL}/olvide-contrasena`,
+                html: `<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;text-align:center">
+                    <h2 style="margin:0 0 8px;color:#7c4ddb">Oniria</h2>
+                    <p>Hola ${String(usuario.nombre).replace(/</g, '&lt;')}, tu código para iniciar sesión es:</p>
+                    <p style="font-size:32px;font-weight:bold;letter-spacing:8px;margin:16px 0">${codigo}</p>
+                    <p style="color:#666;font-size:13px">Caduca en 10 minutos. Si no fuiste tú, alguien conoce tu contraseña:
+                    <a href="${BASE_URL}/olvide-contrasena">cámbiala aquí</a>.</p></div>`
+            });
+        } catch (err) {
+            console.error('Error mandando correo de acceso:', err.message);
+            throw errorAcceso(502, 'No se pudo mandar el correo. Intenta de nuevo en un momento.');
+        }
+        destino = ocultarCorreo(usuario.email);
+    }
+
+    enviosAcceso.set(id, [...recientes, Date.now()]);
+    Object.assign(pendiente, { metodo, destino, hash: hashCodigo(codigo, `acceso-${id}`), enviado: Date.now(), intentos: 0 });
+    delete pendiente.errorEnvio;
+    return destino;
+}
+
+// Pantalla para escribir el código
+app.get('/verificar-acceso', (req, res) => {
+    if (req.session.idUsuario) return res.redirect('/feed');
+    if (!accesoPendiente(req)) return res.redirect('/?error=' + encodeURIComponent('Tu inicio de sesión caducó. Vuelve a entrar.') + '&field=email');
+    res.sendFile(path.join(__dirname, 'VerificarAcceso.html'));
+});
+
+// A dónde se mandó el código y qué otros métodos tiene
+app.get('/api/acceso', async (req, res) => {
+    const pendiente = accesoPendiente(req);
+    if (!pendiente) return res.status(401).json({ error: 'Tu inicio de sesión caducó. Vuelve a entrar.' });
+    try {
+        const usuario = (await db.query('SELECT email, telefono FROM usuarios WHERE id_usuario = $1', [pendiente.idUsuario])).rows[0];
+        if (!usuario) return res.status(401).json({ error: 'Tu cuenta ya no existe.' });
+        res.json({
+            metodo: pendiente.hash ? pendiente.metodo : null,
+            destino: pendiente.destino || null,
+            error: pendiente.errorEnvio || null,
+            metodos: {
+                correo: ocultarCorreo(usuario.email),
+                sms: usuario.telefono && SMS_LISTO ? ocultarTelefono(usuario.telefono) : null
+            }
+        });
+    } catch (err) {
+        console.error('Error en /api/acceso:', err.message);
+        res.status(500).json({ error: 'Ocurrió un error, intenta de nuevo.' });
+    }
+});
+
+// Mandar (o reenviar) el código por correo o SMS
+app.post('/api/acceso/enviar', async (req, res) => {
+    if (!accesoPendiente(req)) return res.status(401).json({ error: 'Tu inicio de sesión caducó. Vuelve a entrar.' });
+    try {
+        const destino = await mandarCodigoAcceso(req, req.body.metodo === 'sms' ? 'sms' : 'correo');
+        res.json({ ok: true, metodo: req.session.accesoPendiente.metodo, destino });
+    } catch (err) {
+        if (!err.status) console.error('Error mandando código de acceso:', err.message);
+        res.status(err.status || 500).json({ error: err.mensaje || 'No se pudo mandar el código.' });
+    }
+});
+
+// Revisar el código: si es correcto, ahora sí se inicia la sesión
+app.post('/api/acceso/verificar', async (req, res) => {
+    const pendiente = accesoPendiente(req);
+    if (!pendiente) return res.status(401).json({ error: 'Tu inicio de sesión caducó. Vuelve a entrar.' });
+    if (!pendiente.hash) return res.status(400).json({ error: 'Primero pide un código.' });
+    if (Date.now() - pendiente.enviado > CODIGO_DURA_MS) return res.status(400).json({ error: 'El código caducó. Pide uno nuevo.' });
+
+    const codigo = String(req.body.codigo || '').replace(/\D/g, '');
+    if (codigo.length !== 6) return res.status(400).json({ error: 'El código tiene 6 dígitos.' });
+
+    const correcto = crypto.timingSafeEqual(Buffer.from(hashCodigo(codigo, `acceso-${pendiente.idUsuario}`)), Buffer.from(pendiente.hash));
+    if (!correcto) {
+        pendiente.intentos += 1;
+        if (pendiente.intentos >= CODIGO_INTENTOS) {
+            delete req.session.accesoPendiente;
+            return res.status(401).json({ error: 'Demasiados intentos. Vuelve a iniciar sesión.' });
+        }
+        const quedan = CODIGO_INTENTOS - pendiente.intentos;
+        return res.status(400).json({ error: `El código no es correcto. Te ${quedan === 1 ? 'queda 1 intento' : `quedan ${quedan} intentos`}.` });
+    }
+
+    try {
+        const usuario = (await db.query('SELECT id_usuario, apodo, nombre, foto_perfil FROM usuarios WHERE id_usuario = $1', [pendiente.idUsuario])).rows[0];
+        if (!usuario) return res.status(401).json({ error: 'Tu cuenta ya no existe.' });
+        // Sesión nueva y completa (otro ID distinto al del paso 1)
+        req.session.regenerate((err) => {
+            if (err) {
+                console.error('Error creando sesión:', err.message);
+                return res.status(500).json({ error: 'Ocurrió un error, intenta de nuevo.' });
+            }
+            req.session.idUsuario = usuario.id_usuario;
+            req.session.apodo = usuario.apodo || usuario.nombre;
+            req.session.foto = usuario.foto_perfil || null;
+            req.session.save(() => res.json({ ok: true, ir: '/feed' }));
+        });
+    } catch (err) {
+        console.error('Error completando el inicio de sesión:', err.message);
+        res.status(500).json({ error: 'Ocurrió un error, intenta de nuevo.' });
     }
 });
 

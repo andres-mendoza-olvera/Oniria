@@ -1,0 +1,42 @@
+/* =========================================
+   CÓDIGO DE ACCESO (doble autenticación)
+   Se carga después de LogIn.css y OlvideContrasena.css
+   ========================================= */
+
+/* Casilla grande para los 6 dígitos */
+.input-group input.codigo-acceso {
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.5em;
+    padding-left: calc(14px + 0.5em); /* compensa el espacio del último dígito */
+    font-variant-numeric: tabular-nums;
+}
+
+.acceso-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 20px;
+    margin-top: 16px;
+}
+
+.enlace-acceso {
+    background: none;
+    border: none;
+    padding: 4px 0;
+    color: var(--color-primary);
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.enlace-acceso:hover:not(:disabled) { color: var(--color-accent); text-decoration: underline; }
+.enlace-acceso:disabled { color: var(--text-muted); cursor: default; }
+
+.btn-primary:disabled { opacity: 0.7; cursor: default; transform: none; }
+
+#aviso.error {
+    background-color: rgba(255, 77, 106, 0.1);
+    border-color: rgba(255, 77, 106, 0.35);
+}

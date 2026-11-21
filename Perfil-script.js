@@ -498,7 +498,7 @@ $('btn-tel-verificar').addEventListener('click', () => botonOcupado($('btn-tel-v
         const r = await api('/api/telefono/verificar', { method: 'POST', body: JSON.stringify({ codigo: $('tel-codigo').value }) });
         estado.perfil.telefono = r.telefono;
         pintarTelefono('verificado');
-        mensajeTelefono('¡Listo! Tu teléfono quedó verificado.', true);
+        mensajeTelefono('¡Listo! Tu teléfono quedó verificado. Ya puedes recibir por SMS el código para iniciar sesión.', true);
     } catch (err) {
         mensajeTelefono(err.message);
     }
