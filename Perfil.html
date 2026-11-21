@@ -172,7 +172,7 @@
 
                     <!-- Ya verificado -->
                     <div id="tel-verificado" class="tel-verificado" hidden>
-                        <span class="icono icono-sm" data-icono="telefono"></span>
+                        <img id="tel-bandera" class="bandera" alt="" width="22" height="16" hidden>
                         <span id="tel-numero"></span>
                         <span class="tel-insignia"><span class="icono icono-xs" data-icono="check"></span>Verificado</span>
                         <button type="button" id="btn-tel-quitar" class="btn-amistad">Quitar</button>
@@ -180,11 +180,25 @@
 
                     <!-- Paso 1: escribir el número y elegir por dónde llega el código -->
                     <div id="tel-paso-numero" class="tel-paso">
-                        <div class="campo"><input type="tel" id="tel-input" placeholder="55 1234 5678" autocomplete="tel" maxlength="20" aria-label="Número de teléfono"></div>
+                        <div class="tel-entrada">
+                            <!-- Selector de país: bandera + lada -->
+                            <div class="pais-selector" id="pais-selector">
+                                <button type="button" id="btn-pais" class="pais-boton" aria-haspopup="listbox" aria-expanded="false" aria-label="País">
+                                    <img id="pais-bandera" class="bandera" alt="" width="22" height="16">
+                                    <span id="pais-lada">+52</span>
+                                    <span class="icono icono-xs" data-icono="abajo"></span>
+                                </button>
+                                <div id="pais-menu" class="pais-menu" hidden>
+                                    <input type="search" id="pais-buscar" class="pais-buscar" placeholder="Buscar país o lada…" autocomplete="off" aria-label="Buscar país">
+                                    <ul id="pais-lista" class="pais-lista" role="listbox" aria-label="Países"></ul>
+                                </div>
+                            </div>
+                            <input type="tel" id="tel-input" class="tel-numero-input" placeholder="55 1234 5678" autocomplete="tel-national" inputmode="numeric" maxlength="20" aria-label="Número de teléfono">
+                        </div>
                         <div class="tel-botones">
                             <button type="button" id="btn-tel-enviar" class="btn-amistad">Enviarme un código por SMS</button>
                         </div>
-                        <small class="tel-ayuda">10 dígitos si es de México; de otro país, empieza con + y la lada.</small>
+                        <small class="tel-ayuda" id="tel-ayuda">Escribe tu número de 10 dígitos, sin la lada.</small>
                     </div>
 
                     <!-- Paso 2: escribir el código -->

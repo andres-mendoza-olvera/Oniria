@@ -293,6 +293,154 @@ function abrirEditar() {
 // Teléfono: código por SMS (se guarda solo al verificar,
 // no depende del botón "Guardar")
 // ---------------------------------------------------------
+// Países del selector: [código ISO, nombre, lada, dígitos del número (sin lada), ejemplo]
+// México va primero porque es el de casi todos.
+const PAISES = [
+    ['mx', 'México', '52', 10, '55 1234 5678'],
+    ['us', 'Estados Unidos', '1', 10, '201 555 0123'],
+    ['ca', 'Canadá', '1', 10, '204 555 0123'],
+    ['gt', 'Guatemala', '502', 8, '5123 4567'],
+    ['sv', 'El Salvador', '503', 8, '7012 3456'],
+    ['hn', 'Honduras', '504', 8, '9123 4567'],
+    ['ni', 'Nicaragua', '505', 8, '8123 4567'],
+    ['cr', 'Costa Rica', '506', 8, '8312 3456'],
+    ['pa', 'Panamá', '507', 8, '6123 4567'],
+    ['cu', 'Cuba', '53', 8, '5123 4567'],
+    ['do', 'República Dominicana', '1', 10, '809 234 5678'],
+    ['pr', 'Puerto Rico', '1', 10, '787 234 5678'],
+    ['co', 'Colombia', '57', 10, '321 123 4567'],
+    ['ve', 'Venezuela', '58', 10, '412 123 4567'],
+    ['ec', 'Ecuador', '593', 9, '99 123 4567'],
+    ['pe', 'Perú', '51', 9, '912 345 678'],
+    ['bo', 'Bolivia', '591', 8, '7123 4567'],
+    ['cl', 'Chile', '56', 9, '9 6123 4567'],
+    ['ar', 'Argentina', '54', 11, '9 11 2345 6789'],
+    ['uy', 'Uruguay', '598', 8, '9412 3456'],
+    ['py', 'Paraguay', '595', 9, '961 456 789'],
+    ['br', 'Brasil', '55', 11, '11 96123 4567'],
+    ['es', 'España', '34', 9, '612 34 56 78'],
+    ['fr', 'Francia', '33', 9, '6 12 34 56 78'],
+    ['de', 'Alemania', '49', 11, '1512 3456789'],
+    ['it', 'Italia', '39', 10, '312 345 6789'],
+    ['gb', 'Reino Unido', '44', 10, '7400 123456'],
+    ['pt', 'Portugal', '351', 9, '912 345 678'],
+    ['jp', 'Japón', '81', 10, '90 1234 5678'],
+    ['cn', 'China', '86', 11, '131 2345 6789'],
+    ['kr', 'Corea del Sur', '82', 10, '10 2345 6789']
+].map(([iso, nombre, lada, digitos, ejemplo]) => ({ iso, nombre, lada, digitos, ejemplo }));
+
+const urlBandera = (iso) => `https://flagcdn.com/w40/${iso}.png`;
+let paisElegido = PAISES[0];
+
+function elegirPais(pais, { enfocar = true } = {}) {
+    paisElegido = pais;
+    $('pais-bandera').src = urlBandera(pais.iso);
+    $('pais-bandera').alt = pais.nombre;
+    $('pais-lada').textContent = `+${pais.lada}`;
+    $('btn-pais').title = pais.nombre;
+    $('tel-input').placeholder = pais.ejemplo;
+    $('tel-input').maxLength = pais.digitos + 6; // deja lugar para espacios
+    $('tel-ayuda').textContent = `Escribe tu número de ${pais.digitos} dígitos, sin la lada (+${pais.lada}).`;
+    cerrarPaises();
+    if (enfocar) $('tel-input').focus();
+}
+
+function pintarPaises(filtro = '') {
+    const texto = filtro.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^\+/, '');
+    const visibles = PAISES.filter((p) => !texto
+        || p.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(texto)
+        || p.lada.startsWith(texto));
+    $('pais-lista').replaceChildren(...(visibles.length ? visibles.map((p) => {
+        const item = crear('li', {
+            role: 'option', tabindex: '-1', class: 'pais-item',
+            'aria-selected': p === paisElegido ? 'true' : 'false'
+        },
+            crear('img', { class: 'bandera', src: urlBandera(p.iso), alt: '', width: '22', height: '16', loading: 'lazy' }),
+            crear('span', { class: 'pais-nombre', text: p.nombre }),
+            crear('span', { class: 'pais-codigo', text: `+${p.lada}` }));
+        item.addEventListener('click', () => elegirPais(p));
+        item.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); elegirPais(p); }
+        });
+        return item;
+    }) : [crear('li', { class: 'pais-vacio', text: 'Sin resultados' })]));
+}
+
+function abrirPaises() {
+    $('pais-buscar').value = '';
+    pintarPaises();
+    $('pais-menu').hidden = false;
+    $('btn-pais').setAttribute('aria-expanded', 'true');
+    $('pais-buscar').focus();
+    $('pais-lista').querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+}
+
+function cerrarPaises() {
+    $('pais-menu').hidden = true;
+    $('btn-pais').setAttribute('aria-expanded', 'false');
+}
+
+$('btn-pais').addEventListener('click', () => ($('pais-menu').hidden ? abrirPaises() : cerrarPaises()));
+$('pais-buscar').addEventListener('input', (e) => pintarPaises(e.target.value));
+$('pais-buscar').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { // Enter elige el primero de la lista
+        e.preventDefault();
+        $('pais-lista').querySelector('.pais-item')?.click();
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        $('pais-lista').querySelector('.pais-item')?.focus();
+    }
+});
+$('pais-lista').addEventListener('keydown', (e) => {
+    const actual = document.activeElement;
+    if (e.key === 'ArrowDown') { e.preventDefault(); actual.nextElementSibling?.focus(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); (actual.previousElementSibling || $('pais-buscar')).focus(); }
+});
+$('pais-selector').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('pais-menu').hidden) {
+        e.preventDefault();
+        e.stopPropagation(); // que Escape no cierre toda la ventana de "Editar perfil"
+        cerrarPaises();
+        $('btn-pais').focus();
+    }
+});
+document.addEventListener('click', (e) => {
+    if (!$('pais-menu').hidden && !$('pais-selector').contains(e.target)) cerrarPaises();
+});
+
+// Si pegan el número completo con "+lada", se elige el país solo y se deja el resto
+$('tel-input').addEventListener('input', (e) => {
+    const valor = e.target.value;
+    if (!valor.trim().startsWith('+')) return;
+    const digitos = valor.replace(/\D/g, '');
+    const pais = paisDeNumero('+' + digitos);
+    if (pais) {
+        elegirPais(pais, { enfocar: false });
+        let resto = digitos.slice(pais.lada.length);
+        if (pais.iso === 'mx' && resto.length === 11 && resto.startsWith('1')) resto = resto.slice(1); // el "1" viejo de celulares
+        e.target.value = resto;
+    }
+});
+
+// El país de un número completo (+52...): la lada más larga que coincida.
+// Para la lada +1 se queda con el país que ya estaba elegido si también es +1.
+function paisDeNumero(numero) {
+    const digitos = String(numero || '').replace(/\D/g, '');
+    const candidatos = PAISES.filter((p) => digitos.startsWith(p.lada)).sort((a, b) => b.lada.length - a.lada.length);
+    if (!candidatos.length) return null;
+    const mejor = candidatos.filter((p) => p.lada === candidatos[0].lada);
+    return mejor.find((p) => p === paisElegido) || mejor[0];
+}
+
+// Número completo para mandar al servidor: +lada + número
+function numeroCompleto() {
+    let digitos = $('tel-input').value.replace(/\D/g, '');
+    if (digitos.startsWith(paisElegido.lada) && digitos.length > paisElegido.digitos) digitos = digitos.slice(paisElegido.lada.length);
+    return digitos ? `+${paisElegido.lada}${digitos}` : '';
+}
+
+elegirPais(PAISES[0], { enfocar: false });
+
 function mensajeTelefono(texto, ok = false) {
     $('tel-mensaje').textContent = texto || '';
     $('tel-mensaje').classList.toggle('ok', ok);
@@ -305,7 +453,15 @@ function pintarTelefono(paso) {
     $('tel-verificado').hidden = paso !== 'verificado';
     $('tel-paso-numero').hidden = paso !== 'numero';
     $('tel-paso-codigo').hidden = paso !== 'codigo';
-    if (tel) $('tel-numero').textContent = tel;
+    if (tel) {
+        // "+52 55 1234 5678" con su bandera
+        const pais = paisDeNumero(tel);
+        const nacional = pais ? tel.slice(pais.lada.length + 1) : tel;
+        const bonito = nacional.length === 10 ? nacional.replace(/^(\d{2})(\d{4})(\d{4})$/, '$1 $2 $3') : nacional;
+        $('tel-numero').textContent = pais ? `+${pais.lada} ${bonito}` : tel;
+        $('tel-bandera').hidden = !pais;
+        if (pais) { $('tel-bandera').src = urlBandera(pais.iso); $('tel-bandera').alt = pais.nombre; }
+    }
     if (paso !== 'codigo') mensajeTelefono('');
 }
 
@@ -319,7 +475,9 @@ async function botonOcupado(boton, texto, tarea) {
 $('btn-tel-enviar').addEventListener('click', () => botonOcupado($('btn-tel-enviar'), 'Enviando…', async () => {
     mensajeTelefono('');
     try {
-        const r = await api('/api/telefono/enviar', { method: 'POST', body: JSON.stringify({ telefono: $('tel-input').value }) });
+        const telefono = numeroCompleto();
+        if (!telefono) throw new Error('Escribe tu número de teléfono.');
+        const r = await api('/api/telefono/enviar', { method: 'POST', body: JSON.stringify({ telefono }) });
         $('tel-enviado').textContent = `Te mandamos un SMS con un código de 6 dígitos al ${r.telefono}. Caduca en 10 minutos.`;
         $('tel-codigo').value = '';
         pintarTelefono('codigo');
