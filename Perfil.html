@@ -164,7 +164,44 @@
                     <span>Biografía <small id="contador-bio">0/200</small></span>
                     <textarea id="editar-bio" maxlength="200" rows="3" placeholder="Cuéntale a los demás algo de ti…"></textarea>
                 </label>
-                <p class="campo-correo"><span class="icono icono-xs" data-icono="sobre"></span> <span id="editar-correo"></span> <small>(privado)</small></p>
+                <!-- Correo: para cambiarlo se verifica el nuevo con un código (independiente de "Guardar") -->
+                <div class="telefono" id="correo">
+                    <div class="campo"><span>Correo <small>(privado)</small></span></div>
+
+                    <div id="correo-actual" class="tel-verificado">
+                        <span class="icono icono-sm" data-icono="sobre"></span>
+                        <span id="editar-correo" class="correo-texto"></span>
+                        <span class="tel-insignia"><span class="icono icono-xs" data-icono="check"></span>Verificado</span>
+                        <button type="button" id="btn-correo-cambiar" class="btn-amistad">Cambiar</button>
+                    </div>
+
+                    <!-- Paso 1: escribir el correo nuevo -->
+                    <div id="correo-paso-nuevo" class="tel-paso" hidden>
+                        <div class="campo"><input type="email" id="correo-nuevo" placeholder="tu-correo-nuevo@ejemplo.com" autocomplete="email" maxlength="100" aria-label="Correo nuevo"></div>
+                        <div class="tel-botones">
+                            <button type="button" id="btn-correo-enviar" class="btn-amistad">Enviar código al correo nuevo</button>
+                        </div>
+                        <div class="tel-enlaces">
+                            <small class="tel-ayuda">Tu correo solo cambia cuando verifiques el nuevo.</small>
+                            <button type="button" class="enlace-tel enlace-tel-gris js-correo-cancelar">Cancelar</button>
+                        </div>
+                    </div>
+
+                    <!-- Paso 2: escribir el código -->
+                    <div id="correo-paso-codigo" class="tel-paso" hidden>
+                        <small class="tel-ayuda" id="correo-enviado"></small>
+                        <div class="tel-botones">
+                            <div class="campo tel-codigo"><input type="text" id="correo-codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Código" aria-label="Código del correo nuevo"></div>
+                            <button type="button" id="btn-correo-verificar" class="btn-amistad principal">Verificar</button>
+                        </div>
+                        <div class="tel-enlaces">
+                            <button type="button" id="btn-correo-otro" class="enlace-tel">Cambiar correo o reenviar</button>
+                            <button type="button" class="enlace-tel enlace-tel-gris js-correo-cancelar">Cancelar cambio</button>
+                        </div>
+                    </div>
+
+                    <p id="correo-mensaje" class="chat-error" role="alert" hidden></p>
+                </div>
 
                 <!-- Teléfono: se verifica con un código por SMS (independiente de "Guardar") -->
                 <div class="telefono" id="telefono">
@@ -217,6 +254,33 @@
 
                     <p id="tel-mensaje" class="chat-error" role="alert" hidden></p>
                 </div>
+
+                <!-- Por dónde llegan los códigos de inicio de sesión y los avisos (se guarda con "Guardar") -->
+                <fieldset class="preferencias">
+                    <legend>Códigos y avisos</legend>
+                    <small class="tel-ayuda">¿Por dónde quieres recibir el código para iniciar sesión y los avisos?</small>
+                    <div class="opciones-canal" role="radiogroup" aria-label="Canal preferido">
+                        <label class="opcion-canal">
+                            <input type="radio" name="canal" value="correo" id="canal-correo">
+                            <span><span class="icono icono-sm" data-icono="sobre"></span>Correo</span>
+                        </label>
+                        <label class="opcion-canal">
+                            <input type="radio" name="canal" value="sms" id="canal-sms">
+                            <span><span class="icono icono-sm" data-icono="telefono"></span>SMS</span>
+                        </label>
+                    </div>
+                    <small class="tel-ayuda" id="canal-sms-ayuda" hidden>Para elegir SMS, primero verifica tu teléfono aquí arriba.</small>
+
+                    <span class="preferencias-sub">Avisarme cuando…</span>
+                    <label class="interruptor">
+                        <input type="checkbox" id="notif-solicitudes">
+                        <span>Alguien me manda o acepta una solicitud de amistad</span>
+                    </label>
+                    <label class="interruptor">
+                        <input type="checkbox" id="notif-publicaciones">
+                        <span>Un amigo publica un sueño</span>
+                    </label>
+                </fieldset>
 
                 <p id="error-editar" class="chat-error" role="alert" hidden></p>
             </div>

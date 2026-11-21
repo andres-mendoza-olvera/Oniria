@@ -64,6 +64,10 @@ app.use(session({
     }
 }));
 
+// Correos siempre en minúsculas y sin espacios: "Ana@X.com " = "ana@x.com" (una sola cuenta)
+const normalizarCorreo = (texto) => String(texto || '').trim().toLowerCase();
+const correoValido = (correo) => correo.length <= 100 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo);
+
 // Bloquea rutas para quien no ha iniciado sesión
 function requiereSesion(req, res, next) {
     if (req.session.idUsuario) return next();
@@ -273,7 +277,7 @@ app.get('/privacidad', (req, res) => res.sendFile(path.join(__dirname, 'Privacid
 
 // 1) El usuario escribe su correo -> si existe, le mandamos un enlace
 app.post('/olvide-contrasena', async (req, res) => {
-    const { email } = req.body;
+    const email = normalizarCorreo(req.body.email);
     const urlError = (msg) => '/olvide-contrasena?error=' + encodeURIComponent(msg);
 
     try {
@@ -361,7 +365,11 @@ app.post('/restablecer/:token', async (req, res) => {
 
 // Procesar Registro
 app.post('/registro', async (req, res) => {
-    const { nombre, apodo, email, password } = req.body;
+    const { nombre, apodo, password } = req.body;
+    const email = normalizarCorreo(req.body.email);
+    if (!correoValido(email)) {
+        return res.redirect('/registro?error=' + encodeURIComponent('Escribe un correo válido.') + '&field=email');
+    }
 
     // Misma regla que en recuperar contraseña (por si alguien se salta el HTML)
     if (!password || password.length < 6) {
@@ -459,7 +467,8 @@ app.get('/verificar/:token', async (req, res) => {
 
 // Procesar Login
 app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = normalizarCorreo(req.body.email);
 
     try {
         const resultado = await db.query('SELECT * FROM usuarios WHERE email = $1', [email]);
@@ -483,7 +492,14 @@ app.post('/login', async (req, res) => {
                 }
                 req.session.accesoPendiente = { idUsuario: usuario.id_usuario, inicio: Date.now() };
                 try {
-                    await mandarCodigoAcceso(req, 'correo');
+                    // Por su canal preferido; si el SMS falla, por correo
+                    const preferido = usuario.canal_preferido === 'sms' && usuario.telefono ? 'sms' : 'correo';
+                    try {
+                        await mandarCodigoAcceso(req, preferido);
+                    } catch (errorSms) {
+                        if (preferido !== 'sms') throw errorSms;
+                        await mandarCodigoAcceso(req, 'correo');
+                    }
                 } catch (errorEnvio) {
                     // Se queda en la pantalla del código; desde ahí puede reenviar o pedirlo por SMS
                     req.session.accesoPendiente.errorEnvio = errorEnvio.mensaje || 'No se pudo mandar el código. Intenta reenviarlo.';
@@ -946,6 +962,9 @@ app.post('/api/sueno/publicar', requiereSesionApi, async (req, res) => {
         const bloqueados = await bloqueosDe(idUsuario).catch(() => new Set());
         emitir('publicacion-actualizada', { id_publicacion: idPublicacion, estado: 'listo', id_usuario: idUsuario },
             (c) => !bloqueados.has(c.idUsuario));
+        // Aviso por correo/SMS a sus amigos (en segundo plano)
+        notificarPublicacion(idUsuario, req.session.apodo, b.titulo)
+            .catch((err) => console.error('Error notificando publicación:', err.message));
     } catch (err) {
         await cliente.query('ROLLBACK').catch(() => {});
         console.error('Error publicando el sueño:', err.message);
@@ -1342,6 +1361,7 @@ app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
         const resultado = await db.query(
             `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.apodo AS apodo_original,
                     u.nombre, u.email, u.foto_perfil, u.biografia, u.telefono, u.telefono_canal,
+                    u.canal_preferido, u.notif_solicitudes, u.notif_publicaciones,
                     (SELECT COUNT(*)::int FROM publicaciones p WHERE p.id_usuario = u.id_usuario AND p.estado = 'listo') AS total_suenos,
                     (SELECT COUNT(*)::int FROM amistades a WHERE a.estado = 'aceptada'
                         AND (a.id_solicitante = u.id_usuario OR a.id_destinatario = u.id_usuario)) AS total_amigos
@@ -1365,7 +1385,11 @@ app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
             // Datos privados: solo para mí
             ...(esYo ? {
                 nombre: perfil.nombre, email: perfil.email, apodo_editable: perfil.apodo_original || '',
-                telefono: perfil.telefono, telefono_canal: perfil.telefono_canal
+                telefono: perfil.telefono, telefono_canal: perfil.telefono_canal,
+                canal_preferido: perfil.canal_preferido,
+                notif_solicitudes: perfil.notif_solicitudes,
+                notif_publicaciones: perfil.notif_publicaciones,
+                sms_disponible: SMS_LISTO
             } : {})
         });
     } catch (err) {
@@ -1402,6 +1426,9 @@ app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) =>
     const nombre = String(req.body.nombre || '').trim();
     const biografia = String(req.body.biografia || '').trim();
     const quitarFoto = req.body.quitar_foto === '1';
+    const canal = req.body.canal_preferido === 'sms' ? 'sms' : 'correo';
+    const notifSolicitudes = req.body.notif_solicitudes !== '0';
+    const notifPublicaciones = req.body.notif_publicaciones !== '0';
 
     if (apodo.length < 2 || apodo.length > 30) return res.status(400).json({ error: 'El apodo debe tener entre 2 y 30 caracteres.' });
     if (nombre.length < 2 || nombre.length > 80) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 80 caracteres.' });
@@ -1409,8 +1436,11 @@ app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) =>
 
     let nuevaFoto = null;
     try {
-        const anterior = (await db.query('SELECT foto_perfil FROM usuarios WHERE id_usuario = $1', [yo])).rows[0];
+        const anterior = (await db.query('SELECT foto_perfil, telefono FROM usuarios WHERE id_usuario = $1', [yo])).rows[0];
         if (!anterior) return res.status(404).json({ error: 'Usuario no encontrado.' });
+        if (canal === 'sms' && !anterior.telefono) {
+            return res.status(400).json({ error: 'Para elegir SMS primero verifica tu teléfono.' });
+        }
 
         if (req.file) {
             const extension = { 'image/png': 'png', 'image/webp': 'webp' }[req.file.mimetype] || 'jpg';
@@ -1419,8 +1449,10 @@ app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) =>
         const foto = nuevaFoto || (quitarFoto ? null : anterior.foto_perfil);
 
         await db.query(
-            'UPDATE usuarios SET apodo = $1, nombre = $2, biografia = $3, foto_perfil = $4 WHERE id_usuario = $5',
-            [apodo, nombre, biografia || null, foto, yo]
+            `UPDATE usuarios SET apodo = $1, nombre = $2, biografia = $3, foto_perfil = $4,
+                    canal_preferido = $5, notif_solicitudes = $6, notif_publicaciones = $7
+             WHERE id_usuario = $8`,
+            [apodo, nombre, biografia || null, foto, canal, notifSolicitudes, notifPublicaciones, yo]
         );
         // La foto vieja ya no se usa: se borra de Storage
         if (anterior.foto_perfil && anterior.foto_perfil !== foto) borrarImagenesStorage([anterior.foto_perfil]);
@@ -1556,7 +1588,12 @@ app.post('/api/telefono/verificar', requiereSesionApi, async (req, res) => {
 // 3) Quitar mi teléfono
 app.delete('/api/telefono', requiereSesionApi, async (req, res) => {
     try {
-        await db.query('UPDATE usuarios SET telefono = NULL, telefono_canal = NULL, telefono_verificado_en = NULL WHERE id_usuario = $1', [req.session.idUsuario]);
+        // Sin teléfono, los códigos y avisos vuelven a llegar por correo
+        await db.query(
+            `UPDATE usuarios SET telefono = NULL, telefono_canal = NULL, telefono_verificado_en = NULL, canal_preferido = 'correo'
+             WHERE id_usuario = $1`,
+            [req.session.idUsuario]
+        );
         delete req.session.telefonoPendiente;
         res.json({ ok: true });
     } catch (err) {
@@ -1564,6 +1601,172 @@ app.delete('/api/telefono', requiereSesionApi, async (req, res) => {
         res.status(500).json({ error: 'No se pudo quitar el teléfono.' });
     }
 });
+
+// =========================================================
+// CAMBIAR EL CORREO (con código enviado al correo NUEVO)
+// =========================================================
+// El correo solo cambia cuando la persona escribe el código que llegó al nuevo;
+// si no lo verifica, se queda el de antes. Mientras tanto vive en la sesión.
+
+const enviosCorreo = new Map(); // idUsuario -> fechas de los envíos de la última hora
+
+app.post('/api/correo/enviar', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const correo = normalizarCorreo(req.body.correo);
+    if (!correoValido(correo)) return res.status(400).json({ error: 'Escribe un correo válido.' });
+
+    const pendiente = req.session.correoPendiente;
+    if (pendiente && Date.now() - pendiente.enviado < 60 * 1000) {
+        return res.status(429).json({ error: 'Espera un minuto antes de pedir otro código.' });
+    }
+    const recientes = (enviosCorreo.get(yo) || []).filter((t) => Date.now() - t < 60 * 60 * 1000);
+    if (recientes.length >= 5) return res.status(429).json({ error: 'Ya pediste muchos códigos. Intenta de nuevo en una hora.' });
+
+    try {
+        const actual = (await db.query('SELECT email, nombre FROM usuarios WHERE id_usuario = $1', [yo])).rows[0];
+        if (!actual) return res.status(401).json({ error: 'Tu sesión terminó. Vuelve a iniciar sesión.' });
+        if (actual.email === correo) return res.status(400).json({ error: 'Ese ya es tu correo.' });
+        // Ocupado por una cuenta verificada = no se puede (una cuenta por correo).
+        // Si es de una cuenta que nunca se verificó, se libera al confirmar el cambio.
+        const ocupado = await db.query('SELECT 1 FROM usuarios WHERE LOWER(email) = $1 AND id_usuario <> $2 AND verificado IS TRUE', [correo, yo]);
+        if (ocupado.rowCount) return res.status(409).json({ error: 'Ese correo ya está registrado en otra cuenta.' });
+
+        const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+        await enviarCorreo({
+            to: correo,
+            subject: `${codigo} es tu código para cambiar tu correo en Oniria`,
+            text: `Hola ${actual.nombre}, para usar este correo en tu cuenta de Oniria escribe el código: ${codigo}\n\nCaduca en 10 minutos. Si no lo pediste, ignora este mensaje.`,
+            html: plantillaCodigo(actual.nombre, 'para usar este correo en tu cuenta de Oniria escribe el código:', codigo,
+                'Caduca en 10 minutos. Si no lo pediste, ignora este mensaje.')
+        });
+
+        enviosCorreo.set(yo, [...recientes, Date.now()]);
+        req.session.correoPendiente = { correo, hash: hashCodigo(codigo, `correo-${yo}-${correo}`), enviado: Date.now(), intentos: 0 };
+        res.json({ ok: true, correo });
+    } catch (err) {
+        console.error('Error mandando código para cambiar correo:', err.message);
+        res.status(502).json({ error: 'No se pudo mandar el correo. Revisa que esté bien escrito e intenta de nuevo.' });
+    }
+});
+
+app.post('/api/correo/verificar', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const pendiente = req.session.correoPendiente;
+    const codigo = String(req.body.codigo || '').replace(/\D/g, '');
+    if (!pendiente) return res.status(400).json({ error: 'Primero pide un código.' });
+    if (Date.now() - pendiente.enviado > CODIGO_DURA_MS) {
+        delete req.session.correoPendiente;
+        return res.status(400).json({ error: 'El código caducó. Pide uno nuevo.' });
+    }
+    if (codigo.length !== 6) return res.status(400).json({ error: 'El código tiene 6 dígitos.' });
+
+    const correcto = crypto.timingSafeEqual(Buffer.from(hashCodigo(codigo, `correo-${yo}-${pendiente.correo}`)), Buffer.from(pendiente.hash));
+    if (!correcto) {
+        pendiente.intentos += 1;
+        if (pendiente.intentos >= CODIGO_INTENTOS) {
+            delete req.session.correoPendiente;
+            return res.status(400).json({ error: 'Demasiados intentos. Pide un código nuevo.' });
+        }
+        const quedan = CODIGO_INTENTOS - pendiente.intentos;
+        return res.status(400).json({ error: `El código no es correcto. Te ${quedan === 1 ? 'queda 1 intento' : `quedan ${quedan} intentos`}.` });
+    }
+
+    const cliente = await db.connect();
+    try {
+        await cliente.query('BEGIN');
+        const anterior = (await cliente.query('SELECT email, nombre FROM usuarios WHERE id_usuario = $1', [yo])).rows[0];
+        // La cuenta sin verificar que tuviera ese correo se borra: ya probaste que el correo es tuyo
+        await cliente.query('DELETE FROM usuarios WHERE LOWER(email) = $1 AND id_usuario <> $2 AND verificado IS NOT TRUE', [pendiente.correo, yo]);
+        await cliente.query('UPDATE usuarios SET email = $1 WHERE id_usuario = $2', [pendiente.correo, yo]);
+        await cliente.query('COMMIT');
+        delete req.session.correoPendiente;
+        res.json({ ok: true, email: pendiente.correo });
+
+        // Aviso de seguridad al correo anterior
+        if (anterior?.email) {
+            enviarCorreo({
+                to: anterior.email,
+                subject: 'Tu correo de Oniria se cambió',
+                text: `Hola ${anterior.nombre}, el correo de tu cuenta de Oniria se cambió a ${ocultarCorreo(pendiente.correo)}.\n\nSi no fuiste tú, cambia tu contraseña en ${BASE_URL}/olvide-contrasena usando el correo nuevo, o contáctanos.`
+            }).catch((err) => console.error('No se pudo avisar al correo anterior:', err.message));
+        }
+    } catch (err) {
+        await cliente.query('ROLLBACK').catch(() => {});
+        if (err.code === '23505') return res.status(409).json({ error: 'Ese correo ya está registrado en otra cuenta.' });
+        console.error('Error cambiando correo:', err.message);
+        res.status(500).json({ error: 'No se pudo cambiar tu correo.' });
+    } finally {
+        cliente.release();
+    }
+});
+
+// Correo HTML sencillo con un código grande
+function plantillaCodigo(nombre, frase, codigo, pie) {
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return `<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;text-align:center">
+        <h2 style="margin:0 0 8px;color:#7c4ddb">Oniria</h2>
+        <p>Hola ${esc(nombre)}, ${esc(frase)}</p>
+        <p style="font-size:32px;font-weight:bold;letter-spacing:8px;margin:16px 0">${codigo}</p>
+        <p style="color:#666;font-size:13px">${esc(pie)}</p></div>`;
+}
+
+// =========================================================
+// NOTIFICACIONES (por el canal preferido: correo o SMS)
+// =========================================================
+// tipo: 'solicitudes' | 'publicaciones' (cada persona elige cuáles recibir en su perfil).
+// Se mandan "en segundo plano": si fallan, solo se anota en el log.
+async function notificar(idDestino, tipo, { asunto, texto, sms, enlace }) {
+    const u = (await db.query(
+        `SELECT email, nombre, telefono, canal_preferido, notif_solicitudes, notif_publicaciones
+         FROM usuarios WHERE id_usuario = $1 AND verificado IS TRUE`,
+        [idDestino]
+    )).rows[0];
+    if (!u) return;
+    if (tipo === 'solicitudes' && !u.notif_solicitudes) return;
+    if (tipo === 'publicaciones' && !u.notif_publicaciones) return;
+
+    if (u.canal_preferido === 'sms' && u.telefono && SMS_LISTO) {
+        try {
+            await enviarSms(u.telefono, `Oniria: ${sms} ${enlace}`);
+            return;
+        } catch (err) {
+            console.error('SMS de notificación falló; se manda por correo:', err.message);
+        }
+    }
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    await enviarCorreo({
+        to: u.email,
+        subject: asunto,
+        text: `Hola ${u.nombre}, ${texto}\n\n${enlace}\n\nPuedes elegir qué avisos recibir en tu perfil: ${BASE_URL}/perfil`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:460px;margin:auto;padding:24px">
+            <h2 style="margin:0 0 12px;color:#7c4ddb">Oniria</h2>
+            <p>Hola ${esc(u.nombre)}, ${esc(texto)}</p>
+            <p style="margin:20px 0"><a href="${enlace}" style="background:#7c4ddb;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:bold">Abrir Oniria</a></p>
+            <p style="color:#888;font-size:12px">Puedes elegir qué avisos recibir y por dónde en <a href="${BASE_URL}/perfil">tu perfil</a>.</p></div>`
+    });
+}
+
+function notificarEnSegundoPlano(idDestino, tipo, datos) {
+    notificar(idDestino, tipo, datos).catch((err) => console.error(`Error notificando (${tipo}) a ${idDestino}:`, err.message));
+}
+
+// Un amigo publicó: aviso a cada amigo (uno por uno, para no saturar el correo ni el celular de SMS)
+async function notificarPublicacion(idAutor, apodo, titulo) {
+    const amigos = await db.query(
+        `SELECT CASE WHEN id_solicitante = $1 THEN id_destinatario ELSE id_solicitante END AS id
+         FROM amistades WHERE estado = 'aceptada' AND (id_solicitante = $1 OR id_destinatario = $1)`,
+        [idAutor]
+    );
+    const nombreSueno = titulo ? `"${titulo}"` : 'un sueño nuevo';
+    for (const { id } of amigos.rows) {
+        await notificar(id, 'publicaciones', {
+            asunto: `${apodo} publicó un sueño en Oniria`,
+            texto: `tu amigo ${apodo} publicó ${nombreSueno}.`,
+            sms: `${apodo} publicó ${nombreSueno}.`,
+            enlace: `${BASE_URL}/feed`
+        }).catch((err) => console.error(`Error notificando publicación a ${id}:`, err.message));
+    }
+}
 
 // =========================================================
 // DOBLE AUTENTICACIÓN (código al iniciar sesión)
@@ -1763,6 +1966,15 @@ app.get('/api/usuarios', requiereSesionApi, async (req, res) => {
 // AMIGOS
 // =========================================================
 
+// Aviso por correo/SMS: 'nueva' = te mandaron solicitud; 'aceptada' = aceptaron la tuya
+function avisarSolicitudPorCanal(apodo, idDestino, cual) {
+    notificarEnSegundoPlano(idDestino, 'solicitudes', cual === 'nueva'
+        ? { asunto: `${apodo} quiere ser tu amigo en Oniria`, texto: `${apodo} te mandó una solicitud de amistad.`,
+            sms: `${apodo} te mandó una solicitud de amistad.`, enlace: `${BASE_URL}/perfil#solicitudes` }
+        : { asunto: `${apodo} aceptó tu solicitud en Oniria`, texto: `${apodo} aceptó tu solicitud de amistad. ¡Ya son amigos!`,
+            sms: `${apodo} aceptó tu solicitud de amistad.`, enlace: `${BASE_URL}/perfil#amigos` });
+}
+
 // Avisa en tiempo real a las dos personas que su amistad cambió
 function avisarAmistad(a, b) {
     emitir('amistad', { usuarios: [a, b] }, (cliente) => cliente.idUsuario === a || cliente.idUsuario === b);
@@ -1838,7 +2050,10 @@ app.post('/api/amigos/:id/solicitud', requiereSesionApi, async (req, res) => {
         }
         const amistad = await estadoAmistad(yo, otro);
         res.json({ amistad });
-        if (amistad !== actual) avisarAmistad(yo, otro);
+        if (amistad !== actual) {
+            avisarAmistad(yo, otro);
+            avisarSolicitudPorCanal(req.session.apodo, otro, amistad === 'amigos' ? 'aceptada' : 'nueva');
+        }
     } catch (err) {
         console.error('Error mandando solicitud:', err.message);
         res.status(500).json({ error: 'No se pudo mandar la solicitud.' });
@@ -1859,6 +2074,7 @@ app.post('/api/amigos/:id/aceptar', requiereSesionApi, async (req, res) => {
         if (resultado.rowCount === 0) return res.status(404).json({ error: 'Esa solicitud ya no existe.' });
         res.json({ amistad: 'amigos' });
         avisarAmistad(yo, otro);
+        avisarSolicitudPorCanal(req.session.apodo, otro, 'aceptada');
     } catch (err) {
         console.error('Error aceptando solicitud:', err.message);
         res.status(500).json({ error: 'No se pudo aceptar la solicitud.' });

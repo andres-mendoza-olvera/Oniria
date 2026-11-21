@@ -400,10 +400,52 @@
 }
 .enlace-tel:hover { text-decoration: underline; }
 .enlace-tel-gris { color: var(--text-muted); }
+.correo-texto { min-width: 0; overflow-wrap: anywhere; }
+.tel-enlaces .tel-ayuda { flex: 1; }
+
+/* Preferencias: canal (correo / SMS) y avisos */
+.preferencias {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+.preferencias legend { padding: 0 6px; font-size: 0.85rem; font-weight: 600; }
+.preferencias-sub { font-size: 0.85rem; font-weight: 600; margin-top: 4px; }
+.opciones-canal { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opcion-canal { position: relative; cursor: pointer; }
+.opcion-canal input { position: absolute; opacity: 0; pointer-events: none; }
+.opcion-canal > span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.opcion-canal:hover > span { background-color: var(--surface-hover); }
+.opcion-canal input:checked + span {
+    border-color: var(--color-accent);
+    background-color: rgba(164, 99, 242, 0.1);
+    color: var(--color-accent);
+}
+.opcion-canal input:focus-visible + span { box-shadow: 0 0 0 3px rgba(164, 99, 242, 0.3); }
+.opcion-canal input:disabled + span { opacity: 0.45; cursor: not-allowed; }
+.opcion-canal:has(input:disabled) { cursor: not-allowed; }
+.interruptor { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; cursor: pointer; }
+.interruptor input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--color-accent); flex-shrink: 0; }
 .tel-enlaces { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 /* Resalta la sección del teléfono cuando falta terminar la verificación */
 .telefono.pendiente .tel-entrada,
-.telefono.pendiente .tel-codigo input { border-color: var(--corazon); }
+.telefono.pendiente .tel-codigo input,
+.telefono.pendiente .campo input { border-color: var(--corazon); }
 .chat-error.ok { background-color: rgba(31, 157, 85, 0.1); border-color: rgba(31, 157, 85, 0.3); color: #1f9d55; }
 
 .chat-error {

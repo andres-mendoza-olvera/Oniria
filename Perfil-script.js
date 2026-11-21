@@ -281,7 +281,6 @@ function abrirEditar() {
     $('editar-apodo').value = p.apodo_editable || p.apodo;
     $('editar-nombre').value = p.nombre || '';
     $('editar-bio').value = p.biografia || '';
-    $('editar-correo').textContent = p.email || '';
     $('btn-quitar-foto').hidden = !p.foto_perfil;
     $('error-editar').hidden = true;
     actualizarContador();
@@ -290,8 +289,106 @@ function abrirEditar() {
     $('tel-codigo').value = '';
     elegirPais(PAISES[0], { enfocar: false });
     pintarTelefono();
+    $('correo-nuevo').value = '';
+    $('correo-codigo').value = '';
+    pintarCorreo();
+    $(p.canal_preferido === 'sms' ? 'canal-sms' : 'canal-correo').checked = true;
+    $('notif-solicitudes').checked = p.notif_solicitudes !== false;
+    $('notif-publicaciones').checked = p.notif_publicaciones !== false;
+    pintarCanales();
     $('dialogo-editar').showModal();
 }
+
+// ---------------------------------------------------------
+// Canal preferido (correo / SMS): SMS solo si hay teléfono verificado
+// ---------------------------------------------------------
+function pintarCanales() {
+    const puedeSms = Boolean(estado.perfil.telefono) && estado.perfil.sms_disponible !== false;
+    $('canal-sms').disabled = !puedeSms;
+    if (!puedeSms && $('canal-sms').checked) $('canal-correo').checked = true;
+    $('canal-sms-ayuda').hidden = puedeSms;
+    $('canal-sms-ayuda').textContent = estado.perfil.telefono
+        ? 'Los SMS no están disponibles por ahora en el servidor.'
+        : 'Para elegir SMS, primero verifica tu teléfono aquí arriba.';
+}
+
+// ---------------------------------------------------------
+// Cambiar el correo: se manda un código al correo NUEVO; solo cambia al verificarlo
+// ---------------------------------------------------------
+function mensajeCorreo(texto, ok = false) {
+    $('correo-mensaje').textContent = texto || '';
+    $('correo-mensaje').classList.toggle('ok', ok);
+    $('correo-mensaje').hidden = !texto;
+}
+
+function pintarCorreo(paso = 'actual') {
+    $('correo').classList.remove('pendiente');
+    $('editar-correo').textContent = estado.perfil.email || '';
+    $('correo-actual').hidden = paso !== 'actual';
+    $('correo-paso-nuevo').hidden = paso !== 'nuevo';
+    $('correo-paso-codigo').hidden = paso !== 'codigo';
+    if (paso !== 'codigo') mensajeCorreo('');
+}
+
+$('btn-correo-cambiar').addEventListener('click', () => {
+    pintarCorreo('nuevo');
+    $('correo-nuevo').focus();
+});
+$('btn-correo-otro').addEventListener('click', () => {
+    pintarCorreo('nuevo');
+    $('correo-nuevo').focus();
+});
+document.querySelectorAll('.js-correo-cancelar').forEach((b) => b.addEventListener('click', () => {
+    $('correo-nuevo').value = '';
+    $('correo-codigo').value = '';
+    pintarCorreo('actual');
+}));
+
+$('btn-correo-enviar').addEventListener('click', () => botonOcupado($('btn-correo-enviar'), 'Enviando…', async () => {
+    mensajeCorreo('');
+    const correo = $('correo-nuevo').value.trim();
+    if (!correo) return mensajeCorreo('Escribe tu correo nuevo.');
+    try {
+        const r = await api('/api/correo/enviar', { method: 'POST', body: JSON.stringify({ correo }) });
+        $('correo-enviado').textContent = `Te mandamos un código de 6 dígitos a ${r.correo}. Caduca en 10 minutos. Revisa también la carpeta de spam.`;
+        $('correo-codigo').value = '';
+        pintarCorreo('codigo');
+        $('correo-codigo').focus();
+    } catch (err) {
+        mensajeCorreo(err.message);
+    }
+}));
+
+$('btn-correo-verificar').addEventListener('click', () => botonOcupado($('btn-correo-verificar'), 'Revisando…', async () => {
+    mensajeCorreo('');
+    try {
+        const r = await api('/api/correo/verificar', { method: 'POST', body: JSON.stringify({ codigo: $('correo-codigo').value }) });
+        estado.perfil.email = r.email;
+        $('correo-nuevo').value = '';
+        pintarCorreo('actual');
+        mensajeCorreo('¡Listo! Tu correo se cambió. Desde ahora entras con el correo nuevo.', true);
+    } catch (err) {
+        mensajeCorreo(err.message);
+    }
+}));
+
+function correoAMedias() {
+    if (!$('correo-paso-codigo').hidden) {
+        return 'Te falta verificar tu correo nuevo: escribe el código que te llegó y pica "Verificar", o pica "Cancelar cambio".';
+    }
+    if (!$('correo-paso-nuevo').hidden && $('correo-nuevo').value.trim()) {
+        return 'Escribiste un correo nuevo pero no lo has verificado. Pica "Enviar código al correo nuevo" o "Cancelar".';
+    }
+    return null;
+}
+
+['correo-nuevo', 'correo-codigo'].forEach((id) => $(id).addEventListener('input', () => $('correo').classList.remove('pendiente')));
+$('correo-nuevo').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('btn-correo-enviar').click(); }
+});
+$('correo-codigo').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('btn-correo-verificar').click(); }
+});
 
 // ---------------------------------------------------------
 // Teléfono: código por SMS (se guarda solo al verificar,
@@ -498,6 +595,7 @@ $('btn-tel-verificar').addEventListener('click', () => botonOcupado($('btn-tel-v
         const r = await api('/api/telefono/verificar', { method: 'POST', body: JSON.stringify({ codigo: $('tel-codigo').value }) });
         estado.perfil.telefono = r.telefono;
         pintarTelefono('verificado');
+        pintarCanales();
         mensajeTelefono('¡Listo! Tu teléfono quedó verificado. Ya puedes recibir por SMS el código para iniciar sesión.', true);
     } catch (err) {
         mensajeTelefono(err.message);
@@ -536,8 +634,10 @@ $('btn-tel-quitar').addEventListener('click', () => {
         try {
             await api('/api/telefono', { method: 'DELETE' });
             estado.perfil.telefono = null;
+            estado.perfil.canal_preferido = 'correo';
             $('tel-input').value = '';
             pintarTelefono('numero');
+            pintarCanales();
         } catch (err) {
             mensajeTelefono(err.message);
         }
@@ -600,7 +700,16 @@ $('btn-quitar-foto').addEventListener('click', () => {
 
 $('form-editar').addEventListener('submit', async (e) => {
     e.preventDefault();
-    // No se guarda con la verificación del teléfono a medias
+    // No se guarda con el cambio de correo a medias
+    const correoPendiente = correoAMedias();
+    if (correoPendiente) {
+        mensajeCorreo(correoPendiente);
+        $('correo').classList.add('pendiente');
+        $('correo').scrollIntoView({ block: 'center', behavior: 'smooth' });
+        (!$('correo-paso-codigo').hidden ? $('correo-codigo') : $('correo-nuevo')).focus({ preventScroll: true });
+        return;
+    }
+    // Ni con la verificación del teléfono a medias
     const pendiente = telefonoAMedias();
     if (pendiente) {
         mensajeTelefono(pendiente);
@@ -614,6 +723,9 @@ $('form-editar').addEventListener('submit', async (e) => {
     datos.append('apodo', $('editar-apodo').value.trim());
     datos.append('nombre', $('editar-nombre').value.trim());
     datos.append('biografia', $('editar-bio').value.trim());
+    datos.append('canal_preferido', $('canal-sms').checked ? 'sms' : 'correo');
+    datos.append('notif_solicitudes', $('notif-solicitudes').checked ? '1' : '0');
+    datos.append('notif_publicaciones', $('notif-publicaciones').checked ? '1' : '0');
     if (edicion.foto) datos.append('foto', edicion.foto);
     if (edicion.quitarFoto) datos.append('quitar_foto', '1');
 
