@@ -24,8 +24,9 @@ for (const variable of ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'SUPABA
     if (!process.env[variable]) console.warn(`Aviso: falta ${variable}; no se podrán generar/guardar imágenes.`);
 }
 if (!process.env.GEMINI_API_KEY) console.warn('Aviso: falta GEMINI_API_KEY; el chat para interpretar sueños no funcionará.');
-const TWILIO_LISTO = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SID'].every((v) => process.env[v]);
-if (!TWILIO_LISTO) console.warn('Aviso: faltan las variables de Twilio; no se podrá verificar el teléfono por SMS/WhatsApp.');
+const HTTPSMS_URL = (process.env.HTTPSMS_BASE_URL || 'https://api.httpsms.com/v1').replace(/\/+$/, '');
+const SMS_LISTO = Boolean(process.env.HTTPSMS_API_KEY && process.env.HTTPSMS_FROM);
+if (!SMS_LISTO) console.warn('Aviso: faltan HTTPSMS_API_KEY o HTTPSMS_FROM; no se podrá verificar el teléfono por SMS.');
 
 // =========================================================
 // 1. CONFIGURACIÓN DE LA BASE DE DATOS (PostgreSQL en Supabase)
@@ -1430,34 +1431,36 @@ app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) =>
 });
 
 // =========================================================
-// TELÉFONO: verificación con código por SMS o WhatsApp (Twilio Verify)
+// TELÉFONO: verificación con código por SMS (httpSMS)
 // =========================================================
-// Twilio genera el código, lo manda, lo revisa y lo hace caducar (10 min).
-// Nosotros solo guardamos el número cuando Twilio dice que el código es correcto.
-// Mientras tanto, el número "pendiente" vive en la sesión.
+// httpSMS (https://httpsms.com) manda los SMS desde un celular Android que tiene
+// su app instalada: el mensaje sale del número de ese celular (HTTPSMS_FROM).
+// Nosotros generamos el código de 6 dígitos, lo mandamos y lo revisamos:
+//   - en la sesión solo se guarda un hash del código, no el código
+//   - caduca en 10 minutos y se permiten 5 intentos
+//   - máximo 1 código por minuto y 5 por hora por usuario (cada SMS sale del celular)
+// El número se guarda en la base solo cuando el código es correcto.
 
-async function twilioVerify(ruta, parametros) {
-    const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-    const respuesta = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SID}/${ruta}`, {
+const CODIGO_DURA_MS = 10 * 60 * 1000;
+const CODIGO_INTENTOS = 5;
+const enviosPorUsuario = new Map(); // idUsuario -> fechas de los envíos de la última hora
+
+const hashCodigo = (codigo, telefono) =>
+    crypto.createHmac('sha256', process.env.SESSION_SECRET).update(`${telefono}:${codigo}`).digest('hex');
+
+async function enviarSms(para, mensaje) {
+    const respuesta = await fetch(`${HTTPSMS_URL}/messages/send`, {
         method: 'POST',
-        headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(parametros)
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'x-api-key': process.env.HTTPSMS_API_KEY },
+        body: JSON.stringify({ content: mensaje, from: process.env.HTTPSMS_FROM, to: para }),
+        signal: AbortSignal.timeout(10000)
     });
-    const datos = await respuesta.json().catch(() => ({}));
-    if (!respuesta.ok) throw Object.assign(new Error(datos.message || `Twilio respondió ${respuesta.status}`), { codigoTwilio: datos.code, status: respuesta.status });
-    return datos;
-}
-
-// Errores de Twilio -> mensajes entendibles
-function mensajeTwilio(err) {
-    switch (err.codigoTwilio) {
-        case 60200: case 21211: case 21614: return 'Ese número no es válido. Revisa que tenga lada y 10 dígitos.';
-        case 60203: return 'Ya pediste demasiados códigos para este número. Espera unos minutos.';
-        case 60202: return 'Demasiados intentos con códigos incorrectos. Pide un código nuevo en unos minutos.';
-        case 60205: return 'Ese número no puede recibir SMS (¿es un fijo?). Prueba por WhatsApp.';
-        case 21608: case 21408: return 'En modo de prueba de Twilio solo se puede mandar a números registrados en tu cuenta de Twilio.';
-        default: return 'No se pudo mandar el código. Intenta de nuevo en un momento.';
+    const datos = await respuesta.json().catch(() => null);
+    if (!respuesta.ok || !datos?.data?.id) {
+        const motivo = datos?.message || (typeof datos?.data === 'string' ? datos.data : 'respuesta inesperada');
+        throw new Error(`httpSMS ${respuesta.status}: ${motivo}`);
     }
+    return datos.data.id;
 }
 
 // Acepta "55 1234 5678", "+52 1 55...", "(55) 1234-5678"... y lo deja como +52XXXXXXXXXX.
@@ -1479,59 +1482,69 @@ const ocultarTelefono = (t) => `${t.slice(0, 3)} ••• ••• ${t.slice(-
 
 // 1) Mandar el código
 app.post('/api/telefono/enviar', requiereSesionApi, async (req, res) => {
-    if (!TWILIO_LISTO) return res.status(503).json({ error: 'La verificación por teléfono todavía no está configurada en el servidor.' });
+    if (!SMS_LISTO) return res.status(503).json({ error: 'La verificación por teléfono todavía no está configurada en el servidor.' });
     const yo = req.session.idUsuario;
-    const canal = req.body.canal === 'whatsapp' ? 'whatsapp' : 'sms';
     const telefono = normalizarTelefono(req.body.telefono);
     if (!telefono) return res.status(400).json({ error: 'Escribe un número válido: 10 dígitos, o con + y lada de tu país.' });
 
-    // Un código cada 30 segundos como máximo (Twilio además pone sus propios límites)
     const pendiente = req.session.telefonoPendiente;
-    if (pendiente && Date.now() - pendiente.enviado < 30 * 1000) {
-        return res.status(429).json({ error: 'Espera unos segundos antes de pedir otro código.' });
+    if (pendiente && Date.now() - pendiente.enviado < 60 * 1000) {
+        return res.status(429).json({ error: 'Espera un minuto antes de pedir otro código.' });
     }
+    const recientes = (enviosPorUsuario.get(yo) || []).filter((t) => Date.now() - t < 60 * 60 * 1000);
+    if (recientes.length >= 5) return res.status(429).json({ error: 'Ya pediste muchos códigos. Intenta de nuevo en una hora.' });
 
     try {
         const ocupado = await db.query('SELECT 1 FROM usuarios WHERE telefono = $1 AND id_usuario <> $2', [telefono, yo]);
         if (ocupado.rowCount) return res.status(409).json({ error: 'Ese número ya está registrado en otra cuenta.' });
 
-        await twilioVerify('Verifications', { To: telefono, Channel: canal, Locale: 'es' });
-        req.session.telefonoPendiente = { telefono, canal, enviado: Date.now() };
-        res.json({ ok: true, canal, telefono: ocultarTelefono(telefono) });
+        const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+        await enviarSms(telefono, `Tu código de Oniria es ${codigo}. Caduca en 10 minutos. Si no lo pediste, ignora este mensaje.`);
+
+        enviosPorUsuario.set(yo, [...recientes, Date.now()]);
+        req.session.telefonoPendiente = { telefono, hash: hashCodigo(codigo, telefono), enviado: Date.now(), intentos: 0 };
+        res.json({ ok: true, telefono: ocultarTelefono(telefono) });
     } catch (err) {
-        console.error('Error mandando código de teléfono:', err.codigoTwilio, err.message);
-        res.status(err.status === 400 || err.status === 429 ? 400 : 502).json({ error: mensajeTwilio(err) });
+        console.error('Error mandando SMS de verificación:', err.message);
+        res.status(502).json({ error: 'No se pudo mandar el SMS. Intenta de nuevo en un momento.' });
     }
 });
 
 // 2) Revisar el código que escribió el usuario
 app.post('/api/telefono/verificar', requiereSesionApi, async (req, res) => {
-    if (!TWILIO_LISTO) return res.status(503).json({ error: 'La verificación por teléfono todavía no está configurada en el servidor.' });
     const yo = req.session.idUsuario;
     const codigo = String(req.body.codigo || '').replace(/\D/g, '');
     const pendiente = req.session.telefonoPendiente;
     if (!pendiente) return res.status(400).json({ error: 'Primero pide un código.' });
-    if (codigo.length < 4 || codigo.length > 10) return res.status(400).json({ error: 'Escribe el código que te llegó.' });
+    if (Date.now() - pendiente.enviado > CODIGO_DURA_MS) {
+        delete req.session.telefonoPendiente;
+        return res.status(400).json({ error: 'El código caducó. Pide uno nuevo.' });
+    }
+    if (codigo.length !== 6) return res.status(400).json({ error: 'El código tiene 6 dígitos.' });
+
+    // Comparación en tiempo constante (no da pistas de qué dígitos acertaste)
+    const correcto = crypto.timingSafeEqual(Buffer.from(hashCodigo(codigo, pendiente.telefono)), Buffer.from(pendiente.hash));
+    if (!correcto) {
+        pendiente.intentos += 1;
+        if (pendiente.intentos >= CODIGO_INTENTOS) {
+            delete req.session.telefonoPendiente;
+            return res.status(400).json({ error: 'Demasiados intentos. Pide un código nuevo.' });
+        }
+        const quedan = CODIGO_INTENTOS - pendiente.intentos;
+        return res.status(400).json({ error: `El código no es correcto. Te ${quedan === 1 ? 'queda 1 intento' : `quedan ${quedan} intentos`}.` });
+    }
 
     try {
-        const resultado = await twilioVerify('VerificationCheck', { To: pendiente.telefono, Code: codigo });
-        if (resultado.status !== 'approved') return res.status(400).json({ error: 'El código no es correcto. Revisa e intenta de nuevo.' });
-
         await db.query(
-            'UPDATE usuarios SET telefono = $1, telefono_canal = $2, telefono_verificado_en = NOW() WHERE id_usuario = $3',
-            [pendiente.telefono, pendiente.canal, yo]
+            "UPDATE usuarios SET telefono = $1, telefono_canal = 'sms', telefono_verificado_en = NOW() WHERE id_usuario = $2",
+            [pendiente.telefono, yo]
         );
         delete req.session.telefonoPendiente;
-        res.json({ ok: true, telefono: pendiente.telefono, telefono_canal: pendiente.canal });
+        res.json({ ok: true, telefono: pendiente.telefono });
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Ese número ya está registrado en otra cuenta.' });
-        // 20404 = el código ya caducó o se usó
-        if (err.codigoTwilio === 20404) {
-            delete req.session.telefonoPendiente;
-            return res.status(400).json({ error: 'El código caducó. Pide uno nuevo.' });
-        }
-        console.error('Error verificando código de teléfono:', err.codigoTwilio || err.code, err.message);
-        res.status(502).json({ error: mensajeTwilio(err) });
+        console.error('Error guardando teléfono:', err.message);
+        res.status(500).json({ error: 'No se pudo guardar tu teléfono.' });
     }
 });
 

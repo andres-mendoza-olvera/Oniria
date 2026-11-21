@@ -290,7 +290,7 @@ function abrirEditar() {
 }
 
 // ---------------------------------------------------------
-// Teléfono: código por SMS o WhatsApp (se guarda solo al verificar,
+// Teléfono: código por SMS (se guarda solo al verificar,
 // no depende del botón "Guardar")
 // ---------------------------------------------------------
 function mensajeTelefono(texto, ok = false) {
@@ -316,30 +316,24 @@ async function botonOcupado(boton, texto, tarea) {
     try { await tarea(); } finally { boton.disabled = false; boton.textContent = original; }
 }
 
-document.querySelectorAll('[data-tel-canal]').forEach((boton) => {
-    boton.addEventListener('click', () => botonOcupado(boton, 'Enviando…', async () => {
-        mensajeTelefono('');
-        try {
-            const r = await api('/api/telefono/enviar', {
-                method: 'POST',
-                body: JSON.stringify({ telefono: $('tel-input').value, canal: boton.dataset.telCanal })
-            });
-            $('tel-enviado').textContent = `Te mandamos un código por ${r.canal === 'whatsapp' ? 'WhatsApp' : 'SMS'} al ${r.telefono}. Caduca en 10 minutos.`;
-            $('tel-codigo').value = '';
-            pintarTelefono('codigo');
-            $('tel-codigo').focus();
-        } catch (err) {
-            mensajeTelefono(err.message);
-        }
-    }));
-});
+$('btn-tel-enviar').addEventListener('click', () => botonOcupado($('btn-tel-enviar'), 'Enviando…', async () => {
+    mensajeTelefono('');
+    try {
+        const r = await api('/api/telefono/enviar', { method: 'POST', body: JSON.stringify({ telefono: $('tel-input').value }) });
+        $('tel-enviado').textContent = `Te mandamos un SMS con un código de 6 dígitos al ${r.telefono}. Caduca en 10 minutos.`;
+        $('tel-codigo').value = '';
+        pintarTelefono('codigo');
+        $('tel-codigo').focus();
+    } catch (err) {
+        mensajeTelefono(err.message);
+    }
+}));
 
 $('btn-tel-verificar').addEventListener('click', () => botonOcupado($('btn-tel-verificar'), 'Revisando…', async () => {
     mensajeTelefono('');
     try {
         const r = await api('/api/telefono/verificar', { method: 'POST', body: JSON.stringify({ codigo: $('tel-codigo').value }) });
         estado.perfil.telefono = r.telefono;
-        estado.perfil.telefono_canal = r.telefono_canal;
         pintarTelefono('verificado');
         mensajeTelefono('¡Listo! Tu teléfono quedó verificado.', true);
     } catch (err) {
@@ -365,7 +359,7 @@ $('btn-tel-quitar').addEventListener('click', () => {
 
 // "Enter" en estos campos no debe mandar el formulario de "Guardar"
 $('tel-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-tel-canal="sms"]').click(); }
+    if (e.key === 'Enter') { e.preventDefault(); $('btn-tel-enviar').click(); }
 });
 $('tel-codigo').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); $('btn-tel-verificar').click(); }

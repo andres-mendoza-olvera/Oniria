@@ -166,7 +166,7 @@
                 </label>
                 <p class="campo-correo"><span class="icono icono-xs" data-icono="sobre"></span> <span id="editar-correo"></span> <small>(privado)</small></p>
 
-                <!-- Teléfono: se verifica con un código por SMS o WhatsApp (independiente de "Guardar") -->
+                <!-- Teléfono: se verifica con un código por SMS (independiente de "Guardar") -->
                 <div class="telefono" id="telefono">
                     <div class="campo"><span>Teléfono <small>(privado, opcional)</small></span></div>
 
@@ -182,8 +182,7 @@
                     <div id="tel-paso-numero" class="tel-paso">
                         <div class="campo"><input type="tel" id="tel-input" placeholder="55 1234 5678" autocomplete="tel" maxlength="20" aria-label="Número de teléfono"></div>
                         <div class="tel-botones">
-                            <button type="button" class="btn-amistad" data-tel-canal="sms">Enviar código por SMS</button>
-                            <button type="button" class="btn-amistad" data-tel-canal="whatsapp">Enviar por WhatsApp</button>
+                            <button type="button" id="btn-tel-enviar" class="btn-amistad">Enviarme un código por SMS</button>
                         </div>
                         <small class="tel-ayuda">10 dígitos si es de México; de otro país, empieza con + y la lada.</small>
                     </div>
