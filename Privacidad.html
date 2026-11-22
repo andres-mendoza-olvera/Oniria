@@ -33,7 +33,7 @@
                 <li>Tu correo electrónico (solo puede haber una cuenta por correo).</li>
                 <li>Tu teléfono, solo si decides agregarlo y verificarlo en tu perfil.</li>
                 <li>Tu contraseña, siempre cifrada (nadie puede leerla, ni siquiera nosotros).</li>
-                <li>Los sueños que publicas, sus imágenes, tus corazones y tus comentarios.</li>
+                <li>Tus conversaciones con la IA sobre tus sueños (privadas), los sueños que publicas, sus imágenes, tus corazones y tus comentarios.</li>
                 <li>Tus amistades, las solicitudes de amistad y las personas que bloqueas.</li>
                 <li>Tus preferencias: por dónde quieres recibir códigos y avisos, y qué avisos quieres.</li>
             </ul>
@@ -41,7 +41,7 @@
             <h2>Quién ve qué</h2>
             <ul>
                 <li><b>Público para otros usuarios:</b> tu apodo, tu foto, tu biografía, tus amigos y los sueños que publicas.</li>
-                <li><b>Privado (solo tú):</b> tu nombre completo, tu correo, tu teléfono y a quién bloqueaste.</li>
+                <li><b>Privado (solo tú):</b> tu nombre completo, tu correo, tu teléfono, a quién bloqueaste y tus conversaciones con la IA.</li>
                 <li>Las personas que bloquees no ven tus sueños ni tus comentarios, y no pueden encontrarte.</li>
             </ul>
 
@@ -57,8 +57,9 @@
             <h2>Cuando cuentas un sueño</h2>
             <ul>
                 <li>Para interpretarlo, lo que escribes o dictas y las imágenes que adjuntas se envían a Google Gemini; la imagen del sueño se crea con Cloudflare Workers AI.</li>
-                <li>Mientras platicas con Oniria, la conversación vive solo en la memoria temporal del servidor: no se guarda en la base de datos.</li>
-                <li>Si publicas, se guardan el relato, la interpretación y las imágenes. Si lo descartas (o pasan 2 horas sin actividad), se borra sin guardarse.</li>
+                <li>La conversación con Oniria (tus mensajes, las respuestas y las imágenes) se guarda en tu perfil para que la retomes cuando quieras. Solo tú la ves mientras no la publiques.</li>
+                <li>Si publicas el sueño, el relato, la interpretación y las imágenes se ven en el feed; la conversación sigue siendo privada.</li>
+                <li>Puedes eliminar cualquier conversación sin publicar desde tu perfil; si eliminas una publicación, se borra también su conversación.</li>
                 <li>El dictado por voz lo procesa tu navegador (por ejemplo, Chrome usa los servidores de Google).</li>
             </ul>
 

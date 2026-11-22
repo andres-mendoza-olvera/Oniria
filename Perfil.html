@@ -78,6 +78,7 @@
 
             <nav id="pestanas" class="pestanas" role="tablist" hidden>
                 <button type="button" role="tab" class="pestana activa" data-pestana="suenos"><span class="icono icono-sm" data-icono="cuadricula"></span>Sueños</button>
+                <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="conversaciones" hidden><span class="icono icono-sm" data-icono="comentario"></span>Conversaciones</button>
                 <button type="button" role="tab" class="pestana" data-pestana="amigos"><span class="icono icono-sm" data-icono="amigos"></span>Amigos</button>
                 <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="solicitudes" hidden><span class="icono icono-sm" data-icono="sobre"></span>Solicitudes<span class="globo globo-pestana js-solicitudes" hidden></span></button>
                 <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="bloqueados" hidden><span class="icono icono-sm" data-icono="bloquear"></span>Bloqueados</button>
@@ -107,6 +108,21 @@
                 <div id="lista-recibidas" class="lista-personas"></div>
                 <h2 class="panel-titulo">Solicitudes que enviaste</h2>
                 <div id="lista-enviadas" class="lista-personas"></div>
+            </section>
+
+            <!-- Conversaciones con la IA (solo en mi perfil) -->
+            <section id="panel-conversaciones" class="panel" hidden>
+                <div class="panel-encabezado">
+                    <h2 class="panel-titulo">Tus conversaciones <small id="total-conversaciones" class="panel-contador"></small></h2>
+                    <a href="/sueno" class="btn-amistad principal"><span class="icono icono-sm" data-icono="mas"></span>Contar un sueño</a>
+                </div>
+                <p class="panel-explicacion">Cada plática con Oniria sobre un sueño se guarda aquí; solo tú la ves. Continúa las que no has publicado, publícalas cuando quieras o elimínalas.</p>
+                <div class="filtro-conversaciones" role="group" aria-label="Filtrar conversaciones">
+                    <button type="button" class="chip activo" data-filtro-conv="todas">Todas</button>
+                    <button type="button" class="chip" data-filtro-conv="borradores">Sin publicar</button>
+                    <button type="button" class="chip" data-filtro-conv="publicadas">Publicadas</button>
+                </div>
+                <div id="lista-conversaciones" class="lista-conversaciones"></div>
             </section>
 
             <!-- Bloqueados (solo en mi perfil) -->

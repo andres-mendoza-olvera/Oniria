@@ -396,7 +396,7 @@ async function alternarCorazon(id, boton) {
 }
 
 async function borrarPublicacion(id) {
-    if (!(await preguntar({ titulo: '¿Borrar esta publicación?', texto: 'Se borrará tu sueño con sus imágenes, corazones y comentarios. No se puede deshacer.', aceptar: 'Borrar', peligro: true, icono: 'basura' }))) return;
+    if (!(await preguntar({ titulo: '¿Borrar esta publicación?', texto: 'Se borrará tu sueño con sus imágenes, corazones y comentarios, y también su conversación con la IA. No se puede deshacer.', aceptar: 'Borrar', peligro: true, icono: 'basura' }))) return;
     try {
         await api(`/api/publicaciones/${id}`, { method: 'DELETE' });
         buscarTarjeta(id)?.remove();

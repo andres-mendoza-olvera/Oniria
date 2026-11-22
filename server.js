@@ -161,8 +161,8 @@ async function enviarCorreo({ to, subject, text, html }) {
     if (!respuesta.ok) throw new Error(`Gmail rechazó el correo (${respuesta.status}): ${await respuesta.text()}`);
 }
 
-// Las imágenes que sube el usuario en el chat se quedan en memoria (no en
-// disco). Solo se mandan a Supabase Storage si publica el sueño.
+// Las imágenes que sube el usuario en el chat llegan a memoria (no a disco) y
+// de ahí se suben a Supabase Storage con la conversación (ver "CHAT DEL SUEÑO").
 const TIPOS_IMAGEN = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']; // los que entiende Gemini
 const MAX_IMAGENES_SUENO = 3;
 
@@ -712,27 +712,21 @@ async function pedirAGemini(modelo, { sistema, contents, esquema }) {
 }
 
 // =========================================================
-// CHAT DEL SUEÑO (borradores en memoria)
+// CHAT DEL SUEÑO (conversaciones guardadas)
 // =========================================================
-// Mientras la persona platica con la IA, TODO vive solo en la memoria del
-// servidor: la conversación, la imagen de la IA y las imágenes que subió.
-//   - Si publica -> se suben las imágenes a Storage y se guarda en la base de datos.
-//   - Si descarta (o pasan 2 horas sin actividad) -> se borra y no queda nada.
-// Hay un borrador por usuario. Como el tiempo real, funciona mientras Render
-// use una sola instancia (el plan gratis usa una).
-const borradores = new Map(); // id_usuario -> borrador
-const ocupados = new Set();   // usuarios con una respuesta de la IA en curso
+// Cada plática con la IA sobre un sueño se guarda en la tabla "conversaciones"
+// (solo la ve su dueño) para retomarla cuando quiera desde su perfil.
+//   - Las imágenes (las del usuario y la de la IA) se suben a Storage con nombres
+//     al azar; al publicar se reutilizan las mismas (no se vuelven a subir).
+//   - "Publicar" crea la publicación y la conversación queda ligada a ella (solo lectura).
+//     Si después se borra la publicación, se borra también la conversación.
+//   - "Eliminar" (solo borradores) borra la conversación y sus imágenes.
+// Si el primer mensaje no es un sueño (p. ej. "hola"), no se guarda nada.
+const ocupados = new Set();   // conversaciones (o "nueva-<usuario>") con una respuesta de la IA en curso
 const MAX_MENSAJES_USUARIO = 25;
-const DURACION_BORRADOR = 2 * 60 * 60 * 1000;
+const MAX_BORRADORES = 30;    // conversaciones sin publicar por persona
 
-setInterval(() => {
-    const limite = Date.now() - DURACION_BORRADOR;
-    for (const [idUsuario, borrador] of borradores) {
-        if (borrador.ultimaActividad < limite && !ocupados.has(idUsuario)) borradores.delete(idUsuario);
-    }
-}, 10 * 60 * 1000);
-
-// Partes del mensaje para Gemini: el texto y las imágenes en base64
+// Partes del mensaje actual para Gemini: el texto y las imágenes en base64
 function partesGemini(texto, imagenes) {
     const partes = [];
     if (texto) partes.push({ text: texto });
@@ -742,34 +736,79 @@ function partesGemini(texto, imagenes) {
     return partes;
 }
 
-// Lo que ve el navegador del borrador (sin los archivos)
-function resumenBorrador(b) {
-    return {
-        titulo: b.titulo,
-        relato: b.relato,
-        interpretacion: b.interpretacion,
-        tieneImagenIA: Boolean(b.imagenIA),
-        totalImagenes: b.imagenes.length,
-        version: b.version
-    };
+// Las mismas partes, pero para guardarlas: cada imagen es { imagen: <índice en "imagenes"> }
+function partesGuardadas(texto, primerIndice, cuantas) {
+    const partes = texto ? [{ text: texto }] : [];
+    for (let i = 0; i < cuantas; i++) partes.push({ imagen: primerIndice + i });
+    return partes;
+}
+
+// Convierte el historial guardado al formato de Gemini: descarga de Storage las
+// imágenes ({ imagen: i }) y las pasa a base64.
+async function historialParaGemini(historial, imagenes) {
+    const cache = new Map();
+    async function enBase64(i) {
+        if (!cache.has(i)) {
+            const imagen = imagenes[i];
+            const respuesta = await fetch(imagen.url, { signal: AbortSignal.timeout(20000) });
+            if (!respuesta.ok) throw new Error(`No se pudo leer la imagen ${i} (${respuesta.status})`);
+            cache.set(i, { mimeType: imagen.tipo, data: Buffer.from(await respuesta.arrayBuffer()).toString('base64') });
+        }
+        return cache.get(i);
+    }
+    return Promise.all(historial.map(async (turno) => ({
+        role: turno.role,
+        parts: await Promise.all(turno.parts.map(async (p) => (p.imagen !== undefined ? { inlineData: await enBase64(p.imagen) } : p)))
+    })));
 }
 
 function extensionDe(tipo) {
     return ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' })[tipo] || 'jpg';
 }
 
-// Primer mensaje: interpretar el sueño y generar su imagen
+// Sube las imágenes del usuario a Storage. Si una falla, borra las que sí subió.
+async function subirImagenesChat(idUsuario, imagenes) {
+    const base = `conversaciones/u${idUsuario}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+    const subidas = [];
+    try {
+        for (const [i, imagen] of imagenes.entries()) {
+            const url = await subirImagen(imagen.buffer, imagen.tipo, `${base}-${i}.${extensionDe(imagen.tipo)}`);
+            subidas.push({ url, tipo: imagen.tipo });
+        }
+    } catch (err) {
+        borrarImagenesStorage(subidas.map((s) => s.url));
+        throw err;
+    }
+    return subidas;
+}
+
+// Lo que ve el navegador de una conversación
+function resumenConversacion(c, { conMensajes = false } = {}) {
+    return {
+        id: c.id_conversacion,
+        titulo: c.titulo,
+        relato: c.relato,
+        interpretacion: c.interpretacion,
+        imagenIA: c.imagen_ia,
+        imagenes: (c.imagenes || []).map((i) => i.url),
+        publicada: Boolean(c.id_publicacion),
+        id_publicacion: c.id_publicacion,
+        actualizado_en: c.actualizado_en,
+        ...(conMensajes ? { mensajes: c.mensajes } : {})
+    };
+}
+
+// Primer mensaje: interpretar el sueño, crear su imagen y guardar la conversación
 async function primerTurno(idUsuario, texto, imagenes) {
-    const partes = partesGemini(texto, imagenes);
     const r = await llamarGemini({
         sistema: INSTRUCCIONES_PRIMER_TURNO,
-        contents: [{ role: 'user', parts: partes }],
+        contents: [{ role: 'user', parts: partesGemini(texto, imagenes) }],
         esquema: ESQUEMA_PRIMER_TURNO
     });
 
-    // No era un sueño (p. ej. "hola"): solo contestamos, no se crea borrador
+    // No era un sueño (p. ej. "hola"): solo contestamos, no se guarda nada
     if (!r.es_sueno || !r.interpretacion) {
-        return { mensaje: { rol: 'ia', texto: String(r.respuesta || 'Cuéntame tu sueño con todos los detalles que recuerdes. 🌙') }, borrador: null };
+        return { mensaje: { rol: 'ia', texto: String(r.respuesta || 'Cuéntame tu sueño con todos los detalles que recuerdes. 🌙') }, conversacion: null };
     }
 
     const titulo = String(r.titulo || '').slice(0, 150);
@@ -789,36 +828,48 @@ async function primerTurno(idUsuario, texto, imagenes) {
         }
     }
 
-    const borrador = {
-        relato: texto,
-        titulo,
-        interpretacion,
-        imagenIA,
-        promptIA,
-        imagenes: [...imagenes],
-        mensajes: [
-            { rol: 'usuario', texto, imagenes: imagenes.map((_, i) => i) },
-            { rol: 'ia', tipo: 'interpretacion', titulo, texto: interpretacion, imagenIA: Boolean(imagenIA) }
-        ],
-        historial: [
-            { role: 'user', parts: partes },
-            { role: 'model', parts: [{ text: `Título: ${titulo}\n\n${interpretacion}` }] }
-        ],
-        version: Date.now(),
-        ultimaActividad: Date.now()
-    };
-    borradores.set(idUsuario, borrador);
-    return { mensaje: borrador.mensajes[1], borrador: resumenBorrador(borrador) };
+    // Subir a Storage: primero las del usuario, luego la de la IA
+    const subidas = await subirImagenesChat(idUsuario, imagenes);
+    let urlIA = null;
+    if (imagenIA) {
+        try {
+            urlIA = await subirImagen(imagenIA, 'image/jpeg', `conversaciones/ia-u${idUsuario}-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
+        } catch (err) {
+            console.error('No se pudo guardar la imagen de la IA:', err.message);
+            promptIA = null;
+        }
+    }
+
+    const mensajes = [
+        { rol: 'usuario', texto, imagenes: imagenes.map((_, i) => i) },
+        { rol: 'ia', tipo: 'interpretacion', titulo, texto: interpretacion, imagenIA: Boolean(urlIA) }
+    ];
+    const historial = [
+        { role: 'user', parts: partesGuardadas(texto, 0, imagenes.length) },
+        { role: 'model', parts: [{ text: `Título: ${titulo}\n\n${interpretacion}` }] }
+    ];
+    try {
+        const fila = (await db.query(
+            `INSERT INTO conversaciones (id_usuario, titulo, relato, interpretacion, imagen_ia, prompt_ia, imagenes, mensajes, historial)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            [idUsuario, titulo || null, texto, interpretacion, urlIA, promptIA,
+                JSON.stringify(subidas), JSON.stringify(mensajes), JSON.stringify(historial)]
+        )).rows[0];
+        return { mensaje: mensajes[1], conversacion: resumenConversacion(fila) };
+    } catch (err) {
+        borrarImagenesStorage([...subidas.map((s) => s.url), urlIA].filter(Boolean));
+        throw err;
+    }
 }
 
 // Mensajes siguientes: seguir platicando y actualizar relato/interpretación
-async function siguienteTurno(borrador, texto, imagenes) {
-    const primeraNueva = borrador.imagenes.length;
-    const partes = partesGemini(texto || '(Te comparto esta imagen de mi sueño.)', imagenes);
+async function siguienteTurno(c, texto, imagenes) {
+    const primeraNueva = c.imagenes.length;
+    const textoTurno = texto || '(Te comparto esta imagen de mi sueño.)';
 
     const r = await llamarGemini({
-        sistema: instruccionesConversacion(borrador),
-        contents: [...borrador.historial, { role: 'user', parts: partes }],
+        sistema: instruccionesConversacion(c),
+        contents: [...await historialParaGemini(c.historial, c.imagenes), { role: 'user', parts: partesGemini(textoTurno, imagenes) }],
         esquema: ESQUEMA_CONVERSACION
     });
 
@@ -826,24 +877,40 @@ async function siguienteTurno(borrador, texto, imagenes) {
     const detalles = String(r.detalles_nuevos || '').trim();
     const nuevaInterpretacion = String(r.interpretacion_actualizada || '').trim();
 
-    if (detalles) borrador.relato = `${borrador.relato}\n\n${detalles}`.slice(0, 6000);
-    if (nuevaInterpretacion) borrador.interpretacion = nuevaInterpretacion;
-    borrador.imagenes.push(...imagenes);
-
+    const subidas = await subirImagenesChat(c.id_usuario, imagenes);
     const mensajeIA = {
         rol: 'ia',
         texto: respuesta,
         relatoActualizado: Boolean(detalles),
         interpretacionActualizada: Boolean(nuevaInterpretacion)
     };
-    borrador.mensajes.push(
-        { rol: 'usuario', texto, imagenes: imagenes.map((_, i) => primeraNueva + i) },
-        mensajeIA
-    );
-    borrador.historial.push({ role: 'user', parts: partes }, { role: 'model', parts: [{ text: respuesta }] });
-    borrador.version = Date.now();
-    borrador.ultimaActividad = Date.now();
-    return { mensaje: mensajeIA, borrador: resumenBorrador(borrador) };
+    const mensajes = [...c.mensajes, { rol: 'usuario', texto, imagenes: imagenes.map((_, i) => primeraNueva + i) }, mensajeIA];
+    const historial = [
+        ...c.historial,
+        { role: 'user', parts: partesGuardadas(textoTurno, primeraNueva, imagenes.length) },
+        { role: 'model', parts: [{ text: respuesta }] }
+    ];
+    try {
+        const fila = (await db.query(
+            `UPDATE conversaciones
+             SET relato = $1, interpretacion = $2, imagenes = $3, mensajes = $4, historial = $5, actualizado_en = NOW()
+             WHERE id_conversacion = $6 RETURNING *`,
+            [detalles ? `${c.relato}\n\n${detalles}`.slice(0, 6000) : c.relato,
+                nuevaInterpretacion || c.interpretacion,
+                JSON.stringify([...c.imagenes, ...subidas]), JSON.stringify(mensajes), JSON.stringify(historial),
+                c.id_conversacion]
+        )).rows[0];
+        return { mensaje: mensajeIA, conversacion: resumenConversacion(fila) };
+    } catch (err) {
+        borrarImagenesStorage(subidas.map((s) => s.url));
+        throw err;
+    }
+}
+
+// Una conversación mía (o null)
+async function miConversacion(id, idUsuario) {
+    if (!id) return null;
+    return (await db.query('SELECT * FROM conversaciones WHERE id_conversacion = $1 AND id_usuario = $2', [id, idUsuario])).rows[0] || null;
 }
 
 // Si el servidor se reinició a media generación, esas publicaciones se
@@ -860,109 +927,132 @@ app.post('/cerrar-sesion', (req, res) => {
 });
 
 // =========================================================
-// API DEL CHAT DEL SUEÑO (la usa Sueno-script.js)
+// API DEL CHAT DEL SUEÑO (la usan Sueno-script.js y el perfil)
 // =========================================================
 
-// El borrador en curso (para retomar la plática si recargas la página)
-app.get('/api/sueno', requiereSesionApi, (req, res) => {
-    const b = borradores.get(req.session.idUsuario);
-    res.json({ borrador: b ? { ...resumenBorrador(b), mensajes: b.mensajes } : null });
+// Mis conversaciones (para la pestaña "Conversaciones" del perfil)
+app.get('/api/conversaciones', requiereSesionApi, async (req, res) => {
+    try {
+        const resultado = await db.query(
+            `SELECT id_conversacion AS id, titulo, LEFT(relato, 160) AS extracto, imagen_ia AS "imagenIA",
+                    (id_publicacion IS NOT NULL) AS publicada, id_publicacion,
+                    (SELECT COUNT(*)::int FROM jsonb_array_elements(mensajes) m WHERE m->>'rol' = 'usuario') AS mensajes_usuario,
+                    creado_en, actualizado_en
+             FROM conversaciones WHERE id_usuario = $1
+             ORDER BY actualizado_en DESC LIMIT 100`,
+            [req.session.idUsuario]
+        );
+        res.json(resultado.rows);
+    } catch (err) {
+        console.error('Error cargando conversaciones:', err.message);
+        res.status(500).json({ error: 'No se pudieron cargar tus conversaciones.' });
+    }
 });
 
-// Imágenes del borrador: /api/sueno/imagen/ia (la de la IA) o /api/sueno/imagen/0, 1, 2 (las del usuario)
-app.get('/api/sueno/imagen/:cual', requiereSesionApi, (req, res) => {
-    const b = borradores.get(req.session.idUsuario);
-    const imagen = !b ? null
-        : req.params.cual === 'ia' ? (b.imagenIA && { buffer: b.imagenIA, tipo: 'image/jpeg' })
-        : b.imagenes[Number(req.params.cual)];
-    if (!imagen) return res.status(404).end();
-    res.set('Cache-Control', 'private, no-store');
-    res.type(imagen.tipo).send(imagen.buffer);
+// Una conversación completa (para retomarla en el chat)
+app.get('/api/conversaciones/:id', requiereSesionApi, async (req, res) => {
+    try {
+        const c = await miConversacion(idValido(req.params.id), req.session.idUsuario);
+        if (!c) return res.status(404).json({ error: 'Esa conversación no existe o ya se eliminó.' });
+        res.json({ conversacion: resumenConversacion(c, { conMensajes: true }) });
+    } catch (err) {
+        console.error('Error cargando conversación:', err.message);
+        res.status(500).json({ error: 'No se pudo cargar la conversación.' });
+    }
 });
 
-// Mandar un mensaje (texto y/o imágenes) a la IA
+// Mandar un mensaje (texto y/o imágenes) a la IA.
+// Sin "conversacion" empieza una nueva; con "conversacion" sigue esa.
 app.post('/api/sueno/mensaje', requiereSesionApi, recibirImagenesChat, async (req, res) => {
     const idUsuario = req.session.idUsuario;
     const texto = String(req.body.texto || '').trim().slice(0, 2000);
     const imagenes = (req.files || []).map((f) => ({ buffer: f.buffer, tipo: f.mimetype }));
-    const borrador = borradores.get(idUsuario);
+    const idConversacion = idValido(req.body.conversacion);
 
     if (!process.env.GEMINI_API_KEY) {
         return res.status(503).json({ error: 'La IA no está configurada en el servidor (falta GEMINI_API_KEY).' });
     }
-    if (ocupados.has(idUsuario)) {
-        return res.status(409).json({ error: 'Espera a que Oniria termine de responder.' });
-    }
-    if (!borrador && !texto) {
-        return res.status(400).json({ error: 'Cuéntame tu sueño con palabras; las imágenes lo acompañan.' });
-    }
-    if (borrador && !texto && imagenes.length === 0) {
-        return res.status(400).json({ error: 'Escribe un mensaje o adjunta una imagen.' });
-    }
-    if ((borrador?.imagenes.length || 0) + imagenes.length > MAX_IMAGENES_SUENO) {
-        return res.status(400).json({ error: `Puedes adjuntar máximo ${MAX_IMAGENES_SUENO} imágenes por sueño.` });
-    }
-    if (borrador && borrador.mensajes.filter((m) => m.rol === 'usuario').length >= MAX_MENSAJES_USUARIO) {
-        return res.status(400).json({ error: 'Llegaste al límite de mensajes para este sueño. Publícalo o descártalo.' });
-    }
+    const llave = idConversacion ? `c${idConversacion}` : `nueva-${idUsuario}`;
+    if (ocupados.has(llave)) return res.status(409).json({ error: 'Espera a que Oniria termine de responder.' });
 
-    ocupados.add(idUsuario);
+    ocupados.add(llave);
     try {
-        const resultado = borrador
-            ? await siguienteTurno(borrador, texto, imagenes)
-            : await primerTurno(idUsuario, texto, imagenes);
-        res.json(resultado);
+        let c = null;
+        if (idConversacion) {
+            c = await miConversacion(idConversacion, idUsuario);
+            if (!c) return res.status(404).json({ error: 'Esa conversación no existe o ya se eliminó.' });
+            if (c.id_publicacion) return res.status(409).json({ error: 'Este sueño ya está publicado; su conversación ya no se puede continuar.' });
+            if (!texto && imagenes.length === 0) return res.status(400).json({ error: 'Escribe un mensaje o adjunta una imagen.' });
+            if (c.mensajes.filter((m) => m.rol === 'usuario').length >= MAX_MENSAJES_USUARIO) {
+                return res.status(400).json({ error: 'Llegaste al límite de mensajes para este sueño. Publícalo o elimínalo.' });
+            }
+        } else {
+            if (!texto) return res.status(400).json({ error: 'Cuéntame tu sueño con palabras; las imágenes lo acompañan.' });
+            const borradores = (await db.query(
+                'SELECT COUNT(*)::int AS n FROM conversaciones WHERE id_usuario = $1 AND id_publicacion IS NULL', [idUsuario]
+            )).rows[0].n;
+            if (borradores >= MAX_BORRADORES) {
+                return res.status(400).json({ error: `Tienes ${borradores} sueños sin publicar. Publica o elimina alguno en tu perfil para empezar otro.` });
+            }
+        }
+        if ((c?.imagenes.length || 0) + imagenes.length > MAX_IMAGENES_SUENO) {
+            return res.status(400).json({ error: `Puedes adjuntar máximo ${MAX_IMAGENES_SUENO} imágenes por sueño.` });
+        }
+
+        res.json(c ? await siguienteTurno(c, texto, imagenes) : await primerTurno(idUsuario, texto, imagenes));
     } catch (err) {
         console.error('Error en el chat del sueño:', err.message);
         res.status(502).json({ error: 'Oniria no pudo responder en este momento. Intenta de nuevo en unos segundos.' });
     } finally {
-        ocupados.delete(idUsuario);
+        ocupados.delete(llave);
     }
 });
 
-// Publicar: ahora sí se suben las imágenes y se guarda en la base de datos
-app.post('/api/sueno/publicar', requiereSesionApi, async (req, res) => {
+// Publicar una conversación: las imágenes ya están en Storage, solo se crea la publicación
+app.post('/api/conversaciones/:id/publicar', requiereSesionApi, async (req, res) => {
     const idUsuario = req.session.idUsuario;
-    const b = borradores.get(idUsuario);
-    if (!b) return res.status(404).json({ error: 'No hay ningún sueño en curso para publicar.' });
-    if (ocupados.has(idUsuario)) return res.status(409).json({ error: 'Espera a que Oniria termine de responder.' });
+    const id = idValido(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Esa conversación no existe.' });
+    if (ocupados.has(`c${id}`)) return res.status(409).json({ error: 'Espera a que Oniria termine de responder.' });
 
-    ocupados.add(idUsuario);
-    const subidas = []; // { url, prompt } en el orden en que se verán (primero la de la IA)
+    ocupados.add(`c${id}`);
     const cliente = await db.connect();
+    let b;
     try {
-        const base = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
-        try {
-            if (b.imagenIA) {
-                subidas.push({ url: await subirImagen(b.imagenIA, 'image/jpeg', `ia/sueno-${base}.jpg`), prompt: b.promptIA });
-            }
-            for (const [i, imagen] of b.imagenes.entries()) {
-                const url = await subirImagen(imagen.buffer, imagen.tipo, `usuarios/sueno-${base}-${i}.${extensionDe(imagen.tipo)}`);
-                subidas.push({ url, prompt: null });
-            }
-        } catch (err) {
-            console.error('Error subiendo imágenes del sueño:', err.message);
-            borrarImagenesStorage(subidas.map((s) => s.url));
-            return res.status(502).json({ error: 'No se pudieron subir las imágenes. Intenta publicar de nuevo.' });
+        await cliente.query('BEGIN');
+        // FOR UPDATE: si se pica "Publicar" dos veces, la segunda espera y ve que ya está publicada
+        b = (await cliente.query(
+            'SELECT * FROM conversaciones WHERE id_conversacion = $1 AND id_usuario = $2 FOR UPDATE', [id, idUsuario]
+        )).rows[0];
+        if (!b) {
+            await cliente.query('ROLLBACK');
+            return res.status(404).json({ error: 'Esa conversación no existe o ya se eliminó.' });
+        }
+        if (b.id_publicacion) {
+            await cliente.query('ROLLBACK');
+            return res.status(409).json({ error: 'Este sueño ya está publicado.' });
         }
 
-        // La publicación y sus medios en una transacción: o se guarda todo o nada
-        await cliente.query('BEGIN');
-        const resultado = await cliente.query(
+        const idPublicacion = (await cliente.query(
             `INSERT INTO publicaciones (id_usuario, sueno_texto, titulo, interpretacion_ia, estado)
              VALUES ($1, $2, $3, $4, 'listo') RETURNING id_publicacion`,
             [idUsuario, b.relato, b.titulo || null, b.interpretacion || null]
-        );
-        const idPublicacion = resultado.rows[0].id_publicacion;
-        for (const [orden, subida] of subidas.entries()) {
+        )).rows[0].id_publicacion;
+
+        // Primero la imagen de la IA y luego las del usuario
+        const medios = [
+            ...(b.imagen_ia ? [{ url: b.imagen_ia, prompt: b.prompt_ia }] : []),
+            ...b.imagenes.map((i) => ({ url: i.url, prompt: null }))
+        ];
+        for (const [orden, medio] of medios.entries()) {
             await cliente.query(
                 "INSERT INTO medios_publicacion (id_publicacion, tipo, url, orden, prompt_ia) VALUES ($1, 'imagen', $2, $3, $4)",
-                [idPublicacion, subida.url, orden, subida.prompt]
+                [idPublicacion, medio.url, orden, medio.prompt]
             );
         }
+        await cliente.query('UPDATE conversaciones SET id_publicacion = $1, actualizado_en = NOW() WHERE id_conversacion = $2', [idPublicacion, id]);
         await cliente.query('COMMIT');
 
-        borradores.delete(idUsuario);
         res.status(201).json({ ok: true, id_publicacion: idPublicacion });
         const bloqueados = await bloqueosDe(idUsuario).catch(() => new Set());
         emitir('publicacion-actualizada', { id_publicacion: idPublicacion, estado: 'listo', id_usuario: idUsuario },
@@ -973,20 +1063,37 @@ app.post('/api/sueno/publicar', requiereSesionApi, async (req, res) => {
     } catch (err) {
         await cliente.query('ROLLBACK').catch(() => {});
         console.error('Error publicando el sueño:', err.message);
-        borrarImagenesStorage(subidas.map((s) => s.url));
         res.status(500).json({ error: 'No se pudo publicar tu sueño. Intenta de nuevo.' });
     } finally {
         cliente.release();
-        ocupados.delete(idUsuario);
+        ocupados.delete(`c${id}`);
     }
 });
 
-// Descartar: se borra de la memoria y no se guarda nada
-app.delete('/api/sueno', requiereSesionApi, (req, res) => {
-    const idUsuario = req.session.idUsuario;
-    if (ocupados.has(idUsuario)) return res.status(409).json({ error: 'Espera a que Oniria termine de responder.' });
-    borradores.delete(idUsuario);
-    res.json({ ok: true });
+// Eliminar una conversación SIN publicar (borra también sus imágenes).
+// Las publicadas se eliminan borrando la publicación.
+app.delete('/api/conversaciones/:id', requiereSesionApi, async (req, res) => {
+    const id = idValido(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Esa conversación no existe.' });
+    if (ocupados.has(`c${id}`)) return res.status(409).json({ error: 'Espera a que Oniria termine de responder.' });
+    try {
+        const borrada = (await db.query(
+            `DELETE FROM conversaciones WHERE id_conversacion = $1 AND id_usuario = $2 AND id_publicacion IS NULL
+             RETURNING imagen_ia, imagenes`,
+            [id, req.session.idUsuario]
+        )).rows[0];
+        if (!borrada) {
+            const existe = await miConversacion(id, req.session.idUsuario);
+            return existe
+                ? res.status(409).json({ error: 'Este sueño ya está publicado. Para quitarlo, elimina la publicación.' })
+                : res.status(404).json({ error: 'Esa conversación no existe o ya se eliminó.' });
+        }
+        res.json({ ok: true });
+        borrarImagenesStorage([borrada.imagen_ia, ...borrada.imagenes.map((i) => i.url)].filter(Boolean));
+    } catch (err) {
+        console.error('Error eliminando conversación:', err.message);
+        res.status(500).json({ error: 'No se pudo eliminar la conversación.' });
+    }
 });
 
 // =========================================================

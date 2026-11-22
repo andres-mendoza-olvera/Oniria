@@ -2,8 +2,10 @@
 // CHAT DEL SUEÑO
 // (íconos, tema, crear(), api(), crearAvatar() y crearCarrusel() vienen de Comun.js)
 //
-// La conversación vive solo en la memoria del servidor hasta que la persona
-// decide: "Publicar" la guarda en el feed; "Descartar" la borra sin guardar nada.
+// Cada conversación se guarda en el perfil (solo la ve su dueño):
+//   /sueno       -> empieza un sueño nuevo (se guarda cuando la IA lo interpreta)
+//   /sueno?c=ID  -> retoma esa conversación
+// "Publicar" la manda al feed (y queda de solo lectura); "Eliminar" la borra.
 // =========================================================
 const MAX_IMAGENES = 3;
 
@@ -22,10 +24,11 @@ const acciones = document.getElementById('acciones');
 const btnPublicar = document.getElementById('btn-publicar');
 const btnDescartar = document.getElementById('btn-descartar');
 const vistaPrevia = document.getElementById('vista-previa');
+const avisoPublicada = document.getElementById('aviso-publicada');
 
 const estado = {
     yo: null,          // { idUsuario, apodo }
-    borrador: null,    // resumen del sueño en curso (lo que se publicaría)
+    borrador: null,    // la conversación en curso: { id, titulo, relato, interpretacion, imagenIA, imagenes[], publicada }
     adjuntos: [],      // imágenes elegidas que aún no se envían: { archivo, url }
     enviando: false
 };
@@ -51,18 +54,24 @@ function parrafos(texto) {
     return String(texto || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p) => crear('p', { text: p }));
 }
 
+// URL (en Storage) de una imagen de la conversación: 'ia' o el número de imagen del usuario
 function urlImagenBorrador(cual) {
-    return `/api/sueno/imagen/${cual}?v=${estado.borrador?.version || Date.now()}`;
+    return cual === 'ia' ? estado.borrador?.imagenIA : estado.borrador?.imagenes?.[cual];
 }
 
 function imagenesDisponibles() {
-    return MAX_IMAGENES - (estado.borrador?.totalImagenes || 0) - estado.adjuntos.length;
+    return MAX_IMAGENES - (estado.borrador?.imagenes?.length || 0) - estado.adjuntos.length;
 }
 
 // Actualiza botones y textos según haya o no un sueño en curso
 function actualizarInterfaz() {
     const hayBorrador = Boolean(estado.borrador);
-    acciones.hidden = !hayBorrador;
+    const publicada = Boolean(estado.borrador?.publicada);
+    // Publicada = solo lectura: sin caja de texto ni botones de publicar/eliminar
+    acciones.hidden = !hayBorrador || publicada;
+    form.hidden = publicada;
+    avisoPublicada.hidden = !publicada;
+    document.getElementById('btn-nuevo').hidden = !hayBorrador;
     bienvenida.hidden = listaMensajes.children.length > 0;
     textarea.placeholder = hayBorrador ? 'Pregunta o cuenta más…' : '¿Qué soñaste?';
     btnEnviar.disabled = estado.enviando;
@@ -286,6 +295,7 @@ async function enviar() {
 
     const datos = new FormData();
     datos.append('texto', texto);
+    if (estado.borrador) datos.append('conversacion', estado.borrador.id);
     adjuntos.forEach((a) => datos.append('imagenes', a.archivo, a.archivo.name));
 
     // Mostrar el mensaje de inmediato y limpiar la caja
@@ -304,8 +314,12 @@ async function enviar() {
     bajarAlFinal();
 
     try {
-        const { mensaje, borrador } = await api('/api/sueno/mensaje', { method: 'POST', body: datos });
-        if (borrador) estado.borrador = borrador;
+        const { mensaje, conversacion } = await api('/api/sueno/mensaje', { method: 'POST', body: datos });
+        if (conversacion) {
+            estado.borrador = conversacion;
+            // La dirección queda como /sueno?c=ID: al recargar (o desde el perfil) se retoma
+            if (esPrimero) history.replaceState(null, '', `/sueno?c=${conversacion.id}`);
+        }
         escribiendo.replaceWith(mensajeIA(mensaje));
     } catch (err) {
         // Regresamos el texto y las imágenes para que pueda intentarlo otra vez
@@ -343,11 +357,11 @@ textarea.addEventListener('input', ajustarAltura);
 function construirVistaPrevia() {
     const b = estado.borrador;
     const imagenes = [];
-    if (b.tieneImagenIA) {
-        imagenes.push({ elemento: crear('img', { class: 'post-media', src: urlImagenBorrador('ia'), alt: 'Imagen creada por IA' }), etiqueta: 'Creada por IA' });
+    if (b.imagenIA) {
+        imagenes.push({ elemento: crear('img', { class: 'post-media', src: b.imagenIA, alt: 'Imagen creada por IA' }), etiqueta: 'Creada por IA' });
     }
-    for (let i = 0; i < b.totalImagenes; i++) {
-        imagenes.push({ elemento: crear('img', { class: 'post-media', src: urlImagenBorrador(i), alt: 'Tu imagen' }), etiqueta: 'Tu imagen' });
+    for (const url of b.imagenes) {
+        imagenes.push({ elemento: crear('img', { class: 'post-media', src: url, alt: 'Tu imagen' }), etiqueta: 'Tu imagen' });
     }
 
     const tarjeta = crear('article', { class: 'post-card' },
@@ -390,7 +404,7 @@ btnConfirmar.addEventListener('click', async () => {
     btnConfirmar.disabled = true;
     btnConfirmar.textContent = 'Publicando…';
     try {
-        await api('/api/sueno/publicar', { method: 'POST' });
+        await api(`/api/conversaciones/${estado.borrador.id}/publicar`, { method: 'POST' });
         window.location.href = '/feed';
     } catch (err) {
         vistaPrevia.close();
@@ -401,19 +415,33 @@ btnConfirmar.addEventListener('click', async () => {
 });
 
 btnDescartar.addEventListener('click', async () => {
-    if (!(await preguntar({ titulo: '¿Descartar este sueño?', texto: 'Se borrará la conversación y no se guardará nada.', aceptar: 'Descartar', cancelar: 'Seguir contando', peligro: true, icono: 'basura' }))) return;
+    if (!estado.borrador) return;
+    if (!(await preguntar({ titulo: '¿Eliminar este sueño?', texto: 'Se borrará la conversación con sus imágenes y no se podrá recuperar.', aceptar: 'Eliminar', cancelar: 'Seguir contando', peligro: true, icono: 'basura' }))) return;
     try {
-        await api('/api/sueno', { method: 'DELETE' });
-        estado.borrador = null;
-        listaMensajes.replaceChildren();
-        mostrarError('');
-        actualizarInterfaz();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        textarea.focus();
+        await api(`/api/conversaciones/${estado.borrador.id}`, { method: 'DELETE' });
+        window.location.href = '/sueno'; // empezar uno nuevo
     } catch (err) {
         mostrarError(err.message);
     }
 });
+
+// Bienvenida de un sueño nuevo: los que quedaron sin publicar, para retomarlos
+async function pintarPendientes() {
+    try {
+        const conversaciones = await api('/api/conversaciones');
+        const pendientes = conversaciones.filter((c) => !c.publicada).slice(0, 3);
+        if (!pendientes.length) return;
+        document.getElementById('lista-pendientes').replaceChildren(...pendientes.map((c) =>
+            crear('li', {},
+                crear('a', { href: `/sueno?c=${c.id}`, class: 'pendiente' },
+                    c.imagenIA ? crear('img', { src: c.imagenIA, alt: '', loading: 'lazy' }) : crear('span', { class: 'pendiente-sin-imagen' }, icono('luna', 'icono-sm')),
+                    crear('span', { class: 'pendiente-textos' },
+                        crear('strong', { text: c.titulo || 'Sueño sin título' }),
+                        crear('small', { text: c.extracto || '' })),
+                    crear('span', { class: 'pendiente-continuar', text: 'Continuar' })))));
+        document.getElementById('pendientes').hidden = false;
+    } catch { /* si falla, solo no se muestra la lista */ }
+}
 
 // ---------------------------------------------------------
 // Arranque: quién soy y si había un sueño en curso
@@ -421,13 +449,20 @@ btnDescartar.addEventListener('click', async () => {
 (async () => {
     actualizarInterfaz();
     try {
-        const [yo, { borrador }] = await Promise.all([api('/api/yo'), api('/api/sueno')]);
+        const idConversacion = Number(new URLSearchParams(location.search).get('c')) || null;
+        const [yo, datos] = await Promise.all([
+            api('/api/yo'),
+            idConversacion ? api(`/api/conversaciones/${idConversacion}`) : null
+        ]);
         estado.yo = yo;
-        if (borrador) {
-            const { mensajes, ...resumen } = borrador;
+        if (datos?.conversacion) {
+            const { mensajes, ...resumen } = datos.conversacion;
             estado.borrador = resumen;
+            document.title = `${resumen.titulo || 'Tu sueño'} - Oniria`;
             pintarConversacion(mensajes);
             bajarAlFinal();
+        } else {
+            pintarPendientes();
         }
     } catch (err) {
         mostrarError(err.message);

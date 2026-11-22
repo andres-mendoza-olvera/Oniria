@@ -63,20 +63,21 @@ function irAPestana(nombre) {
     // "#buscar" (acceso directo del menú) = pestaña Amigos con el cursor en el buscador
     const enfocarBuscador = nombre === 'buscar';
     if (enfocarBuscador) nombre = 'amigos';
-    if (!['suenos', 'amigos', 'solicitudes', 'bloqueados'].includes(nombre)) nombre = 'suenos';
-    if (!estado.esMio && (nombre === 'solicitudes' || nombre === 'bloqueados')) nombre = 'suenos';
+    if (!['suenos', 'conversaciones', 'amigos', 'solicitudes', 'bloqueados'].includes(nombre)) nombre = 'suenos';
+    if (!estado.esMio && ['solicitudes', 'bloqueados', 'conversaciones'].includes(nombre)) nombre = 'suenos';
     estado.pestana = nombre;
     document.querySelectorAll('.pestana').forEach((b) => {
         const activa = b.dataset.pestana === nombre;
         b.classList.toggle('activa', activa);
         b.setAttribute('aria-selected', activa ? 'true' : 'false');
     });
-    ['suenos', 'amigos', 'solicitudes', 'bloqueados'].forEach((p) => { $(`panel-${p}`).hidden = p !== nombre; });
+    ['suenos', 'conversaciones', 'amigos', 'solicitudes', 'bloqueados'].forEach((p) => { $(`panel-${p}`).hidden = p !== nombre; });
     history.replaceState(null, '', nombre === 'suenos' ? location.pathname : `${location.pathname}#${nombre}`);
 
     if (nombre === 'amigos') cargarAmigos();
     if (nombre === 'solicitudes') cargarSolicitudes();
     if (nombre === 'bloqueados') cargarBloqueados();
+    if (nombre === 'conversaciones') cargarConversaciones();
     if (enfocarBuscador && estado.esMio) {
         $('buscar-personas').focus();
         $('buscar-personas').scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -226,6 +227,92 @@ async function cargarSolicitudes() {
         $('lista-recibidas').replaceChildren(mensajeVacio(err.message));
     }
 }
+
+// ---------------------------------------------------------
+// Conversaciones con la IA (pestaña "Conversaciones", solo en mi perfil)
+// ---------------------------------------------------------
+const conversaciones = { todas: [], filtro: 'todas' };
+
+async function cargarConversaciones() {
+    const lista = $('lista-conversaciones');
+    try {
+        conversaciones.todas = await api('/api/conversaciones');
+        pintarConversaciones();
+    } catch (err) {
+        lista.replaceChildren(mensajeVacio(err.message));
+    }
+}
+
+function pintarConversaciones() {
+    const { todas, filtro } = conversaciones;
+    const borradores = todas.filter((c) => !c.publicada).length;
+    $('total-conversaciones').textContent = todas.length
+        ? `${todas.length} en total · ${borradores} sin publicar`
+        : '';
+    const visibles = todas.filter((c) => filtro === 'todas' || (filtro === 'borradores' ? !c.publicada : c.publicada));
+    if (!visibles.length) {
+        $('lista-conversaciones').replaceChildren(mensajeVacio(
+            !todas.length ? 'Todavía no tienes conversaciones. Cuenta tu primer sueño y aquí se guardará la plática.'
+                : filtro === 'borradores' ? 'No tienes sueños sin publicar.'
+                : 'Aún no has publicado ningún sueño.'));
+        return;
+    }
+    $('lista-conversaciones').replaceChildren(...visibles.map(tarjetaConversacion));
+}
+
+function tarjetaConversacion(c) {
+    const mensajes = `${c.mensajes_usuario} mensaje${c.mensajes_usuario === 1 ? '' : 's'} tuyo${c.mensajes_usuario === 1 ? '' : 's'}`;
+    const enlace = `/sueno?c=${c.id}`;
+    const borrar = crear('button', { type: 'button', class: 'btn-amistad btn-peligro' },
+        icono('basura', 'icono-sm'), c.publicada ? 'Eliminar publicación' : 'Eliminar');
+    borrar.addEventListener('click', () => eliminarConversacion(c, borrar));
+
+    return crear('article', { class: `conversacion${c.publicada ? ' publicada' : ''}` },
+        crear('a', { href: enlace, class: 'conversacion-imagen', 'aria-hidden': 'true', tabindex: '-1' },
+            c.imagenIA ? crear('img', { src: c.imagenIA, alt: '', loading: 'lazy' }) : icono('luna')),
+        crear('div', { class: 'conversacion-cuerpo' },
+            crear('div', { class: 'conversacion-fila' },
+                crear('a', { href: enlace, class: 'conversacion-titulo', text: c.titulo || 'Sueño sin título' }),
+                crear('span', { class: `insignia${c.publicada ? ' ok' : ''}`, text: c.publicada ? 'Publicado' : 'Sin publicar' })),
+            crear('p', { class: 'conversacion-extracto', text: c.extracto || '' }),
+            crear('span', { class: 'conversacion-meta', text: `${mensajes} · ${c.publicada ? 'publicado' : 'actualizado'} ${tiempoRelativo(c.actualizado_en)}` }),
+            crear('div', { class: 'conversacion-acciones' },
+                crear('a', { href: enlace, class: `btn-amistad${c.publicada ? '' : ' principal'}` },
+                    icono(c.publicada ? 'comentario' : 'enviar', 'icono-sm'), c.publicada ? 'Ver conversación' : 'Continuar'),
+                borrar))
+    );
+}
+
+async function eliminarConversacion(c, boton) {
+    const si = await preguntar(c.publicada
+        ? {
+            titulo: '¿Eliminar esta publicación?',
+            texto: 'Se borrará el sueño del feed con sus imágenes, corazones y comentarios, y también esta conversación. No se puede deshacer.',
+            aceptar: 'Eliminar', peligro: true, icono: 'basura'
+        }
+        : {
+            titulo: '¿Eliminar esta conversación?',
+            texto: 'Se borrará la plática con sus imágenes. Como no está publicada, nadie más la ha visto. No se puede deshacer.',
+            aceptar: 'Eliminar', peligro: true, icono: 'basura'
+        });
+    if (!si) return;
+    boton.disabled = true;
+    try {
+        await api(c.publicada ? `/api/publicaciones/${c.id_publicacion}` : `/api/conversaciones/${c.id}`, { method: 'DELETE' });
+        conversaciones.todas = conversaciones.todas.filter((x) => x.id !== c.id);
+        pintarConversaciones();
+        if (c.publicada) recargarPerfil().then(() => cargarSuenos(true)).catch(() => {});
+    } catch (err) {
+        boton.disabled = false;
+        avisar(err.message);
+    }
+}
+
+document.querySelectorAll('[data-filtro-conv]').forEach((chip) => chip.addEventListener('click', () => {
+    conversaciones.filtro = chip.dataset.filtroConv;
+    document.querySelectorAll('[data-filtro-conv]').forEach((c) => c.classList.toggle('activo', c === chip));
+    pintarConversaciones();
+}));
 
 // Personas que bloqueé (pestaña "Bloqueados", solo en mi perfil)
 async function cargarBloqueados() {

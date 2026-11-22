@@ -394,3 +394,59 @@
     .vista-previa-contenido { padding: 0; }
     .vista-previa-contenido .post-card { border: none; box-shadow: none; }
 }
+
+/* =========================================
+   CONVERSACIONES GUARDADAS
+   ========================================= */
+/* Sueños sin publicar (en la bienvenida de un sueño nuevo) */
+.pendientes { width: 100%; max-width: 520px; margin-top: 18px; text-align: left; }
+.pendientes h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 8px; }
+.pendientes ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.pendiente {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 14px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.pendiente:hover { border-color: var(--color-accent); transform: translateY(-1px); }
+.pendiente img, .pendiente-sin-imagen {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    object-fit: cover;
+}
+.pendiente-sin-imagen { display: grid; place-items: center; background: var(--gradiente); color: #fff; }
+.pendiente-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pendiente-textos strong { font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pendiente-textos small {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pendiente-continuar { font-size: 0.82rem; font-weight: 700; color: var(--color-accent); flex-shrink: 0; }
+.enlace-todos { display: inline-block; margin-top: 10px; font-size: 0.85rem; font-weight: 600; color: var(--color-primary); }
+.enlace-todos:hover { text-decoration: underline; }
+
+/* Conversación de un sueño ya publicado (solo lectura) */
+.aviso-publicada {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    font-size: 0.88rem;
+    text-align: center;
+}
+.aviso-publicada > .icono { color: #1f9d55; }
+.aviso-publicada .btn-publish { padding: 8px 18px; font-size: 0.85rem; }

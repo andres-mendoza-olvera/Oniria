@@ -24,6 +24,12 @@
             <strong>Oniria</strong>
             <span id="estado-bot">Intérprete de sueños</span>
         </div>
+        <a href="/sueno" id="btn-nuevo" class="icon-btn" title="Contar otro sueño" aria-label="Contar otro sueño" hidden>
+            <span class="icono" data-icono="mas"></span>
+        </a>
+        <a href="/perfil#conversaciones" class="icon-btn" title="Mis conversaciones guardadas" aria-label="Mis conversaciones guardadas">
+            <span class="icono" data-icono="comentario"></span>
+        </a>
         <button type="button" class="icon-btn js-tema" title="Cambiar tema" aria-label="Cambiar tema"></button>
     </header>
 
@@ -36,8 +42,15 @@
             <ul class="tips">
                 <li><span class="icono icono-sm" data-icono="microfono"></span>Usa el micrófono para dictarlo</li>
                 <li><span class="icono icono-sm" data-icono="imagen"></span>Adjunta dibujos o fotos (hasta 3)</li>
-                <li><span class="icono icono-sm" data-icono="escudo"></span>Nada se guarda hasta que decidas publicarlo</li>
+                <li><span class="icono icono-sm" data-icono="escudo"></span>La plática se guarda en tu perfil (solo tú la ves) y la publicas cuando quieras</li>
             </ul>
+
+            <!-- Sueños sin publicar: para retomarlos -->
+            <div id="pendientes" class="pendientes" hidden>
+                <h2>Sueños sin publicar</h2>
+                <ul id="lista-pendientes"></ul>
+                <a href="/perfil#conversaciones" class="enlace-todos">Ver todas mis conversaciones</a>
+            </div>
         </section>
 
         <ol id="mensajes" class="mensajes" aria-live="polite"></ol>
@@ -45,9 +58,16 @@
 
     <!-- Parte de abajo: acciones, adjuntos y caja de texto -->
     <footer class="chat-pie">
+        <!-- Si el sueño ya se publicó, la conversación solo se puede leer -->
+        <div id="aviso-publicada" class="aviso-publicada" hidden>
+            <span class="icono icono-sm" data-icono="check"></span>
+            <span>Este sueño ya está publicado; su conversación se guarda para que la releas.</span>
+            <a href="/sueno" class="btn-publish">Contar otro sueño</a>
+        </div>
+
         <div id="acciones" class="acciones" hidden>
             <button type="button" id="btn-descartar" class="btn-descartar">
-                <span class="icono icono-sm" data-icono="basura"></span>Descartar
+                <span class="icono icono-sm" data-icono="basura"></span>Eliminar
             </button>
             <button type="button" id="btn-publicar" class="btn-publish">
                 <span class="icono icono-sm" data-icono="check"></span>Publicar en el feed

@@ -487,3 +487,74 @@
     .dialogo-contenido.editar { padding: 18px; }
     .dialogo-contenido .post-card { border: none; box-shadow: none; }
 }
+
+/* ----- Conversaciones con la IA ----- */
+.panel-encabezado { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 22px 4px 10px; }
+.panel-encabezado .panel-titulo { margin: 0; }
+.panel-encabezado .btn-amistad { text-decoration: none; }
+.filtro-conversaciones { display: flex; gap: 8px; margin: 0 4px 14px; flex-wrap: wrap; }
+.chip {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.83rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.chip:hover { background-color: var(--surface-hover); }
+.chip.activo { background-color: var(--text-main); border-color: var(--text-main); color: var(--bg-body); }
+.lista-conversaciones { display: flex; flex-direction: column; gap: 12px; }
+.conversacion {
+    display: flex;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 18px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--sombra);
+}
+.conversacion-imagen {
+    width: 88px;
+    height: 88px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--gradiente);
+    color: #fff;
+}
+.conversacion-imagen img { width: 100%; height: 100%; object-fit: cover; }
+.conversacion-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.conversacion-fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.conversacion-titulo { font-weight: 700; font-size: 1rem; overflow-wrap: anywhere; }
+.conversacion-titulo:hover { text-decoration: underline; }
+.insignia {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    background-color: rgba(164, 99, 242, 0.12);
+}
+.insignia.ok { color: #1f9d55; background-color: rgba(31, 157, 85, 0.12); }
+.conversacion-extracto {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.conversacion-meta { font-size: 0.78rem; color: var(--text-muted); }
+.conversacion-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.conversacion-acciones .btn-amistad { text-decoration: none; padding: 7px 14px; font-size: 0.84rem; }
+.btn-amistad.btn-peligro { color: var(--corazon); }
+@media (max-width: 640px) {
+    .conversacion { padding: 12px; gap: 12px; }
+    .conversacion-imagen { width: 64px; height: 64px; }
+}
