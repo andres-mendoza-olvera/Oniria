@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración - Oniria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/Feedback.css">
+    <link rel="stylesheet" href="/Graficas.css">
+    <link rel="stylesheet" href="/Admin.css">
+    <script src="/Tema.js"></script>
+</head>
+<body>
+
+    <!-- Barra superior (solo en celular) -->
+    <header class="top-bar">
+        <span class="app-name">Oniria</span>
+        <div class="top-bar-acciones">
+            <button type="button" class="icon-btn js-tema" title="Cambiar tema" aria-label="Cambiar tema"></button>
+            <form action="/cerrar-sesion" method="POST">
+                <button type="submit" class="icon-btn" aria-label="Cerrar sesión" title="Cerrar sesión"><span class="icono" data-icono="salir"></span></button>
+            </form>
+        </div>
+    </header>
+
+    <div class="app sin-derecha">
+        <aside class="sidebar">
+            <div class="sidebar-logo admin-logo">
+                <span class="app-name">Oniria</span>
+                <span class="insignia-rol" id="insignia-rol">Administración</span>
+            </div>
+            <nav class="menu" aria-label="Secciones">
+                <a href="#estadisticas" class="menu-item" data-seccion="estadisticas"><span class="icono" data-icono="grafica"></span><span>Estadísticas</span></a>
+                <a href="#reportes" class="menu-item" data-seccion="reportes">
+                    <span class="menu-icono-globo"><span class="icono" data-icono="bandera"></span><span class="globo" id="globo-reportes" hidden></span></span><span>Reportes</span>
+                </a>
+                <a href="#usuarios" class="menu-item" data-seccion="usuarios"><span class="icono" data-icono="amigos"></span><span>Usuarios</span></a>
+                <a href="#equipo" class="menu-item js-solo-admin" data-seccion="equipo" hidden><span class="icono" data-icono="llave"></span><span>Equipo</span></a>
+                <button type="button" class="menu-item js-tema">
+                    <span class="icono" data-icono="luna"></span><span class="js-tema-texto">Tema oscuro</span>
+                </button>
+            </nav>
+            <form action="/cerrar-sesion" method="POST" class="menu-salir">
+                <button type="submit" class="menu-item"><span class="icono" data-icono="salir"></span><span>Cerrar sesión</span></button>
+            </form>
+        </aside>
+
+        <main class="admin-pagina">
+
+            <!-- ============ ESTADÍSTICAS ============ -->
+            <section id="seccion-estadisticas" class="admin-seccion" hidden>
+                <div class="admin-encabezado">
+                    <div>
+                        <h1>Estadísticas de Oniria</h1>
+                        <p>Cómo sueña la comunidad. La IA clasifica cada sueño al interpretarlo.</p>
+                    </div>
+                    <div class="admin-controles">
+                        <select id="periodo" class="selector" aria-label="Periodo">
+                            <option value="">Desde siempre</option>
+                            <option value="365">Último año</option>
+                            <option value="90">Últimos 90 días</option>
+                            <option value="30">Últimos 30 días</option>
+                            <option value="7">Última semana</option>
+                        </select>
+                        <button type="button" id="btn-csv" class="btn-accion"><span class="icono icono-sm" data-icono="descargar"></span>Excel (CSV)</button>
+                        <button type="button" id="btn-png" class="btn-accion principal"><span class="icono icono-sm" data-icono="descargar"></span>Imagen</button>
+                    </div>
+                </div>
+                <p id="estado-estadisticas" class="estado-carga">Calculando…</p>
+                <div id="numeros" class="numeros"></div>
+                <div id="graficas" class="graficas"></div>
+            </section>
+
+            <!-- ============ REPORTES ============ -->
+            <section id="seccion-reportes" class="admin-seccion" hidden>
+                <div class="admin-encabezado">
+                    <div>
+                        <h1>Reportes</h1>
+                        <p>Lo que la comunidad reporta. Decide si se descarta, se suspende la cuenta<span class="js-solo-admin" hidden> o se banea</span>.</p>
+                    </div>
+                    <div class="filtros" role="group" aria-label="Filtrar reportes">
+                        <button type="button" class="chip activo" data-filtro-reportes="pendiente">Pendientes</button>
+                        <button type="button" class="chip" data-filtro-reportes="revisados">Revisados</button>
+                    </div>
+                </div>
+                <div id="lista-reportes" class="lista-admin"></div>
+            </section>
+
+            <!-- ============ USUARIOS ============ -->
+            <section id="seccion-usuarios" class="admin-seccion" hidden>
+                <div class="admin-encabezado">
+                    <div>
+                        <h1>Usuarios</h1>
+                        <p>Busca cuentas para suspenderlas<span class="js-solo-admin" hidden>, banearlas</span> o reactivarlas.</p>
+                    </div>
+                </div>
+                <div class="admin-busqueda">
+                    <div class="buscador">
+                        <span class="icono icono-sm" data-icono="buscar"></span>
+                        <input type="search" id="buscar-usuarios" placeholder="Buscar por apodo, nombre o correo…" autocomplete="off" maxlength="60" aria-label="Buscar usuarios">
+                    </div>
+                    <div class="filtros" role="group" aria-label="Filtrar usuarios">
+                        <button type="button" class="chip activo" data-filtro-usuarios="todas">Todas</button>
+                        <button type="button" class="chip" data-filtro-usuarios="suspendidas">Suspendidas</button>
+                        <button type="button" class="chip" data-filtro-usuarios="baneadas">Baneadas</button>
+                    </div>
+                </div>
+                <div id="lista-usuarios" class="lista-admin"></div>
+            </section>
+
+            <!-- ============ EQUIPO (solo admin) ============ -->
+            <section id="seccion-equipo" class="admin-seccion" hidden>
+                <div class="admin-encabezado">
+                    <div>
+                        <h1>Equipo</h1>
+                        <p>Los subadministradores pueden ver las estadísticas, revisar reportes y suspender cuentas. No pueden banear ni agregar a otros.</p>
+                    </div>
+                </div>
+                <form id="form-equipo" class="tarjeta-admin form-equipo" novalidate>
+                    <h2>Agregar subadministrador</h2>
+                    <div class="campos">
+                        <label class="campo-admin"><span>Nombre</span><input type="text" id="equipo-nombre" maxlength="80" required></label>
+                        <label class="campo-admin"><span>Usuario</span><input type="text" id="equipo-apodo" maxlength="30" required></label>
+                        <label class="campo-admin"><span>Correo</span><input type="email" id="equipo-correo" maxlength="100" required></label>
+                    </div>
+                    <p class="nota">Le llegará un correo para que elija su contraseña (el enlace dura 48 horas). Después entra con su correo como todos, con su código de acceso.</p>
+                    <p id="error-equipo" class="error-admin" role="alert" hidden></p>
+                    <button type="submit" id="btn-equipo" class="btn-accion principal"><span class="icono icono-sm" data-icono="mas"></span>Enviar invitación</button>
+                </form>
+                <div id="lista-equipo" class="lista-admin"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Navegación inferior (solo en celular) -->
+    <nav class="bottom-nav" aria-label="Secciones">
+        <a href="#estadisticas" class="bottom-nav-item" aria-label="Estadísticas"><span class="icono" data-icono="grafica"></span></a>
+        <a href="#reportes" class="bottom-nav-item" aria-label="Reportes"><span class="icono" data-icono="bandera"></span></a>
+        <a href="#usuarios" class="bottom-nav-item" aria-label="Usuarios"><span class="icono" data-icono="amigos"></span></a>
+        <a href="#equipo" class="bottom-nav-item js-solo-admin" aria-label="Equipo" hidden><span class="icono" data-icono="llave"></span></a>
+    </nav>
+
+    <script src="/Comun.js"></script>
+    <script src="/Graficas.js"></script>
+    <script src="/Admin-script.js"></script>
+</body>
+</html>

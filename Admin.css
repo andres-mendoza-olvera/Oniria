@@ -1,0 +1,177 @@
+/* =========================================
+   PANEL DE ADMINISTRACIÓN (/admin)
+   ========================================= */
+.admin-logo { display: flex; flex-direction: column; gap: 4px; }
+.insignia-rol {
+    align-self: flex-start;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--gradiente);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.admin-pagina { padding: 32px 24px 48px; max-width: 1040px; width: 100%; margin: 0 auto; }
+.admin-seccion { display: flex; flex-direction: column; gap: 18px; }
+.admin-encabezado { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-encabezado h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
+.admin-encabezado p { color: var(--text-muted); font-size: 0.92rem; margin-top: 4px; max-width: 560px; }
+.admin-controles, .filtros { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.estado-carga { color: var(--text-muted); text-align: center; padding: 30px 0; }
+
+.selector {
+    padding: 9px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+.btn-accion {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border-radius: 12px;
+    border: none;
+    background-color: var(--surface-2);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.btn-accion:hover { background-color: var(--surface-hover); }
+.btn-accion.principal { background: var(--gradiente); color: #fff; }
+.btn-accion.principal:hover { filter: brightness(1.07); }
+.btn-accion.peligro { background-color: rgba(255, 59, 92, 0.12); color: var(--corazon); }
+.btn-accion.peligro:hover { background-color: rgba(255, 59, 92, 0.2); }
+.btn-accion:disabled { opacity: 0.55; cursor: default; }
+
+.chip {
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.83rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.chip:hover { background-color: var(--surface-hover); }
+.chip.activo { background-color: var(--text-main); border-color: var(--text-main); color: var(--bg-body); }
+
+/* Tarjetas de reportes, usuarios y equipo */
+.lista-admin { display: flex; flex-direction: column; gap: 12px; }
+.tarjeta-admin {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--sombra);
+}
+.tarjeta-fila { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tarjeta-fila .avatar { width: 44px; height: 44px; }
+.tarjeta-persona { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tarjeta-persona strong { font-size: 0.98rem; overflow-wrap: anywhere; }
+.tarjeta-persona small { font-size: 0.8rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.etiquetas { display: flex; gap: 6px; flex-wrap: wrap; }
+.etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    background-color: var(--surface-2);
+    color: var(--text-main);
+}
+.etiqueta.motivo { background-color: rgba(164, 99, 242, 0.12); color: var(--color-accent); }
+/* Estados: siempre con texto (nunca solo color) */
+.etiqueta.activa { background-color: rgba(12, 163, 12, 0.12); color: #0a7d0a; }
+.etiqueta.suspendida { background-color: rgba(250, 178, 25, 0.18); color: #8a5a00; }
+.etiqueta.baneada { background-color: rgba(208, 59, 59, 0.14); color: #b42f2f; }
+.dark-theme .etiqueta.activa { color: #4cc94c; }
+.dark-theme .etiqueta.suspendida { color: #f5c25a; }
+.dark-theme .etiqueta.baneada { color: #ef7a7a; }
+
+.reporte-detalle-texto {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background-color: var(--surface-2);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+.reporte-sueno { border-left: 3px solid var(--color-accent); padding: 8px 12px; font-size: 0.86rem; color: var(--text-muted); line-height: 1.5; }
+.reporte-sueno strong { color: var(--text-main); display: block; margin-bottom: 2px; }
+.meta { font-size: 0.8rem; color: var(--text-muted); }
+.acciones-admin { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 4px; border-top: 1px solid var(--border-color); margin-top: 4px; padding-top: 12px; }
+.acciones-admin .nota-admin {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 9px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-2);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.86rem;
+}
+.resolucion { font-size: 0.86rem; padding: 8px 12px; border-radius: 12px; background-color: var(--surface-2); }
+
+.admin-busqueda { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.admin-busqueda .buscador {
+    flex: 1 1 280px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface);
+}
+.admin-busqueda .buscador input { flex: 1; min-width: 0; border: none; outline: none; background: none; color: var(--text-main); font: inherit; font-size: 0.92rem; }
+.admin-busqueda .buscador .icono { color: var(--text-muted); }
+
+.form-equipo h2 { font-size: 1rem; font-weight: 700; }
+.campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.campo-admin { display: flex; flex-direction: column; gap: 5px; font-size: 0.82rem; font-weight: 600; }
+.campo-admin input, .campo-admin select, .campo-admin textarea {
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-2);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+.campo-admin input:focus, .campo-admin textarea:focus, .campo-admin select:focus { outline: none; border-color: var(--color-accent); }
+.nota { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+.error-admin { color: var(--corazon); font-size: 0.86rem; }
+.form-equipo .btn-accion { align-self: flex-start; }
+
+.vacio-admin { text-align: center; color: var(--text-muted); padding: 36px 12px; font-size: 0.92rem; }
+
+/* Ventana de sanción (días + motivo) */
+.pregunta.sancion { width: min(420px, calc(100% - 32px)); }
+.pregunta.sancion .campo-admin { margin-top: 14px; text-align: left; }
+
+@media (max-width: 640px) {
+    .admin-pagina { padding: calc(var(--alto-top) + 16px) 12px calc(90px + env(safe-area-inset-bottom)); }
+    .tarjeta-admin { padding: 14px; }
+}

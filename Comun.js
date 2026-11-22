@@ -43,6 +43,11 @@ const ICONOS = {
     cuadricula: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
     sobre: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
     telefono: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+    grafica: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+    bandera: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    descargar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    compartir: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
+    llave: '<circle cx="8" cy="14" r="4"/><path d="m11 11 9-9M16 6l3 3M14 8l2 2"/>',
     clip: '<path d="m20.5 11.5-8.3 8.3a5.3 5.3 0 0 1-7.5-7.5l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.6 8.6a1.8 1.8 0 0 1-2.5-2.5l7.9-7.9"/>'
 };
 
@@ -137,6 +142,63 @@ function preguntar({ titulo, texto = '', aceptar = 'Aceptar', cancelar = 'Cancel
         // En acciones peligrosas el foco queda en "Cancelar" (Enter no borra nada por accidente)
         (peligro && btnCancelar ? btnCancelar : btnAceptar).focus();
     });
+}
+
+// ---------------------------------------------------------
+// Reportar a una persona (o uno de sus sueños) a la administración
+// ---------------------------------------------------------
+const MOTIVOS_REPORTE = [
+    ['acoso', 'Acoso o bullying'],
+    ['odio', 'Discurso de odio'],
+    ['sexual', 'Contenido sexual'],
+    ['violencia', 'Violencia o amenazas'],
+    ['spam', 'Spam o cuenta falsa'],
+    ['otro', 'Otro motivo']
+];
+
+function reportar({ id_usuario, apodo, id_publicacion = null }) {
+    const dialogo = crear('dialog', { class: 'pregunta reporte', 'aria-labelledby': 'reporte-titulo' });
+    const opciones = crear('div', { class: 'reporte-opciones', role: 'radiogroup', 'aria-label': 'Motivo' },
+        ...MOTIVOS_REPORTE.map(([valor, texto]) => crear('label', { class: 'reporte-opcion' },
+            crear('input', { type: 'radio', name: 'motivo', value: valor }), crear('span', { text: texto }))));
+    const detalle = crear('textarea', { class: 'reporte-detalle', rows: '3', maxlength: '500', placeholder: 'Cuéntanos qué pasó (opcional, salvo en "Otro motivo")' });
+    const error = crear('p', { class: 'reporte-error', role: 'alert', hidden: true });
+    const enviar = crear('button', { type: 'button', class: 'pregunta-btn principal peligro', text: 'Enviar reporte' });
+    const cancelar = crear('button', { type: 'button', class: 'pregunta-btn', text: 'Cancelar' });
+
+    dialogo.append(
+        crear('div', { class: 'pregunta-icono' }, icono('bandera')),
+        crear('h2', { id: 'reporte-titulo', class: 'pregunta-titulo', text: id_publicacion ? `Reportar el sueño de ${apodo}` : `Reportar a ${apodo}` }),
+        crear('p', { class: 'pregunta-texto', text: 'La administración de Oniria lo revisará. Tu reporte es anónimo: la otra persona no sabrá que fuiste tú.' }),
+        opciones, detalle, error,
+        crear('div', { class: 'pregunta-acciones' }, cancelar, enviar)
+    );
+    const cerrar = () => dialogo.close();
+    cancelar.addEventListener('click', cerrar);
+    dialogo.addEventListener('click', (e) => { if (e.target === dialogo) cerrar(); });
+    dialogo.addEventListener('close', () => setTimeout(() => dialogo.remove(), 150));
+
+    enviar.addEventListener('click', async () => {
+        const motivo = opciones.querySelector('input:checked')?.value;
+        error.hidden = true;
+        if (!motivo) { error.textContent = 'Elige el motivo del reporte.'; error.hidden = false; return; }
+        enviar.disabled = true;
+        enviar.textContent = 'Enviando…';
+        try {
+            await api('/api/reportes', { method: 'POST', body: JSON.stringify({ id_reportado: id_usuario, id_publicacion, motivo, detalle: detalle.value }) });
+            cerrar();
+            preguntar({ titulo: 'Gracias por avisarnos', texto: 'Recibimos tu reporte y lo vamos a revisar. Te avisaremos cuando tomemos una decisión.', aceptar: 'Entendido', soloAceptar: true, icono: 'check' });
+        } catch (err) {
+            error.textContent = err.message;
+            error.hidden = false;
+            enviar.disabled = false;
+            enviar.textContent = 'Enviar reporte';
+        }
+    });
+
+    document.body.append(dialogo);
+    dialogo.showModal();
+    opciones.querySelector('input').focus();
 }
 
 // Aviso de error con el mismo diseño (en lugar de alert)
@@ -300,12 +362,13 @@ function crearBotonesAmistad(persona, alCambiar, { conMenu = false } = {}) {
             texto: 'Bloquear', nombreIcono: 'bloquear', peligro: true,
             alClic: (b) => accion(b, `/api/bloqueos/${id}`, 'POST', preguntas.bloquear)
         };
+        const reportarOpcion = { texto: 'Reportar', nombreIcono: 'bandera', peligro: true, alClic: () => reportar(persona) };
 
         if (conMenu && persona.amistad === 'amigos') {
             // "Amigos ▾" abre: Eliminar de amigos / Bloquear
-            caja.replaceChildren(menu('Amigos', [eliminar, bloquear], { conTexto: true }));
+            caja.replaceChildren(menu('Amigos', [eliminar, bloquear, reportarOpcion], { conTexto: true }));
         } else if (conMenu && persona.amistad !== 'bloqueado') {
-            caja.replaceChildren(...(botones[persona.amistad] || []), menu('Más opciones', [bloquear]));
+            caja.replaceChildren(...(botones[persona.amistad] || []), menu('Más opciones', [bloquear, reportarOpcion]));
         } else {
             caja.replaceChildren(...(botones[persona.amistad] || []));
         }

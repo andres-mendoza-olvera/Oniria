@@ -1,0 +1,113 @@
+/* =========================================
+   GRÁFICAS DE PASTEL (Graficas.js)
+   Paleta categórica validada para el fondo de Oniria (claro #ffffff y oscuro #141824)
+   con el validador de daltonismo: el ORDEN de los colores importa, no se cambia.
+   "Otro/Otra" siempre va en gris.
+   ========================================= */
+:root {
+    --serie-1: #2a78d6; /* azul */
+    --serie-2: #eb6834; /* naranja */
+    --serie-3: #1baf7a; /* aqua */
+    --serie-4: #eda100; /* amarillo */
+    --serie-5: #e87ba4; /* magenta */
+    --serie-otro: #9a98a6;
+}
+.dark-theme {
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+    --serie-4: #c98500;
+    --serie-5: #d55181;
+    --serie-otro: #6b6f80;
+}
+
+.graficas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+
+.grafica {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 18px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--sombra);
+}
+.grafica-titulo { font-size: 0.98rem; font-weight: 700; }
+.grafica-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: -10px; }
+.grafica-cuerpo { display: flex; align-items: center; gap: 18px; }
+
+.dona { position: relative; width: 150px; height: 150px; flex-shrink: 0; }
+.dona svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.dona path { stroke: var(--surface); stroke-width: 2; cursor: pointer; transition: opacity 0.15s ease, transform 0.15s ease; transform-origin: 100px 100px; }
+.dona.enfocada path { opacity: 0.35; }
+.dona.enfocada path.activa { opacity: 1; transform: scale(1.04); }
+.dona-centro {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+}
+.dona-centro strong { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+.dona-centro span { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+
+/* Leyenda + tabla de cantidades (también es la "vista de tabla" accesible) */
+.leyenda { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.leyenda li {
+    display: grid;
+    grid-template-columns: 12px 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    cursor: default;
+}
+.leyenda li.activa, .leyenda li:hover { background-color: var(--surface-hover); }
+.leyenda .muestra { width: 12px; height: 12px; border-radius: 4px; }
+.leyenda .nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-main); }
+.leyenda .cuanto { font-variant-numeric: tabular-nums; color: var(--text-main); font-weight: 600; }
+.leyenda .porcentaje { font-variant-numeric: tabular-nums; color: var(--text-muted); min-width: 38px; text-align: right; }
+
+.grafica-vacia { padding: 30px 8px; text-align: center; color: var(--text-muted); font-size: 0.88rem; }
+
+/* Globito al pasar el mouse */
+.grafica-tooltip {
+    position: fixed;
+    z-index: 3000;
+    pointer-events: none;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background-color: var(--text-main);
+    color: var(--bg-body);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    transform: translate(-50%, calc(-100% - 12px));
+    white-space: nowrap;
+}
+.grafica-tooltip b { font-weight: 700; }
+
+/* Números grandes (tarjetas) */
+.numeros { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.numero {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+}
+.numero strong { display: block; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+.numero span { font-size: 0.8rem; color: var(--text-muted); }
+
+@media (max-width: 420px) {
+    .grafica-cuerpo { flex-direction: column; align-items: stretch; }
+    .dona { align-self: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dona path { transition: none; }
+}

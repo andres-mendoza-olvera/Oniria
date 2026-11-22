@@ -158,6 +158,13 @@ function crearPublicacion(p) {
             'aria-label': 'Borrar publicación',
             onclick: () => borrarPublicacion(p.id_publicacion)
         }, icono('basura')));
+    } else {
+        encabezado.append(crear('button', {
+            class: 'btn-borrar',
+            title: 'Reportar este sueño',
+            'aria-label': 'Reportar este sueño',
+            onclick: () => reportar({ id_usuario: p.id_usuario, apodo: p.autor, id_publicacion: p.id_publicacion })
+        }, icono('bandera')));
     }
     tarjeta.append(encabezado);
 
