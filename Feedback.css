@@ -960,29 +960,22 @@ a.autor-enlace:hover { text-decoration: underline; }
     .post-body { padding: 6px 16px 14px; }
     .comentario .btn-borrar { opacity: 1; }
 
-    /* Todo un poco más compacto en celular (los textos usan rem y bajan solos) */
-    html { font-size: 14.5px; }
-    :root { --alto-top: 50px; }
-    .top-bar { padding: 0 12px; }
-    .top-bar .app-name { font-size: 1.3rem; }
-    .top-bar .icono, .bottom-nav .icono { width: 22px; height: 22px; }
-    .bottom-nav { height: calc(50px + env(safe-area-inset-bottom)); }
-    .bottom-nav-item { padding: 8px 14px; }
-    .bottom-nav-item .icono-mas { width: 32px; height: 32px; padding: 5px; border-radius: 10px; }
-    .bottom-nav .avatar { width: 26px; height: 26px; }
-    .feed { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
-    .historias-card { padding: 12px 2px 10px; }
-    .historias { gap: 10px; padding: 0 10px; }
-    .historia { width: 60px; gap: 4px; }
-    .historia .avatar { width: 50px; height: 50px; }
-    .post-header { padding: 12px 14px; gap: 10px; }
-    .post-header .anillo > .avatar { width: 32px; height: 32px; }
-    .post-body { padding: 4px 14px 12px; }
-    .comentario .avatar { width: 28px; height: 28px; }
-    .pregunta { padding: 22px 18px 16px; border-radius: 20px; }
-    .pregunta-icono { width: 46px; height: 46px; margin-bottom: 10px; }
-    .pregunta-icono .icono { width: 22px; height: 22px; }
-    .pregunta-acciones { margin-top: 18px; }
+    /* En celular todo un poco más grande, para que se lea cómodo y no sobre espacio
+       (los textos usan rem y suben solos) */
+    html { font-size: 17px; }
+    :root { --alto-top: 60px; }
+    .top-bar .app-name { font-size: 1.55rem; }
+    .top-bar .icono, .bottom-nav .icono { width: 27px; height: 27px; }
+    .bottom-nav { height: calc(62px + env(safe-area-inset-bottom)); }
+    .bottom-nav-item { padding: 10px 16px; }
+    .bottom-nav-item .icono-mas { width: 40px; height: 40px; padding: 7px; border-radius: 13px; }
+    .bottom-nav-item .avatar-xs { width: 31px; height: 31px; }
+    .feed { padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+    .historia { width: 78px; }
+    .historia .avatar { width: 66px; height: 66px; }
+    .post-header .anillo > .avatar { width: 42px; height: 42px; }
+    .comentario .avatar { width: 36px; height: 36px; }
+    .icono-sm { width: 22px; height: 22px; }
 }
 
 /* La tarjeta de perfil del menú es un enlace */
