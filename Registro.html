@@ -39,6 +39,16 @@
                         <span class="fuerza-consejo"></span>
                     </div>
                 </div>
+                <!-- Aceptar las políticas (obligatorio). El enlace las abre en otra pestaña. -->
+                <div class="input-group">
+                    <label class="aceptar-politicas" for="politicas">
+                        <input type="checkbox" id="politicas" name="acepto_politicas" value="1">
+                        <span class="casilla" aria-hidden="true"></span>
+                        <span>He leído y acepto la <a href="/privacidad?desde=registro" target="_blank" rel="noopener">Política de Privacidad</a> de Oniria.</span>
+                    </label>
+                    <span id="error-politicas" class="error-text"></span>
+                </div>
+
                 <button type="submit" class="btn-primary">Registrarme</button>
             </form>
             <div class="login-footer">
@@ -48,5 +58,22 @@
     </div>
     <script src="/LogIn-script.js"></script>
     <script src="/FuerzaContrasena.js"></script>
+    <script>
+        // Sin aceptar las políticas no se manda el registro (el servidor también lo revisa)
+        const casillaPoliticas = document.getElementById('politicas');
+        const errorPoliticas = document.getElementById('error-politicas');
+        document.querySelector('.login-form').addEventListener('submit', (e) => {
+            if (casillaPoliticas.checked) return;
+            e.preventDefault();
+            errorPoliticas.textContent = 'Para crear tu cuenta necesitas aceptar la Política de Privacidad.';
+            errorPoliticas.style.display = 'block';
+            casillaPoliticas.classList.add('input-error');
+            casillaPoliticas.focus();
+        });
+        casillaPoliticas.addEventListener('change', () => {
+            errorPoliticas.style.display = 'none';
+            casillaPoliticas.classList.remove('input-error');
+        });
+    </script>
 </body>
 </html>

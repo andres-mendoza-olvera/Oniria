@@ -23,23 +23,34 @@
     <div class="login-container">
         <div class="login-box privacidad">
             <h1 class="app-name recover-title">Política de Privacidad</h1>
-            <p class="fecha">Última actualización: 11 de noviembre de 2026</p>
+            <p class="fecha">Última actualización: 21 de noviembre de 2026</p>
 
             <p>Oniria es un proyecto escolar. Esta página explica qué datos guardamos y para qué los usamos.</p>
 
             <h2>Datos que guardamos</h2>
             <ul>
-                <li>Tu nombre y tu apodo.</li>
-                <li>Tu correo electrónico.</li>
+                <li>Tu nombre, tu apodo y, si los agregas, tu foto de perfil y tu biografía.</li>
+                <li>Tu correo electrónico (solo puede haber una cuenta por correo).</li>
+                <li>Tu teléfono, solo si decides agregarlo y verificarlo en tu perfil.</li>
                 <li>Tu contraseña, siempre cifrada (nadie puede leerla, ni siquiera nosotros).</li>
-                <li>Las publicaciones e imágenes que subas.</li>
+                <li>Los sueños que publicas, sus imágenes, tus corazones y tus comentarios.</li>
+                <li>Tus amistades, las solicitudes de amistad y las personas que bloqueas.</li>
+                <li>Tus preferencias: por dónde quieres recibir códigos y avisos, y qué avisos quieres.</li>
+            </ul>
+
+            <h2>Quién ve qué</h2>
+            <ul>
+                <li><b>Público para otros usuarios:</b> tu apodo, tu foto, tu biografía, tus amigos y los sueños que publicas.</li>
+                <li><b>Privado (solo tú):</b> tu nombre completo, tu correo, tu teléfono y a quién bloqueaste.</li>
+                <li>Las personas que bloquees no ven tus sueños ni tus comentarios, y no pueden encontrarte.</li>
             </ul>
 
             <h2>Para qué los usamos</h2>
             <ul>
                 <li>Crear tu cuenta y dejarte iniciar sesión.</li>
-                <li>Enviarte el correo para verificar tu cuenta.</li>
-                <li>Enviarte el enlace para recuperar tu contraseña cuando lo pidas.</li>
+                <li>Enviarte el correo para verificar tu cuenta y el enlace para recuperar tu contraseña cuando lo pidas.</li>
+                <li>Enviarte un código cada vez que inicias sesión (doble autenticación) y cuando cambias tu correo o tu teléfono.</li>
+                <li>Avisarte cuando alguien te manda o acepta una solicitud de amistad, o cuando un amigo publica un sueño. Puedes apagar estos avisos en tu perfil.</li>
             </ul>
             <p>No enviamos publicidad y no vendemos ni compartimos tus datos con nadie.</p>
 
@@ -52,13 +63,37 @@
             </ul>
 
             <h2>Dónde se guardan</h2>
-            <p>Los datos se guardan en una base de datos de Supabase. Los correos se envían con la cuenta de Gmail de Oniria, que solo tiene permiso para enviar correos, no para leerlos.</p>
+            <p>Los datos se guardan en una base de datos de Supabase, y las fotos e imágenes en Supabase Storage. Los correos se envían con la cuenta de Gmail de Oniria, que solo tiene permiso para enviar correos, no para leerlos.</p>
+            <p>Los SMS (códigos y avisos, solo si elegiste SMS) se envían con httpSMS desde un celular de Oniria; por eso el mensaje te llega desde un número de teléfono normal.</p>
 
             <h2>Borrar tus datos</h2>
-            <p>Si quieres que borremos tu cuenta y tus datos, escríbenos a <b>oniria.sistema@gmail.com</b>.</p>
+            <p>Si quieres que borremos tu cuenta y tus datos, escríbenos a <b>oniria.sistema@gmail.com</b>. Tu teléfono lo puedes quitar tú mismo desde tu perfil.</p>
 
-            <a href="/" class="btn-primary" style="text-decoration: none; display: block; margin-top: 24px; text-align: center;">Ir a Iniciar Sesión</a>
+            <!-- El botón cambia según desde dónde se abrió esta página (ver el script de abajo) -->
+            <a href="/" id="btn-salir" class="btn-primary" style="text-decoration: none; display: block; margin-top: 24px; text-align: center;">Ir a Iniciar Sesión</a>
+            <p id="aviso-registro" class="fecha" style="margin-top: 24px;" hidden>Cuando termines de leer, cierra esta pestaña y vuelve a tu registro.</p>
         </div>
     </div>
+
+    <script>
+        // - Abierta desde el registro (en otra pestaña): sin botón, solo un aviso para volver al registro
+        // - Con sesión iniciada: "Volver al feed"
+        // - Sin sesión: "Ir a Iniciar Sesión" (como siempre)
+        (async () => {
+            const boton = document.getElementById('btn-salir');
+            if (new URLSearchParams(location.search).get('desde') === 'registro') {
+                boton.style.display = 'none'; // (su "display: block" le ganaría a "hidden")
+                document.getElementById('aviso-registro').hidden = false;
+                return;
+            }
+            try {
+                const respuesta = await fetch('/api/yo');
+                if (respuesta.ok) {
+                    boton.href = '/feed';
+                    boton.textContent = 'Volver al feed';
+                }
+            } catch { /* sin conexión: se queda "Ir a Iniciar Sesión" */ }
+        })();
+    </script>
 </body>
 </html>

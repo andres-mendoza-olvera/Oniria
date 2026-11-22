@@ -370,6 +370,10 @@ app.post('/registro', async (req, res) => {
     if (!correoValido(email)) {
         return res.redirect('/registro?error=' + encodeURIComponent('Escribe un correo válido.') + '&field=email');
     }
+    // Sin aceptar la Política de Privacidad no se crea la cuenta (el formulario también lo revisa)
+    if (req.body.acepto_politicas !== '1') {
+        return res.redirect('/registro?error=' + encodeURIComponent('Para crear tu cuenta necesitas aceptar la Política de Privacidad.') + '&field=politicas');
+    }
 
     // Misma regla que en recuperar contraseña (por si alguien se salta el HTML)
     if (!password || password.length < 6) {
@@ -388,9 +392,10 @@ app.post('/registro', async (req, res) => {
         // Si ya existe y está verificado, no se toca y "RETURNING" no devuelve nada.
         // El enlace de verificación caduca en 24 horas.
         const resultado = await db.query(
-            `INSERT INTO usuarios (nombre, apodo, email, contrasena, tema, token_verificacion, token_verificacion_expira)
-             VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '24 hours')
+            `INSERT INTO usuarios (nombre, apodo, email, contrasena, tema, token_verificacion, token_verificacion_expira, politicas_aceptadas_en)
+             VALUES ($1, $2, $3, $4, $5, $6, NOW() + INTERVAL '24 hours', NOW())
              ON CONFLICT (email) DO UPDATE SET
+                 politicas_aceptadas_en = NOW(),
                  nombre = EXCLUDED.nombre,
                  apodo = EXCLUDED.apodo,
                  contrasena = EXCLUDED.contrasena,
