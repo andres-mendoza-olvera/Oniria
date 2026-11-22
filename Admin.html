@@ -54,8 +54,8 @@
             <section id="seccion-estadisticas" class="admin-seccion" hidden>
                 <div class="admin-encabezado">
                     <div>
-                        <h1>Estadísticas de Oniria</h1>
-                        <p>Cómo sueña la comunidad. La IA clasifica cada sueño al interpretarlo.</p>
+                        <h1 id="titulo-estadisticas">Estadísticas de Oniria</h1>
+                        <p id="texto-estadisticas">Cómo sueña la comunidad. La IA clasifica cada sueño al interpretarlo.</p>
                     </div>
                     <div class="admin-controles">
                         <select id="periodo" class="selector" aria-label="Periodo">
@@ -69,6 +69,24 @@
                         <button type="button" id="btn-png" class="btn-accion principal"><span class="icono icono-sm" data-icono="descargar"></span>Imagen</button>
                     </div>
                 </div>
+                <div class="filtros" role="group" aria-label="Ver estadísticas de">
+                    <button type="button" class="chip activo" data-vista-estadisticas="comunidad">Toda la comunidad</button>
+                    <button type="button" class="chip" data-vista-estadisticas="persona">Por persona</button>
+                </div>
+
+                <!-- Por persona: buscar a quién -->
+                <div id="elegir-persona" class="elegir-persona" hidden>
+                    <div class="admin-busqueda">
+                        <div class="buscador">
+                            <span class="icono icono-sm" data-icono="buscar"></span>
+                            <input type="search" id="buscar-persona" placeholder="Busca a la persona por apodo, nombre o correo…" autocomplete="off" maxlength="60" aria-label="Buscar persona">
+                        </div>
+                    </div>
+                    <div id="resultados-persona" class="lista-admin"></div>
+                </div>
+                <!-- Por persona: la persona elegida -->
+                <div id="persona-elegida" class="tarjeta-admin" hidden></div>
+
                 <p id="estado-estadisticas" class="estado-carga">Calculando…</p>
                 <div id="numeros" class="numeros"></div>
                 <div id="graficas" class="graficas"></div>

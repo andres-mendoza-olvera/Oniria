@@ -165,6 +165,12 @@
 .error-admin { color: var(--corazon); font-size: 0.86rem; }
 .form-equipo .btn-accion { align-self: flex-start; }
 
+/* Estadísticas por persona */
+.elegir-persona { display: flex; flex-direction: column; gap: 12px; }
+.opcion-persona { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 12px 16px; }
+.opcion-persona:hover { border-color: var(--color-accent); }
+.opcion-persona .icono { color: var(--text-muted); }
+
 /* Publicaciones */
 .pub-titulo { font-size: 1.02rem; font-weight: 700; overflow-wrap: anywhere; }
 .pub-texto { font-size: 0.9rem; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }

@@ -13,7 +13,9 @@ const estado = {
     estadisticas: null,
     filtroReportes: 'pendiente',
     filtroUsuarios: 'todas',
-    filtroPublicaciones: 'todas'
+    filtroPublicaciones: 'todas',
+    vistaEstadisticas: 'comunidad', // 'comunidad' | 'persona'
+    persona: null                    // la persona elegida en "Por persona"
 };
 
 const fecha = (f) => new Date(f).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
@@ -70,57 +72,166 @@ function numerosAdmin(d) {
     ];
 }
 
+// Las de una persona: las mismas 4 gráficas que ve ella en "Mis estadísticas"
+const GRAFICAS_PERSONA = [
+    { tipo: 'emocion', campo: 'emocion' },
+    { tipo: 'tipo_sueno', campo: 'tipo_sueno' },
+    { tipo: 'tema', campo: 'tema' },
+    { tipo: 'horario', campo: 'horario', titulo: '¿A qué hora cuenta sus sueños?' }
+];
+function numerosPersona(d) {
+    const n = d.numeros;
+    return [
+        [n.publicados + n.sin_publicar, 'sueños contados'],
+        [n.publicados, 'publicados'],
+        [n.sin_publicar, 'sin publicar'],
+        [n.corazones, 'corazones recibidos'],
+        [n.comentarios, 'comentarios recibidos'],
+        [n.amigos, 'amigos'],
+        [d.persona.reportes, 'reportes recibidos']
+    ];
+}
+
+const esDePersona = () => Boolean(estado.estadisticas?.persona);
+const numerosActuales = () => (esDePersona() ? numerosPersona : numerosAdmin)(estado.estadisticas);
+const graficasActuales = () => (esDePersona() ? GRAFICAS_PERSONA : GRAFICAS_ADMIN);
+
 function pintarEstadisticas() {
     const d = estado.estadisticas;
-    $('numeros').replaceChildren(...numerosAdmin(d).map(([valor, etiqueta]) =>
+    $('numeros').replaceChildren(...numerosActuales().map(([valor, etiqueta]) =>
         crear('div', { class: 'numero' }, crear('strong', { text: String(valor) }), crear('span', { text: etiqueta }))));
-    $('graficas').replaceChildren(...GRAFICAS_ADMIN.map(({ tipo, campo, unidad }) =>
-        crearGrafica(tipo, d[campo], { unidad, subtitulo: tipo === 'cuentas' ? 'Todas las cuentas de usuarios (sin importar el periodo)' : '' })));
+    $('graficas').replaceChildren(...graficasActuales().map(({ tipo, campo, unidad, titulo }) =>
+        crearGrafica(tipo, d[campo], { unidad, titulo, subtitulo: tipo === 'cuentas' ? 'Todas las cuentas de usuarios (sin importar el periodo)' : '' })));
+    $('numeros').hidden = false;
+    $('graficas').hidden = false;
     $('estado-estadisticas').hidden = true;
 }
 
+// Encabezado, buscador y tarjeta según la vista (comunidad o una persona)
+function pintarVistaEstadisticas() {
+    const porPersona = estado.vistaEstadisticas === 'persona';
+    const p = estado.persona;
+    document.querySelectorAll('[data-vista-estadisticas]').forEach((c) => c.classList.toggle('activo', c.dataset.vistaEstadisticas === estado.vistaEstadisticas));
+    $('titulo-estadisticas').textContent = porPersona ? (p ? `Estadísticas de ${p.apodo}` : 'Estadísticas por persona') : 'Estadísticas de Oniria';
+    $('texto-estadisticas').textContent = porPersona
+        ? 'Cómo sueña una persona: lo que contó a la IA, lo haya publicado o no.'
+        : 'Cómo sueña la comunidad. La IA clasifica cada sueño al interpretarlo.';
+    $('elegir-persona').hidden = !porPersona || Boolean(p);
+    $('persona-elegida').hidden = !porPersona || !p;
+    $('btn-png').disabled = $('btn-csv').disabled = porPersona && !p;
+    if (porPersona && p) {
+        $('persona-elegida').replaceChildren(crear('div', { class: 'tarjeta-fila' },
+            p.eliminado_en ? crearAvatarEliminado() : crearAvatar(p.apodo, false, p.foto_perfil),
+            crear('div', { class: 'tarjeta-persona' },
+                crear('strong', { text: p.apodo }),
+                crear('small', { text: [p.nombre, p.email].filter(Boolean).join(' · ') })),
+            crear('div', { class: 'etiquetas' }, etiquetaEstado(p)),
+            crear('button', { type: 'button', class: 'btn-accion', onclick: () => elegirPersona(null) }, icono('buscar', 'icono-sm'), 'Cambiar persona')));
+    }
+    if (porPersona && !p) {
+        $('numeros').hidden = true;
+        $('graficas').hidden = true;
+        $('estado-estadisticas').hidden = true;
+        estado.estadisticas = null;
+        buscarPersonas();
+    }
+}
+
 async function cargarEstadisticas() {
+    pintarVistaEstadisticas();
+    if (estado.vistaEstadisticas === 'persona' && !estado.persona) return;
     $('estado-estadisticas').hidden = false;
     $('estado-estadisticas').textContent = 'Calculando…';
     try {
         const periodo = $('periodo').value;
-        estado.estadisticas = await api(`/api/admin/estadisticas${periodo ? `?dias=${periodo}` : ''}`);
+        const consulta = periodo ? `?dias=${periodo}` : '';
+        if (estado.vistaEstadisticas === 'persona') {
+            estado.estadisticas = await api(`/api/admin/usuarios/${estado.persona.id_usuario}/estadisticas${consulta}`);
+            estado.persona = estado.estadisticas.persona;
+            pintarVistaEstadisticas();
+        } else {
+            estado.estadisticas = await api(`/api/admin/estadisticas${consulta}`);
+            pintarGloboReportes(estado.estadisticas.numeros.reportes_pendientes);
+        }
         pintarEstadisticas();
-        pintarGloboReportes(estado.estadisticas.numeros.reportes_pendientes);
     } catch (err) {
         $('estado-estadisticas').textContent = err.message;
     }
 }
 $('periodo').addEventListener('change', cargarEstadisticas);
 
-const sufijoArchivo = () => `${new Date().toISOString().slice(0, 10)}${$('periodo').value ? `-${$('periodo').value}dias` : ''}`;
+document.querySelectorAll('[data-vista-estadisticas]').forEach((chip) => chip.addEventListener('click', () => {
+    if (estado.vistaEstadisticas === chip.dataset.vistaEstadisticas) return;
+    estado.vistaEstadisticas = chip.dataset.vistaEstadisticas;
+    cargarEstadisticas();
+}));
+
+// Elegir (o quitar, con null) a la persona; desde Usuarios también se llega aquí
+function elegirPersona(persona) {
+    estado.persona = persona;
+    estado.vistaEstadisticas = 'persona';
+    if (estado.seccion === 'estadisticas') cargarEstadisticas();
+    else location.hash = 'estadisticas'; // irA() carga las estadísticas
+    if (!persona) setTimeout(() => $('buscar-persona').focus(), 50);
+    window.scrollTo({ top: 0 });
+}
+
+let temporizadorPersona = null;
+async function buscarPersonas() {
+    const lista = $('resultados-persona');
+    try {
+        const usuarios = await api(`/api/admin/usuarios?buscar=${encodeURIComponent($('buscar-persona').value.trim())}&filtro=todas`);
+        lista.replaceChildren(...(usuarios.length ? usuarios.map((u) => crear('button', {
+            type: 'button', class: 'tarjeta-admin opcion-persona', onclick: () => elegirPersona(u)
+        }, crear('div', { class: 'tarjeta-fila' },
+            crearAvatar(u.apodo, false, u.foto_perfil),
+            crear('div', { class: 'tarjeta-persona' },
+                crear('strong', { text: u.apodo }),
+                crear('small', { text: `${u.nombre} · ${u.suenos} sueño${u.suenos === 1 ? '' : 's'} publicado${u.suenos === 1 ? '' : 's'}` })),
+            icono('derecha', 'icono-sm')))) : [vacio('No hay cuentas que coincidan.')]));
+    } catch (err) {
+        lista.replaceChildren(vacio(err.message));
+    }
+}
+$('buscar-persona').addEventListener('input', () => {
+    clearTimeout(temporizadorPersona);
+    temporizadorPersona = setTimeout(buscarPersonas, 300);
+});
+
+// Nombre de archivo: "oniria-estadisticas[-apodo]-2026-11-21[-30dias]"
+const sufijoArchivo = () => {
+    const quien = esDePersona() ? `-${estado.estadisticas.persona.apodo.normalize('NFD').replace(/[^\w-]+/g, '').toLowerCase() || 'persona'}` : '';
+    return `${quien}-${new Date().toISOString().slice(0, 10)}${$('periodo').value ? `-${$('periodo').value}dias` : ''}`;
+};
 
 $('btn-png').addEventListener('click', async (e) => {
     const d = estado.estadisticas;
     if (!d) return;
-    e.currentTarget.disabled = true;
+    const boton = e.currentTarget;
+    boton.disabled = true;
     try {
         const blob = await exportarImagen({
-            titulo: 'Estadísticas de la comunidad',
+            titulo: esDePersona() ? `Los sueños de ${d.persona.apodo}` : 'Estadísticas de la comunidad',
             subtitulo: PERIODOS[$('periodo').value],
-            numeros: numerosAdmin(d).slice(0, 3),
-            graficas: GRAFICAS_ADMIN.map(({ tipo, campo, unidad }) => ({ tipo, conteos: d[campo], unidad }))
+            numeros: numerosActuales().slice(0, 3),
+            graficas: graficasActuales().map(({ tipo, campo, unidad, titulo }) => ({ tipo, conteos: d[campo], unidad, titulo }))
         });
-        descargarBlob(blob, `oniria-estadisticas-${sufijoArchivo()}.png`);
+        descargarBlob(blob, `oniria-estadisticas${sufijoArchivo()}.png`);
     } catch (err) {
         avisar(err.message || 'No se pudo crear la imagen.');
     } finally {
-        e.currentTarget.disabled = false;
+        boton.disabled = false;
     }
 });
 
 $('btn-csv').addEventListener('click', () => {
     const d = estado.estadisticas;
     if (!d) return;
+    const quien = esDePersona() ? `${d.persona.apodo}, ` : '';
     exportarCSV([
-        { titulo: `Resumen (${PERIODOS[$('periodo').value]})`, conteos: numerosAdmin(d).map(([v, e]) => [e, v]) },
-        ...GRAFICAS_ADMIN.map(({ tipo, campo }) => ({ tipo, conteos: d[campo] }))
-    ], `oniria-estadisticas-${sufijoArchivo()}.csv`);
+        { titulo: `Resumen (${quien}${PERIODOS[$('periodo').value]})`, conteos: numerosActuales().map(([v, e]) => [e, v]) },
+        ...graficasActuales().map(({ tipo, campo }) => ({ tipo, conteos: d[campo] }))
+    ], `oniria-estadisticas${sufijoArchivo()}.csv`);
 });
 
 // Redibuja con los colores del tema al cambiar claro/oscuro
@@ -423,7 +534,9 @@ function tarjetaUsuario(u) {
         }
     };
 
-    const botones = [];
+    const botones = [
+        crear('button', { type: 'button', class: 'btn-accion', onclick: () => elegirPersona(u) }, icono('grafica', 'icono-sm'), 'Estadísticas')
+    ];
     if (sancionado) {
         if (!u.baneado_en || estado.esAdmin) {
             botones.push(crear('button', { type: 'button', class: 'btn-accion', onclick: (e) => sancionar('quitar', e.currentTarget) }, icono('check', 'icono-sm'), u.baneado_en ? 'Quitar baneo' : 'Quitar suspensión'));

@@ -353,8 +353,9 @@ body::after {
 
 /* ----- PANTALLAS PEQUEÑAS ----- */
 @media (max-width: 420px) {
-    .login-box { padding: 32px 22px 26px; border-radius: 20px; }
-    .app-name { font-size: 2.2rem; }
+    html { font-size: 14.5px; }
+    .login-box { padding: 26px 18px 22px; border-radius: 20px; }
+    .app-name { font-size: 2rem; }
 }
 
 /* ----- ACEPTAR POLÍTICAS (registro) ----- */

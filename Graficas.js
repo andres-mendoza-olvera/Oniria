@@ -95,8 +95,8 @@ function mostrarTooltip(x, y, parte, unidad) {
 function ocultarTooltip() { if (tooltipGrafica) tooltipGrafica.hidden = true; }
 
 // Crea la tarjeta de una gráfica. unidad = ['sueño', 'sueños'] (singular, plural)
-function crearGrafica(tipo, conteos, { unidad = ['sueño', 'sueños'], subtitulo = '' } = {}) {
-    const { titulo } = CATEGORIAS_GRAFICAS[tipo];
+function crearGrafica(tipo, conteos, { unidad = ['sueño', 'sueños'], subtitulo = '', titulo: tituloPropio = '' } = {}) {
+    const titulo = tituloPropio || CATEGORIAS_GRAFICAS[tipo].titulo;
     const { total, partes } = datosGrafica(tipo, conteos);
     const tarjeta = crear('section', { class: 'grafica', 'aria-label': titulo },
         crear('h3', { class: 'grafica-titulo', text: titulo }),
@@ -218,13 +218,13 @@ async function exportarImagen({ titulo, subtitulo, numeros = [], graficas }) {
 
     // Donas de 2 en 2
     const anchoTarjeta = (ancho - 140) / 2;
-    graficas.forEach(({ tipo, conteos, unidad = ['sueño', 'sueños'] }, i) => {
+    graficas.forEach(({ tipo, conteos, unidad = ['sueño', 'sueños'], titulo }, i) => {
         const x = 60 + (i % 2) * (anchoTarjeta + 20);
         const yT = y + Math.floor(i / 2) * (altoGrafica + 30);
         cajaRedonda(x, yT, anchoTarjeta, altoGrafica, 28, c.tarjeta, c.borde);
         ctx.fillStyle = c.texto;
         ctx.font = fuente(700, 28);
-        ctx.fillText(CATEGORIAS_GRAFICAS[tipo].titulo, x + 28, yT + 50, anchoTarjeta - 56);
+        ctx.fillText(titulo || CATEGORIAS_GRAFICAS[tipo].titulo, x + 28, yT + 50, anchoTarjeta - 56);
 
         const { total, partes } = datosGrafica(tipo, conteos);
         const cx = x + anchoTarjeta / 2;

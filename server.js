@@ -2880,10 +2880,8 @@ app.delete('/api/admin/equipo/:id', requiereStaff('admin'), async (req, res) => 
 // =========================================================
 // MIS ESTADÍSTICAS (página /estadisticas de cada usuario)
 // =========================================================
-app.get('/api/mis-estadisticas', requiereSesionApi, async (req, res) => {
-    const yo = req.session.idUsuario;
-    const dias = diasDe(req.query.dias);
-    try {
+// Las estadísticas de una persona (las usan /api/mis-estadisticas y el panel de admin)
+async function estadisticasDe(yo, dias) {
         const [emocion, tipo, tema, horario, numeros] = await Promise.all([
             conteoPor('emocion', dias, { idUsuario: yo }),
             conteoPor('tipo_sueno', dias, { idUsuario: yo }),
@@ -2913,15 +2911,39 @@ app.get('/api/mis-estadisticas', requiereSesionApi, async (req, res) => {
                 [yo]
             )
         ]);
-        res.json({
+        return {
             dias, emocion, tipo_sueno: tipo, tema,
             horario: Object.fromEntries(horario.rows.map((r) => [r.clave, r.total])),
             numeros: numeros.rows[0],
             generado: new Date().toISOString()
-        });
+        };
+}
+
+app.get('/api/mis-estadisticas', requiereSesionApi, async (req, res) => {
+    try {
+        res.json(await estadisticasDe(req.session.idUsuario, diasDe(req.query.dias)));
     } catch (err) {
         console.error('Error en mis estadísticas:', err.message);
         res.status(500).json({ error: 'No se pudieron calcular tus estadísticas.' });
+    }
+});
+
+// Estadísticas de una persona, para el panel (admin y subadministradores)
+app.get('/api/admin/usuarios/:id/estadisticas', requiereStaff(), async (req, res) => {
+    const id = idValido(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Esa cuenta no existe.' });
+    try {
+        const persona = (await db.query(
+            `SELECT id_usuario, COALESCE(NULLIF(apodo, ''), nombre) AS apodo, nombre, email, foto_perfil,
+                    suspendido_hasta, baneado_en, eliminado_en,
+                    (SELECT COUNT(*)::int FROM reportes r WHERE r.id_reportado = u.id_usuario) AS reportes
+             FROM usuarios u WHERE id_usuario = $1 AND rol = 'usuario'`, [id]
+        )).rows[0];
+        if (!persona) return res.status(404).json({ error: 'Esa cuenta no existe.' });
+        res.json({ ...(await estadisticasDe(id, diasDe(req.query.dias))), persona });
+    } catch (err) {
+        console.error('Error en estadísticas de una persona:', err.message);
+        res.status(500).json({ error: 'No se pudieron calcular sus estadísticas.' });
     }
 });
 
