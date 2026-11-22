@@ -481,7 +481,7 @@
 @media (max-width: 640px) {
     .perfil-pagina { padding: calc(var(--alto-top) + 16px) 0 calc(80px + env(safe-area-inset-bottom)); }
     .perfil-cabecera { gap: 18px; padding: 0 16px 20px; align-items: flex-start; }
-    .avatar-perfil { width: 104px; height: 104px; border-width: 3px !important; }
+    .avatar-perfil { width: 84px; height: 84px; border-width: 3px !important; }
     .anillo-perfil { padding: 3px; }
     .perfil-fila h1 { font-size: 1.25rem; }
     .perfil-numeros { gap: 18px; font-size: 0.9rem; }

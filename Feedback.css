@@ -959,26 +959,6 @@ a.autor-enlace:hover { text-decoration: underline; }
     .cta-sueno-btn { padding: 9px 16px; }
     .post-body { padding: 6px 16px 14px; }
     .comentario .btn-borrar { opacity: 1; }
-
-    /* En celular todo un poco más grande, para que se lea cómodo y no sobre espacio
-       (los textos usan rem y suben solos) */
-    html { font-size: 19px; }
-    :root { --alto-top: 66px; }
-    .top-bar { padding: 0 18px; }
-    .top-bar .app-name { font-size: 1.6rem; }
-    .top-bar .icono, .bottom-nav .icono { width: 30px; height: 30px; }
-    .bottom-nav { height: calc(70px + env(safe-area-inset-bottom)); }
-    .bottom-nav-item { padding: 12px 18px; }
-    .bottom-nav-item .icono-mas { width: 46px; height: 46px; padding: 8px; border-radius: 15px; }
-    .bottom-nav-item .avatar-xs { width: 34px; height: 34px; }
-    .feed { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
-    .historia { width: 86px; }
-    .historia .avatar { width: 74px; height: 74px; }
-    .post-header .anillo > .avatar { width: 48px; height: 48px; }
-    .comentario .avatar { width: 40px; height: 40px; }
-    .icono { width: 27px; height: 27px; }
-    .icono-sm { width: 24px; height: 24px; }
-    .icono-xs { width: 18px; height: 18px; }
 }
 
 /* La tarjeta de perfil del menú es un enlace */
