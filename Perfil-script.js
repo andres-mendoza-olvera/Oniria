@@ -748,6 +748,55 @@ $('btn-tel-quitar').addEventListener('click', async () => {
     });
 });
 
+// ---------------------------------------------------------
+// Eliminar mi cuenta: se confirma con la contraseña
+// ---------------------------------------------------------
+$('btn-eliminar-cuenta').addEventListener('click', () => {
+    const dialogo = crear('dialog', { class: 'pregunta reporte peligro', 'aria-labelledby': 'eliminar-titulo' });
+    const contrasena = crear('input', { type: 'password', class: 'reporte-detalle', autocomplete: 'current-password', placeholder: 'Tu contraseña', 'aria-label': 'Tu contraseña' });
+    const error = crear('p', { class: 'reporte-error', role: 'alert', hidden: true });
+    const eliminar = crear('button', { type: 'button', class: 'pregunta-btn principal peligro', text: 'Eliminar para siempre' });
+    const cancelar = crear('button', { type: 'button', class: 'pregunta-btn', text: 'Cancelar' });
+    let eliminada = false;
+
+    dialogo.append(
+        crear('div', { class: 'pregunta-icono' }, icono('basura')),
+        crear('h2', { id: 'eliminar-titulo', class: 'pregunta-titulo', text: '¿Eliminar tu cuenta?' }),
+        crear('p', { class: 'pregunta-texto', text: 'No se puede deshacer. Se borran tus datos, tus amistades y tus conversaciones con la IA; tus sueños y comentarios publicados se quedan como "Cuenta eliminada". Escribe tu contraseña para confirmar.' }),
+        contrasena, error,
+        crear('div', { class: 'pregunta-acciones' }, cancelar, eliminar)
+    );
+    cancelar.addEventListener('click', () => dialogo.close());
+    dialogo.addEventListener('click', (e) => { if (e.target === dialogo) dialogo.close(); });
+    contrasena.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); eliminar.click(); } });
+    eliminar.addEventListener('click', async () => {
+        error.hidden = true;
+        if (!contrasena.value) { error.textContent = 'Escribe tu contraseña.'; error.hidden = false; return; }
+        eliminar.disabled = true;
+        eliminar.textContent = 'Eliminando…';
+        try {
+            await api('/api/cuenta/eliminar', { method: 'POST', body: JSON.stringify({ contrasena: contrasena.value }) });
+            eliminada = true;
+            dialogo.close();
+        } catch (err) {
+            error.textContent = err.message;
+            error.hidden = false;
+            eliminar.disabled = false;
+            eliminar.textContent = 'Eliminar para siempre';
+        }
+    });
+    dialogo.addEventListener('close', async () => {
+        setTimeout(() => dialogo.remove(), 150);
+        if (!eliminada) return;
+        $('dialogo-editar').close();
+        await preguntar({ titulo: 'Tu cuenta se eliminó', texto: 'Gracias por soñar con nosotros. Te mandamos un correo de confirmación.', aceptar: 'Salir', soloAceptar: true, icono: 'luna' });
+        window.location.href = '/';
+    });
+    document.body.append(dialogo);
+    dialogo.showModal();
+    contrasena.focus();
+});
+
 // "Enter" en estos campos no debe mandar el formulario de "Guardar"
 $('tel-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); $('btn-tel-enviar').click(); }

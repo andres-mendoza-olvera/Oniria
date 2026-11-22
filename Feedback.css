@@ -824,6 +824,12 @@ a { color: inherit; text-decoration: none; }
 .enlace { color: var(--color-primary); font-weight: 600; }
 .enlace:hover { text-decoration: underline; }
 a.autor-enlace:hover { text-decoration: underline; }
+
+/* "Cuenta eliminada" (baneada o eliminada por su dueño): gris, sin foto ni enlace */
+.autor-eliminado { color: var(--text-muted); font-style: italic; }
+.avatar.avatar-eliminado { display: grid; place-items: center; color: var(--text-muted); }
+.avatar.avatar-eliminado .icono { width: 55%; height: 55%; }
+.anillo.anillo-eliminado { background: var(--border-color); }
 .post-header > a { display: inline-flex; }
 
 /* Selector "Todos / Amigos" del feed */

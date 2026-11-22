@@ -133,11 +133,13 @@ function pintarComentarios(boton, total) {
 
 function crearPublicacion(p) {
     const esMia = p.id_usuario === miId;
+    // De una cuenta baneada o eliminada: sin enlace a su perfil y fuera de las historias
+    const eliminada = Boolean(p.autor_eliminado);
     const tarjeta = crear('article', {
         class: 'post-card',
         'data-id': p.id_publicacion,
         'data-estado': p.estado,
-        'data-autor': String(p.id_usuario),
+        'data-autor': eliminada ? undefined : String(p.id_usuario),
         'data-apodo': p.autor,
         'data-foto': p.autor_foto || undefined
     });
@@ -145,13 +147,17 @@ function crearPublicacion(p) {
 
     // --- Encabezado ---
     const encabezado = crear('div', { class: 'post-header' },
-        crear('a', { href: perfilAutor, 'aria-label': `Perfil de ${p.autor}` }, crearAvatar(p.autor, true, p.autor_foto)),
+        eliminada ? crearAvatarEliminado(true)
+            : crear('a', { href: perfilAutor, 'aria-label': `Perfil de ${p.autor}` }, crearAvatar(p.autor, true, p.autor_foto)),
         crear('div', { class: 'user-info' },
-            crear('h2', {}, crear('a', { href: perfilAutor, class: 'autor-enlace', text: p.autor })),
+            crear('h2', {}, eliminada ? crear('span', { class: 'autor-eliminado', text: p.autor })
+                : crear('a', { href: perfilAutor, class: 'autor-enlace', text: p.autor })),
             crear('span', { class: 'time', text: tiempoRelativo(p.creado_en) })
         )
     );
-    if (esMia) {
+    if (eliminada) {
+        // Nada que reportar: la cuenta ya no existe (la administración borra sus sueños si hace falta)
+    } else if (esMia) {
         encabezado.append(crear('button', {
             class: 'btn-borrar',
             title: 'Borrar publicación',
@@ -414,11 +420,14 @@ async function borrarPublicacion(id) {
 }
 
 function crearComentario(c, idPublicacion) {
+    const eliminada = Boolean(c.autor_eliminado);
     const item = crear('li', { class: 'comentario', 'data-comentario': c.id_comentario },
-        crear('a', { href: `/perfil/${c.id_usuario}`, 'aria-label': `Perfil de ${c.autor}` }, crearAvatar(c.autor, false, c.autor_foto)),
+        eliminada ? crearAvatarEliminado()
+            : crear('a', { href: `/perfil/${c.id_usuario}`, 'aria-label': `Perfil de ${c.autor}` }, crearAvatar(c.autor, false, c.autor_foto)),
         crear('div', { class: 'comentario-cuerpo' },
             crear('div', { class: 'comentario-encabezado' },
-                crear('strong', {}, crear('a', { href: `/perfil/${c.id_usuario}`, class: 'autor-enlace', text: c.autor })),
+                crear('strong', {}, eliminada ? crear('span', { class: 'autor-eliminado', text: c.autor })
+                    : crear('a', { href: `/perfil/${c.id_usuario}`, class: 'autor-enlace', text: c.autor })),
                 crear('span', { class: 'time', text: tiempoRelativo(c.creado_en) })
             ),
             crear('p', { text: c.contenido })

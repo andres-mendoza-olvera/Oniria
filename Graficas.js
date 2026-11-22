@@ -27,7 +27,7 @@ const CATEGORIAS_GRAFICAS = {
     },
     cuentas: {
         titulo: 'Estado de las cuentas',
-        items: [['activas', 'Activas'], ['sin_verificar', 'Sin verificar'], ['suspendidas', 'Suspendidas'], ['baneadas', 'Baneadas']]
+        items: [['activas', 'Activas'], ['sin_verificar', 'Sin verificar'], ['suspendidas', 'Suspendidas'], ['baneadas', 'Baneadas'], ['eliminadas', 'Eliminadas']]
     }
 };
 

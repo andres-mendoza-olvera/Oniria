@@ -405,6 +405,18 @@
 .correo-texto { min-width: 0; overflow-wrap: anywhere; }
 .tel-enlaces .tel-ayuda { flex: 1; }
 
+/* Eliminar mi cuenta */
+.zona-peligro {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid rgba(255, 59, 92, 0.35);
+    border-radius: 12px;
+}
+.zona-peligro-titulo { font-size: 0.85rem; font-weight: 600; color: var(--corazon); }
+.zona-peligro .btn-amistad { align-self: flex-start; }
+
 /* Preferencias: canal (correo / SMS) y avisos */
 .preferencias {
     display: flex;

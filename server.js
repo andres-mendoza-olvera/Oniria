@@ -76,8 +76,19 @@ const esStaff = (rol) => (NIVEL_ROL[rol] || 0) > 0;
 
 // Condición SQL: la cuenta "alias" es de un usuario normal y no está suspendida ni baneada
 // (sus sueños, comentarios y perfil se ocultan mientras dure la sanción).
-const CUENTA_VISIBLE = (alias) => `(${alias}.rol = 'usuario' AND ${alias}.baneado_en IS NULL
+const CUENTA_VISIBLE = (alias) => `(${alias}.rol = 'usuario' AND ${alias}.baneado_en IS NULL AND ${alias}.eliminado_en IS NULL
     AND (${alias}.suspendido_hasta IS NULL OR ${alias}.suspendido_hasta <= NOW()))`;
+
+// Cuenta que "ya no existe" para los demás: baneada o eliminada por su dueño.
+// Su perfil no se ve, pero sus sueños y comentarios se quedan firmados como "Cuenta eliminada"
+// (borrarlos es manual, desde el panel de administración).
+const CUENTA_IDA = (alias) => `(${alias}.baneado_en IS NOT NULL OR ${alias}.eliminado_en IS NOT NULL)`;
+// Lo que escribió se ve si es de un usuario normal que no está suspendido en este momento
+const AUTOR_VISIBLE = (alias) => `(${alias}.rol = 'usuario'
+    AND (${alias}.suspendido_hasta IS NULL OR ${alias}.suspendido_hasta <= NOW() OR ${CUENTA_IDA(alias)}))`;
+const NOMBRE_ELIMINADO = 'Cuenta eliminada';
+const NOMBRE_AUTOR = (alias) => `CASE WHEN ${CUENTA_IDA(alias)} THEN '${NOMBRE_ELIMINADO}' ELSE COALESCE(NULLIF(${alias}.apodo, ''), ${alias}.nombre) END`;
+const FOTO_AUTOR = (alias) => `CASE WHEN ${CUENTA_IDA(alias)} THEN NULL ELSE ${alias}.foto_perfil END`;
 
 // Las páginas de la app social no son para cuentas de administración
 function soloUsuarios(req, res, next) {
@@ -1243,8 +1254,9 @@ async function bloqueosDe(id) {
 
 const CONSULTA_PUBLICACIONES = `
     SELECT p.id_publicacion, p.id_usuario, p.sueno_texto, p.titulo, p.interpretacion_ia, p.estado, p.creado_en,
-           COALESCE(NULLIF(u.apodo, ''), u.nombre) AS autor,
-           u.foto_perfil AS autor_foto,
+           ${NOMBRE_AUTOR('u')} AS autor,
+           ${FOTO_AUTOR('u')} AS autor_foto,
+           ${CUENTA_IDA('u')} AS autor_eliminado,
            (SELECT COUNT(*)::int FROM corazones c WHERE c.id_publicacion = p.id_publicacion) AS total_corazones,
            EXISTS (SELECT 1 FROM corazones c WHERE c.id_publicacion = p.id_publicacion AND c.id_usuario = $1) AS di_corazon,
            (SELECT COUNT(*)::int FROM comentarios m WHERE m.id_publicacion = p.id_publicacion) AS total_comentarios,
@@ -1256,7 +1268,7 @@ const CONSULTA_PUBLICACIONES = `
     JOIN usuarios u ON u.id_usuario = p.id_usuario
     WHERE (p.estado = 'listo' OR p.id_usuario = $1)
       AND NOT ${HAY_BLOQUEO('$1', 'p.id_usuario')}
-      AND ${CUENTA_VISIBLE('u')}`;
+      AND ${AUTOR_VISIBLE('u')}`;
 
 const POR_PAGINA = 10;
 
@@ -1344,27 +1356,37 @@ async function borrarImagenesStorage(urls) {
     }
 }
 
-// Borrar una publicación propia (sus medios, corazones y comentarios se borran
-// solos por el ON DELETE CASCADE) y sus imágenes de Storage
+// Borra una publicación: sus medios, corazones, comentarios y su conversación se borran
+// solos por el ON DELETE CASCADE; aquí se borran también sus imágenes de Storage.
+// idDueno = solo la borra si es de esa persona (null = la administración, cualquiera).
+// Devuelve { id_usuario, titulo } o null si no existía.
+async function eliminarPublicacion(id, idDueno = null) {
+    const imagenes = await db.query(
+        `SELECT mp.url FROM medios_publicacion mp WHERE mp.id_publicacion = $1
+         UNION
+         SELECT c.imagen_ia FROM conversaciones c WHERE c.id_publicacion = $1 AND c.imagen_ia IS NOT NULL
+         UNION
+         SELECT i->>'url' FROM conversaciones c, jsonb_array_elements(to_jsonb(c.imagenes)) i WHERE c.id_publicacion = $1`,
+        [id]
+    );
+    const borrada = (await db.query(
+        'DELETE FROM publicaciones WHERE id_publicacion = $1 AND ($2::int IS NULL OR id_usuario = $2) RETURNING id_usuario, titulo',
+        [id, idDueno]
+    )).rows[0];
+    if (!borrada) return null;
+    emitir('publicacion-borrada', { id_publicacion: id });
+    borrarImagenesStorage(imagenes.rows.map((m) => m.url).filter(Boolean));
+    return borrada;
+}
+
+// Borrar una publicación propia
 app.delete('/api/publicaciones/:id', requiereSesionApi, async (req, res) => {
     const id = idValido(req.params.id);
     if (!id) return res.status(404).json({ error: 'Publicación no encontrada.' });
     try {
-        const medios = await db.query(
-            `SELECT mp.url FROM medios_publicacion mp
-             JOIN publicaciones p ON p.id_publicacion = mp.id_publicacion
-             WHERE p.id_publicacion = $1 AND p.id_usuario = $2`,
-            [id, req.session.idUsuario]
-        );
-        const resultado = await db.query(
-            'DELETE FROM publicaciones WHERE id_publicacion = $1 AND id_usuario = $2',
-            [id, req.session.idUsuario]
-        );
-        if (resultado.rowCount === 0) return res.status(404).json({ error: 'Publicación no encontrada.' });
+        const borrada = await eliminarPublicacion(id, req.session.idUsuario);
+        if (!borrada) return res.status(404).json({ error: 'Publicación no encontrada.' });
         res.json({ ok: true });
-
-        emitir('publicacion-borrada', { id_publicacion: id });
-        borrarImagenesStorage(medios.rows.map((m) => m.url));
     } catch (err) {
         console.error('Error borrando publicación:', err.message);
         res.status(500).json({ error: 'No se pudo borrar la publicación.' });
@@ -1418,11 +1440,12 @@ app.get('/api/publicaciones/:id/comentarios', requiereSesionApi, async (req, res
     try {
         const resultado = await db.query(
             `SELECT m.id_comentario, m.id_usuario, m.contenido, m.creado_en,
-                    COALESCE(NULLIF(u.apodo, ''), u.nombre) AS autor,
-                    u.foto_perfil AS autor_foto
+                    ${NOMBRE_AUTOR('u')} AS autor,
+                    ${FOTO_AUTOR('u')} AS autor_foto,
+                    ${CUENTA_IDA('u')} AS autor_eliminado
              FROM comentarios m
              JOIN usuarios u ON u.id_usuario = m.id_usuario
-             WHERE m.id_publicacion = $1 AND NOT ${HAY_BLOQUEO('$2', 'm.id_usuario')} AND ${CUENTA_VISIBLE('u')}
+             WHERE m.id_publicacion = $1 AND NOT ${HAY_BLOQUEO('$2', 'm.id_usuario')} AND ${AUTOR_VISIBLE('u')}
              ORDER BY m.creado_en ASC
              LIMIT 200`,
             [id, req.session.idUsuario]
@@ -1892,6 +1915,78 @@ function plantillaCodigo(nombre, frase, codigo, pie) {
 }
 
 // =========================================================
+// ELIMINAR MI CUENTA
+// =========================================================
+// La fila no se borra (se llevaría sus sueños y comentarios por el ON DELETE CASCADE):
+// se borran sus datos personales y sus sueños/comentarios quedan como "Cuenta eliminada".
+// Se borran sus conversaciones con la IA, sus amistades, solicitudes y bloqueos.
+// El correo queda libre para crear una cuenta nueva.
+app.post('/api/cuenta/eliminar', requiereSesionApi, async (req, res) => {
+    const yo = req.session.idUsuario;
+    const contrasena = String(req.body.contrasena || '');
+    if (!contrasena) return res.status(400).json({ error: 'Escribe tu contraseña para confirmar.' });
+    if ((req.session.intentosEliminar || 0) >= CODIGO_INTENTOS) {
+        return res.status(429).json({ error: 'Demasiados intentos. Cierra sesión y vuelve a entrar para intentarlo otra vez.' });
+    }
+    let cliente;
+    try {
+        const u = (await db.query(
+            "SELECT email, nombre, contrasena, foto_perfil FROM usuarios WHERE id_usuario = $1 AND rol = 'usuario' AND eliminado_en IS NULL", [yo]
+        )).rows[0];
+        if (!u) return res.status(404).json({ error: 'Esa cuenta ya no existe.' });
+        if (!(await bcrypt.compare(contrasena, u.contrasena))) {
+            req.session.intentosEliminar = (req.session.intentosEliminar || 0) + 1;
+            return res.status(400).json({ error: 'La contraseña no es correcta.' });
+        }
+
+        cliente = await db.connect();
+        await cliente.query('BEGIN');
+        const borradores = await cliente.query(
+            'DELETE FROM conversaciones WHERE id_usuario = $1 AND id_publicacion IS NULL RETURNING imagen_ia, imagenes', [yo]
+        );
+        // Las conversaciones de sueños publicados también son privadas; sus imágenes las usa la publicación
+        await cliente.query('DELETE FROM conversaciones WHERE id_usuario = $1', [yo]);
+        await cliente.query('DELETE FROM amistades WHERE id_solicitante = $1 OR id_destinatario = $1', [yo]);
+        await cliente.query('DELETE FROM bloqueos WHERE id_bloqueador = $1 OR id_bloqueado = $1', [yo]);
+        await cliente.query(
+            `UPDATE usuarios SET eliminado_en = NOW(), nombre = $2, apodo = NULL, email = $3, contrasena = $4,
+                    foto_perfil = NULL, biografia = NULL, telefono = NULL, telefono_verificado_en = NULL, telefono_canal = NULL,
+                    canal_preferido = 'correo', notif_solicitudes = FALSE, notif_publicaciones = FALSE,
+                    token_verificacion = NULL, token_verificacion_expira = NULL,
+                    token_recuperacion = NULL, token_recuperacion_expira = NULL
+             WHERE id_usuario = $1`,
+            [yo, NOMBRE_ELIMINADO, `eliminada-${yo}@cuentas.oniria.invalid`, await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10)]
+        );
+        await cliente.query('COMMIT');
+
+        // Fuera de Oniria en este momento (esta sesión y las de otros dispositivos)
+        await new Promise((listo) => req.session.destroy(() => listo()));
+        await cerrarSesionesDe(yo);
+        res.clearCookie('connect.sid');
+        res.json({ ok: true });
+
+        borrarImagenesStorage([u.foto_perfil, ...borradores.rows.flatMap((c) => [c.imagen_ia, ...(c.imagenes || []).map((i) => i.url)])]
+            .filter((x) => typeof x === 'string'));
+        enviarCorreo({
+            to: u.email,
+            subject: 'Tu cuenta de Oniria se eliminó',
+            text: `Hola ${u.nombre}, tu cuenta de Oniria se eliminó como lo pediste. Borramos tus datos personales y tus conversaciones con la IA. Los sueños y comentarios que publicaste se quedan, firmados como "Cuenta eliminada".\n\nSi quieres volver, puedes crear una cuenta nueva con este correo: ${BASE_URL}/registro`,
+            html: `<div style="font-family:Arial,sans-serif;max-width:460px;margin:auto;padding:24px">
+                <h2 style="margin:0 0 12px;color:#7c4ddb">Oniria</h2>
+                <p>Hola ${u.nombre.replace(/</g, '&lt;')}, tu cuenta de Oniria se eliminó como lo pediste.</p>
+                <p>Borramos tus datos personales y tus conversaciones con la IA. Los sueños y comentarios que publicaste se quedan, firmados como <b>"Cuenta eliminada"</b>.</p>
+                <p style="color:#888;font-size:12px">Si quieres volver, puedes crear una cuenta nueva con este correo en <a href="${BASE_URL}/registro">${BASE_URL}/registro</a>.</p></div>`
+        }).catch((err) => console.error('No se pudo mandar el correo de cuenta eliminada:', err.message));
+    } catch (err) {
+        if (cliente) await cliente.query('ROLLBACK').catch(() => {});
+        console.error('Error eliminando cuenta:', err.message);
+        if (!res.headersSent) res.status(500).json({ error: 'No se pudo eliminar tu cuenta. Intenta de nuevo.' });
+    } finally {
+        cliente?.release();
+    }
+});
+
+// =========================================================
 // NOTIFICACIONES (por el canal preferido: correo o SMS)
 // =========================================================
 // tipo: 'solicitudes' | 'publicaciones' (cada persona elige cuáles recibir en su perfil).
@@ -1899,7 +1994,7 @@ function plantillaCodigo(nombre, frase, codigo, pie) {
 async function notificar(idDestino, tipo, { asunto, texto, sms, enlace }) {
     const u = (await db.query(
         `SELECT email, nombre, telefono, canal_preferido, notif_solicitudes, notif_publicaciones
-         FROM usuarios WHERE id_usuario = $1 AND verificado IS TRUE`,
+         FROM usuarios WHERE id_usuario = $1 AND verificado IS TRUE AND eliminado_en IS NULL`,
         [idDestino]
     )).rows[0];
     if (!u) return;
@@ -2374,8 +2469,9 @@ async function cerrarSesionesDe(idUsuario) {
 // accion: 'suspender' (con dias), 'banear' o 'quitar'. Solo a cuentas normales.
 // Avisa a la persona por su canal preferido (correo o SMS), aunque tenga los avisos apagados.
 async function aplicarSancion({ idUsuario, accion, dias, motivo }) {
-    const u = (await db.query('SELECT id_usuario, rol, baneado_en FROM usuarios WHERE id_usuario = $1', [idUsuario])).rows[0];
+    const u = (await db.query('SELECT id_usuario, rol, baneado_en, eliminado_en FROM usuarios WHERE id_usuario = $1', [idUsuario])).rows[0];
     if (!u) throw errorAcceso(404, 'Esa cuenta no existe.');
+    if (u.eliminado_en) throw errorAcceso(400, 'Esa persona eliminó su cuenta; ya no se puede sancionar.');
     if (u.rol !== 'usuario') throw errorAcceso(400, 'Las cuentas de administración no se pueden sancionar.');
 
     if (accion === 'suspender') {
@@ -2513,13 +2609,14 @@ app.get('/api/admin/estadisticas', requiereStaff(), async (req, res) => {
             conteoPor('tipo_sueno', dias),
             conteoPor('tema', dias),
             db.query(`SELECT
-                    COUNT(*) FILTER (WHERE verificado IS TRUE AND baneado_en IS NULL AND (suspendido_hasta IS NULL OR suspendido_hasta <= NOW()))::int AS activas,
-                    COUNT(*) FILTER (WHERE verificado IS NOT TRUE AND baneado_en IS NULL)::int AS sin_verificar,
-                    COUNT(*) FILTER (WHERE baneado_en IS NULL AND suspendido_hasta > NOW())::int AS suspendidas,
-                    COUNT(*) FILTER (WHERE baneado_en IS NOT NULL)::int AS baneadas
+                    COUNT(*) FILTER (WHERE eliminado_en IS NULL AND verificado IS TRUE AND baneado_en IS NULL AND (suspendido_hasta IS NULL OR suspendido_hasta <= NOW()))::int AS activas,
+                    COUNT(*) FILTER (WHERE eliminado_en IS NULL AND verificado IS NOT TRUE AND baneado_en IS NULL)::int AS sin_verificar,
+                    COUNT(*) FILTER (WHERE eliminado_en IS NULL AND baneado_en IS NULL AND suspendido_hasta > NOW())::int AS suspendidas,
+                    COUNT(*) FILTER (WHERE eliminado_en IS NULL AND baneado_en IS NOT NULL)::int AS baneadas,
+                    COUNT(*) FILTER (WHERE eliminado_en IS NOT NULL)::int AS eliminadas
                 FROM usuarios WHERE rol = 'usuario'`),
             db.query(`SELECT
-                    (SELECT COUNT(*)::int FROM usuarios WHERE rol = 'usuario') AS usuarios,
+                    (SELECT COUNT(*)::int FROM usuarios WHERE rol = 'usuario' AND eliminado_en IS NULL) AS usuarios,
                     (SELECT COUNT(*)::int FROM publicaciones WHERE estado = 'listo' AND ($1::int IS NULL OR creado_en > NOW() - make_interval(days => $1))) AS publicados,
                     (SELECT COUNT(*)::int FROM conversaciones WHERE ($1::int IS NULL OR creado_en > NOW() - make_interval(days => $1))) AS conversaciones,
                     (SELECT COUNT(*)::int FROM comentarios WHERE ($1::int IS NULL OR creado_en > NOW() - make_interval(days => $1))) AS comentarios,
@@ -2540,7 +2637,7 @@ app.get('/api/admin/reportes', requiereStaff(), async (req, res) => {
         const resultado = await db.query(
             `SELECT r.id_reporte, r.motivo, r.detalle, r.estado, r.accion, r.dias_suspension, r.nota_admin, r.creado_en, r.resuelto_en,
                     r.id_reportado, COALESCE(NULLIF(ra.apodo, ''), ra.nombre) AS reportado, ra.foto_perfil AS reportado_foto,
-                    ra.suspendido_hasta, ra.baneado_en,
+                    ra.suspendido_hasta, ra.baneado_en, ra.eliminado_en,
                     COALESCE(NULLIF(rt.apodo, ''), rt.nombre) AS reportante,
                     COALESCE(NULLIF(rv.apodo, ''), rv.nombre) AS revisor,
                     p.id_publicacion, p.titulo AS publicacion_titulo, LEFT(p.sueno_texto, 300) AS publicacion_texto,
@@ -2612,7 +2709,7 @@ app.get('/api/admin/usuarios', requiereStaff(), async (req, res) => {
                     (SELECT COUNT(*)::int FROM publicaciones p WHERE p.id_usuario = u.id_usuario AND p.estado = 'listo') AS suenos,
                     (SELECT COUNT(*)::int FROM reportes r WHERE r.id_reportado = u.id_usuario) AS reportes
              FROM usuarios u
-             WHERE u.rol = 'usuario'
+             WHERE u.rol = 'usuario' AND u.eliminado_en IS NULL
                AND ($1 = '' OR u.apodo ILIKE $2 OR u.nombre ILIKE $2 OR u.email ILIKE $2)
                AND ($3 <> 'suspendidas' OR (u.baneado_en IS NULL AND u.suspendido_hasta > NOW()))
                AND ($3 <> 'baneadas' OR u.baneado_en IS NOT NULL)
@@ -2647,6 +2744,70 @@ app.post('/api/admin/usuarios/:id/sancion', requiereStaff(), async (req, res) =>
         if (err.status) return res.status(err.status).json({ error: err.mensaje });
         console.error('Error aplicando sanción:', err.message);
         res.status(500).json({ error: 'No se pudo aplicar la sanción.' });
+    }
+});
+
+// ---------- Publicaciones: todo lo que se ha publicado ----------
+// ?buscar=texto (título, relato o apodo) · ?filtro=reportadas|eliminadas · ?antes=<id> ("Ver más")
+// La administración ve el apodo real aunque la cuenta esté baneada (en el feed sale "Cuenta eliminada").
+const POR_PAGINA_ADMIN = 20;
+app.get('/api/admin/publicaciones', requiereStaff(), async (req, res) => {
+    const texto = String(req.query.buscar || '').trim().slice(0, 60);
+    const filtro = ['reportadas', 'eliminadas'].includes(req.query.filtro) ? req.query.filtro : 'todas';
+    const antes = idValido(req.query.antes);
+    try {
+        const patron = `%${texto.replace(/[\\%_]/g, (c) => '\\' + c)}%`;
+        const resultado = await db.query(
+            `SELECT p.id_publicacion, p.id_usuario, p.titulo, p.sueno_texto, p.interpretacion_ia, p.estado, p.creado_en,
+                    p.emocion, p.tipo_sueno, p.tema,
+                    COALESCE(NULLIF(u.apodo, ''), u.nombre) AS autor, u.foto_perfil AS autor_foto,
+                    u.suspendido_hasta, u.baneado_en, u.eliminado_en,
+                    (SELECT COUNT(*)::int FROM corazones c WHERE c.id_publicacion = p.id_publicacion) AS total_corazones,
+                    (SELECT COUNT(*)::int FROM comentarios m WHERE m.id_publicacion = p.id_publicacion) AS total_comentarios,
+                    (SELECT COUNT(*)::int FROM reportes r WHERE r.id_publicacion = p.id_publicacion) AS total_reportes,
+                    COALESCE((SELECT json_agg(json_build_object('tipo', mp.tipo, 'url', mp.url, 'es_ia', mp.prompt_ia IS NOT NULL)
+                                              ORDER BY (mp.prompt_ia IS NULL), mp.orden, mp.id_medio)
+                                FROM medios_publicacion mp WHERE mp.id_publicacion = p.id_publicacion), '[]') AS medios
+             FROM publicaciones p
+             JOIN usuarios u ON u.id_usuario = p.id_usuario
+             WHERE ($1 = '' OR p.titulo ILIKE $2 OR p.sueno_texto ILIKE $2 OR u.apodo ILIKE $2)
+               AND ($3::int IS NULL OR p.id_publicacion < $3)
+               AND ($4 <> 'reportadas' OR EXISTS (SELECT 1 FROM reportes r WHERE r.id_publicacion = p.id_publicacion))
+               AND ($4 <> 'eliminadas' OR ${CUENTA_IDA('u')})
+             ORDER BY p.id_publicacion DESC
+             LIMIT ${POR_PAGINA_ADMIN}`,
+            [texto, patron, antes, filtro]
+        );
+        res.json({ publicaciones: resultado.rows, hayMas: resultado.rows.length === POR_PAGINA_ADMIN });
+    } catch (err) {
+        console.error('Error cargando publicaciones (admin):', err.message);
+        res.status(500).json({ error: 'No se pudieron cargar las publicaciones.' });
+    }
+});
+
+// Borrar cualquier publicación (solo admin). Si la cuenta sigue activa, se le avisa con el motivo.
+app.delete('/api/admin/publicaciones/:id', requiereStaff('admin'), async (req, res) => {
+    const id = idValido(req.params.id);
+    const motivo = String(req.body?.motivo || '').trim().slice(0, 300);
+    if (!id) return res.status(404).json({ error: 'Esa publicación no existe.' });
+    try {
+        const borrada = await eliminarPublicacion(id);
+        if (!borrada) return res.status(404).json({ error: 'Esa publicación ya no existe.' });
+        res.json({ ok: true });
+
+        const autor = (await db.query('SELECT baneado_en, eliminado_en FROM usuarios WHERE id_usuario = $1', [borrada.id_usuario])).rows[0];
+        if (autor && !autor.baneado_en && !autor.eliminado_en) {
+            const titulo = borrada.titulo ? ` «${borrada.titulo}»` : '';
+            notificarEnSegundoPlano(borrada.id_usuario, 'cuenta', {
+                asunto: 'La administración de Oniria eliminó uno de tus sueños',
+                texto: `la administración eliminó tu sueño${titulo} porque no respeta las normas de Oniria.${motivo ? ` Motivo: ${motivo}.` : ''}`,
+                sms: `la administración eliminó tu sueño${titulo}.${motivo ? ` Motivo: ${motivo}.` : ''}`,
+                enlace: `${BASE_URL}/privacidad`
+            });
+        }
+    } catch (err) {
+        console.error('Error borrando publicación (admin):', err.message);
+        res.status(500).json({ error: 'No se pudo borrar la publicación.' });
     }
 });
 

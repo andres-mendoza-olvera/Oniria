@@ -2,7 +2,7 @@
 // PANEL DE ADMINISTRACIÓN
 // (Comun.js: crear, api, icono, crearAvatar, preguntar, avisar ·
 //  Graficas.js: crearGrafica, exportarImagen, exportarCSV, descargarBlob)
-//   #estadisticas · #reportes · #usuarios · #equipo (solo admin)
+//   #estadisticas · #reportes · #publicaciones · #usuarios · #equipo (solo admin)
 // =========================================================
 const $ = (id) => document.getElementById(id);
 
@@ -12,7 +12,8 @@ const estado = {
     seccion: null,
     estadisticas: null,
     filtroReportes: 'pendiente',
-    filtroUsuarios: 'todas'
+    filtroUsuarios: 'todas',
+    filtroPublicaciones: 'todas'
 };
 
 const fecha = (f) => new Date(f).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
@@ -20,6 +21,7 @@ const vacio = (texto) => crear('p', { class: 'vacio-admin', text: texto });
 
 // Estado de una cuenta como etiqueta (siempre con texto)
 function etiquetaEstado(u) {
+    if (u.eliminado_en) return crear('span', { class: 'etiqueta eliminada' }, icono('basura', 'icono-xs'), 'Eliminada por su dueño');
     if (u.baneado_en) return crear('span', { class: 'etiqueta baneada' }, icono('bloquear', 'icono-xs'), 'Baneada');
     if (u.suspendido_hasta && new Date(u.suspendido_hasta) > new Date()) {
         return crear('span', { class: 'etiqueta suspendida' }, icono('reloj', 'icono-xs'), `Suspendida hasta ${fecha(u.suspendido_hasta)}`);
@@ -30,7 +32,7 @@ function etiquetaEstado(u) {
 // ---------------------------------------------------------
 // Secciones (#hash)
 // ---------------------------------------------------------
-const SECCIONES = ['estadisticas', 'reportes', 'usuarios', 'equipo'];
+const SECCIONES = ['estadisticas', 'reportes', 'publicaciones', 'usuarios', 'equipo'];
 
 function irA(nombre) {
     if (!SECCIONES.includes(nombre) || (nombre === 'equipo' && !estado.esAdmin)) nombre = 'estadisticas';
@@ -39,6 +41,7 @@ function irA(nombre) {
     document.querySelectorAll('[data-seccion]').forEach((a) => a.classList.toggle('activo', a.dataset.seccion === nombre));
     if (nombre === 'estadisticas') cargarEstadisticas();
     if (nombre === 'reportes') cargarReportes();
+    if (nombre === 'publicaciones') cargarPublicaciones();
     if (nombre === 'usuarios') cargarUsuarios();
     if (nombre === 'equipo') cargarEquipo();
 }
@@ -142,11 +145,11 @@ function pedirSancion(accion, apodo, { conMotivo = true } = {}) {
         const cancelar = crear('button', { type: 'button', class: 'pregunta-btn', text: 'Cancelar' });
         let respuesta = null;
 
-        dialogo.append(
+        agregar(dialogo,
             crear('div', { class: 'pregunta-icono' }, icono(banear ? 'bloquear' : 'reloj')),
             crear('h2', { class: 'pregunta-titulo', text: banear ? `¿Banear a ${apodo}?` : `Suspender a ${apodo}` }),
             crear('p', { class: 'pregunta-texto', text: banear
-                ? 'No podrá volver a entrar, sus sueños dejarán de verse y se borrarán sus amistades. Se le avisará por su canal preferido.'
+                ? 'No podrá volver a entrar y se borrarán sus amistades. Sus sueños y comentarios se quedan, firmados como "Cuenta eliminada" (los puedes borrar en Publicaciones). Se le avisará por su canal preferido.'
                 : 'No podrá entrar mientras dure la suspensión y sus sueños no se verán. Se le avisará por su canal preferido.' }),
             banear ? null : crear('label', { class: 'campo-admin' }, crear('span', { text: 'Duración' }), dias),
             conMotivo ? crear('label', { class: 'campo-admin' }, crear('span', { text: 'Motivo' }), motivo) : null,
@@ -194,7 +197,15 @@ function tarjetaReporte(r) {
         r.detalle ? crear('p', { class: 'reporte-detalle-texto', text: r.detalle }) : null,
         r.id_publicacion ? crear('div', { class: 'reporte-sueno' },
             crear('strong', { text: `Sueño reportado: ${r.publicacion_titulo || 'sin título'}` }),
-            r.publicacion_texto || '') : null
+            r.publicacion_texto || '',
+            estado.esAdmin ? crear('div', { class: 'acciones-admin' },
+                crear('button', {
+                    type: 'button', class: 'btn-accion peligro',
+                    onclick: async (e) => {
+                        const boton = e.currentTarget;
+                        if (await borrarPublicacion({ id_publicacion: r.id_publicacion, titulo: r.publicacion_titulo, autor: r.reportado, cuentaActiva: !r.baneado_en && !r.eliminado_en }, boton)) cargarReportes();
+                    }
+                }, icono('basura', 'icono-sm'), 'Borrar este sueño')) : null) : null
     );
 
     if (!pendiente) {
@@ -225,10 +236,12 @@ function tarjetaReporte(r) {
         }
     };
     const botones = [
-        crear('button', { type: 'button', class: 'btn-accion', onclick: (e) => resolver('descartar', e.currentTarget) }, icono('check', 'icono-sm'), 'Descartar'),
-        crear('button', { type: 'button', class: 'btn-accion peligro', onclick: (e) => resolver('suspender', e.currentTarget) }, icono('reloj', 'icono-sm'), 'Suspender')
+        crear('button', { type: 'button', class: 'btn-accion', onclick: (e) => resolver('descartar', e.currentTarget) }, icono('check', 'icono-sm'), r.eliminado_en ? 'Cerrar reporte' : 'Descartar')
     ];
-    if (estado.esAdmin) {
+    if (!r.eliminado_en) {
+        botones.push(crear('button', { type: 'button', class: 'btn-accion peligro', onclick: (e) => resolver('suspender', e.currentTarget) }, icono('reloj', 'icono-sm'), 'Suspender'));
+    }
+    if (estado.esAdmin && !r.eliminado_en) {
         botones.push(crear('button', { type: 'button', class: 'btn-accion peligro', onclick: (e) => resolver('banear', e.currentTarget) }, icono('bloquear', 'icono-sm'), 'Banear'));
     }
     tarjeta.append(crear('div', { class: 'acciones-admin' }, nota, ...botones));
@@ -254,6 +267,139 @@ document.querySelectorAll('[data-filtro-reportes]').forEach((chip) => chip.addEv
 }));
 
 // ---------------------------------------------------------
+// Publicaciones (todas; solo el admin puede borrar)
+// ---------------------------------------------------------
+// Pregunta (con motivo opcional) y borra. Devuelve true si se borró.
+function borrarPublicacion(p, boton) {
+    return new Promise((resolver) => {
+        const dialogo = crear('dialog', { class: 'pregunta sancion peligro' });
+        const motivo = crear('textarea', { rows: '3', maxlength: '300', placeholder: 'Opcional. Se le enviará a la persona por correo o SMS' });
+        const error = crear('p', { class: 'error-admin', hidden: true });
+        const aceptar = crear('button', { type: 'button', class: 'pregunta-btn principal peligro', text: 'Borrar sueño' });
+        const cancelar = crear('button', { type: 'button', class: 'pregunta-btn', text: 'Cancelar' });
+        let borrada = false;
+
+        agregar(dialogo,
+            crear('div', { class: 'pregunta-icono' }, icono('basura')),
+            crear('h2', { class: 'pregunta-titulo', text: '¿Borrar este sueño?' }),
+            crear('p', { class: 'pregunta-texto', text: `«${p.titulo || 'Sin título'}» de ${p.autor} se borrará del feed con sus imágenes, corazones y comentarios. No se puede deshacer.` }),
+            p.cuentaActiva ? crear('label', { class: 'campo-admin' }, crear('span', { text: 'Motivo' }), motivo) : null,
+            error,
+            crear('div', { class: 'pregunta-acciones' }, cancelar, aceptar)
+        );
+        cancelar.addEventListener('click', () => dialogo.close());
+        dialogo.addEventListener('click', (e) => { if (e.target === dialogo) dialogo.close(); });
+        aceptar.addEventListener('click', async () => {
+            aceptar.disabled = true;
+            error.hidden = true;
+            try {
+                await api(`/api/admin/publicaciones/${p.id_publicacion}`, { method: 'DELETE', body: JSON.stringify({ motivo: motivo.value.trim() }) });
+                borrada = true;
+                dialogo.close();
+            } catch (err) {
+                error.textContent = err.message;
+                error.hidden = false;
+                aceptar.disabled = false;
+            }
+        });
+        dialogo.addEventListener('close', () => {
+            setTimeout(() => dialogo.remove(), 150);
+            if (boton && !borrada) boton.disabled = false;
+            resolver(borrada);
+        });
+        if (boton) boton.disabled = true;
+        document.body.append(dialogo);
+        dialogo.showModal();
+        cancelar.focus();
+    });
+}
+
+// Nombre bonito de la clasificación de la IA (feliz -> "Feliz")
+const nombreCategoria = (tipo, clave) => CATEGORIAS_GRAFICAS[tipo].items.find(([c]) => c === clave)?.[1];
+const ESTADOS_PUBLICACION = { procesando: 'Procesando', error: 'Con error' };
+
+function tarjetaPublicacion(p) {
+    const cuentaIda = Boolean(p.baneado_en || p.eliminado_en);
+    const texto = crear('p', { class: 'pub-texto', text: p.sueno_texto || '' });
+    let leerMas = null;
+    if ((p.sueno_texto || '').length > 320) {
+        texto.classList.add('colapsada');
+        leerMas = crear('button', {
+            type: 'button', class: 'btn-enlace', text: 'Leer todo',
+            onclick: () => { leerMas.textContent = texto.classList.toggle('colapsada') ? 'Leer todo' : 'Leer menos'; }
+        });
+    }
+    const medios = (p.medios || []).length ? crear('div', { class: 'pub-medios' }, ...p.medios.map((m) =>
+        crear('a', { href: m.url, target: '_blank', rel: 'noopener', title: m.es_ia ? 'Imagen creada por IA' : 'Imagen del soñador' },
+            m.tipo === 'video' ? crear('video', { src: m.url, preload: 'metadata', muted: '' })
+                : crear('img', { src: m.url, alt: m.es_ia ? 'Imagen creada por IA' : 'Imagen del soñador', loading: 'lazy' })))) : null;
+    const clasificacion = [['emocion', p.emocion], ['tipo_sueno', p.tipo_sueno], ['tema', p.tema]]
+        .map(([tipo, clave]) => clave && nombreCategoria(tipo, clave)).filter(Boolean);
+
+    const tarjeta = crear('article', { class: 'tarjeta-admin', 'data-publicacion': p.id_publicacion },
+        crear('div', { class: 'tarjeta-fila' },
+            p.eliminado_en ? crearAvatarEliminado() : crearAvatar(p.autor, false, p.autor_foto),
+            crear('div', { class: 'tarjeta-persona' },
+                crear('strong', { text: p.autor }),
+                crear('small', { text: `${fecha(p.creado_en)}${cuentaIda ? ' · en el feed sale como "Cuenta eliminada"' : ''}` })),
+            crear('div', { class: 'etiquetas' },
+                etiquetaEstado(p),
+                ESTADOS_PUBLICACION[p.estado] ? crear('span', { class: 'etiqueta suspendida', text: ESTADOS_PUBLICACION[p.estado] }) : null,
+                p.total_reportes ? crear('span', { class: 'etiqueta baneada' }, icono('bandera', 'icono-xs'), `${p.total_reportes} reporte${p.total_reportes === 1 ? '' : 's'}`) : null)),
+        crear('h2', { class: 'pub-titulo', text: p.titulo || 'Sin título' }),
+        texto, leerMas, medios,
+        p.interpretacion_ia ? crear('details', { class: 'pub-interpretacion' },
+            crear('summary', { text: 'Ver la interpretación de la IA' }), crear('p', { text: p.interpretacion_ia })) : null,
+        crear('div', { class: 'etiquetas' },
+            ...clasificacion.map((t) => crear('span', { class: 'etiqueta motivo', text: t })),
+            crear('span', { class: 'etiqueta' }, icono('corazon', 'icono-xs'), String(p.total_corazones)),
+            crear('span', { class: 'etiqueta' }, icono('comentario', 'icono-xs'), String(p.total_comentarios)))
+    );
+    if (estado.esAdmin) {
+        tarjeta.append(crear('div', { class: 'acciones-admin' },
+            crear('button', {
+                type: 'button', class: 'btn-accion peligro',
+                onclick: async (e) => {
+                    if (await borrarPublicacion({ ...p, cuentaActiva: !cuentaIda }, e.currentTarget)) {
+                        tarjeta.remove();
+                        if (!$('lista-publicaciones').children.length) cargarPublicaciones();
+                    }
+                }
+            }, icono('basura', 'icono-sm'), 'Borrar sueño')));
+    }
+    return tarjeta;
+}
+
+let temporizadorPublicaciones = null;
+let ultimaPublicacion = null; // para "Ver más"
+async function cargarPublicaciones({ mas = false } = {}) {
+    const lista = $('lista-publicaciones');
+    const boton = $('btn-mas-publicaciones');
+    try {
+        const buscar = $('buscar-publicaciones').value.trim();
+        const { publicaciones, hayMas } = await api(`/api/admin/publicaciones?buscar=${encodeURIComponent(buscar)}&filtro=${estado.filtroPublicaciones}${mas && ultimaPublicacion ? `&antes=${ultimaPublicacion}` : ''}`);
+        const tarjetas = publicaciones.map(tarjetaPublicacion);
+        if (mas) lista.append(...tarjetas);
+        else lista.replaceChildren(...(tarjetas.length ? tarjetas : [vacio(buscar || estado.filtroPublicaciones !== 'todas' ? 'No hay publicaciones que coincidan.' : 'Todavía nadie ha publicado un sueño.')]));
+        if (publicaciones.length) ultimaPublicacion = publicaciones[publicaciones.length - 1].id_publicacion;
+        boton.hidden = !hayMas;
+    } catch (err) {
+        if (!mas) lista.replaceChildren(vacio(err.message));
+        else avisar(err.message);
+    }
+}
+$('buscar-publicaciones').addEventListener('input', () => {
+    clearTimeout(temporizadorPublicaciones);
+    temporizadorPublicaciones = setTimeout(cargarPublicaciones, 300);
+});
+$('btn-mas-publicaciones').addEventListener('click', () => cargarPublicaciones({ mas: true }));
+document.querySelectorAll('[data-filtro-publicaciones]').forEach((chip) => chip.addEventListener('click', () => {
+    estado.filtroPublicaciones = chip.dataset.filtroPublicaciones;
+    document.querySelectorAll('[data-filtro-publicaciones]').forEach((c) => c.classList.toggle('activo', c === chip));
+    cargarPublicaciones();
+}));
+
+// ---------------------------------------------------------
 // Usuarios
 // ---------------------------------------------------------
 function tarjetaUsuario(u) {
@@ -261,7 +407,7 @@ function tarjetaUsuario(u) {
     const sancionar = async (accion, boton) => {
         let cuerpo = { accion };
         if (accion === 'quitar') {
-            if (!(await preguntar({ titulo: `¿Reactivar a ${u.apodo}?`, texto: 'Podrá volver a entrar y sus sueños se verán otra vez. Se le avisará.', aceptar: 'Reactivar', icono: 'check' }))) return;
+            if (!(await preguntar({ titulo: `¿Reactivar a ${u.apodo}?`, texto: 'Podrá volver a entrar y sus sueños volverán a mostrar su nombre. Se le avisará.', aceptar: 'Reactivar', icono: 'check' }))) return;
         } else {
             const datos = await pedirSancion(accion, u.apodo);
             if (!datos) return;

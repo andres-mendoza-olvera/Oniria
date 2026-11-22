@@ -106,6 +106,11 @@ function crear(etiqueta, props = {}, ...hijos) {
     return el;
 }
 
+// Como padre.append(...), pero se salta los null/undefined (append los escribiría como texto "null")
+function agregar(padre, ...hijos) {
+    padre.append(...hijos.filter(Boolean));
+}
+
 // ---------------------------------------------------------
 // Ventanita para confirmar o avisar (en lugar de confirm() y alert() del navegador)
 // ---------------------------------------------------------
@@ -118,7 +123,7 @@ function preguntar({ titulo, texto = '', aceptar = 'Aceptar', cancelar = 'Cancel
         const btnAceptar = crear('button', { type: 'button', class: `pregunta-btn principal${peligro ? ' peligro' : ''}`, text: aceptar });
         const btnCancelar = soloAceptar ? null : crear('button', { type: 'button', class: 'pregunta-btn', text: cancelar });
 
-        dialogo.append(
+        agregar(dialogo,
             crear('div', { class: 'pregunta-icono' }, icono(nombreIcono)),
             crear('h2', { id: 'pregunta-titulo', class: 'pregunta-titulo', text: titulo }),
             texto ? crear('p', { class: 'pregunta-texto', text: texto }) : null,
@@ -240,6 +245,12 @@ function crearAvatar(apodo, conAnillo = false, foto = null) {
     const avatar = crear('div', { class: 'avatar' });
     pintarAvatar(avatar, apodo, foto);
     return conAnillo ? crear('div', { class: 'anillo' }, avatar) : avatar;
+}
+
+// Avatar gris (sin foto ni anillo de color) para "Cuenta eliminada"
+function crearAvatarEliminado(conAnillo = false) {
+    const avatar = crear('div', { class: 'avatar avatar-eliminado', 'aria-hidden': 'true' }, icono('perfil'));
+    return conAnillo ? crear('div', { class: 'anillo anillo-eliminado' }, avatar) : avatar;
 }
 
 // Pone mi foto, mi apodo y mis solicitudes pendientes en el menú y la barra de arriba
