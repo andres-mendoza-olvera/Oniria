@@ -462,6 +462,7 @@ async function pintarPendientes() {
             idConversacion ? api(`/api/conversaciones/${idConversacion}`) : null
         ]);
         estado.yo = yo;
+        revisarPoliticas(yo);
         if (datos?.conversacion) {
             const { mensajes, ...resumen } = datos.conversacion;
             estado.borrador = resumen;

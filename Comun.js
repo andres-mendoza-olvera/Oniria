@@ -262,6 +262,70 @@ function pintarMiPerfil(yo) {
     });
     document.querySelectorAll('.js-mi-apodo').forEach((el) => { el.textContent = yo.apodo; });
     pintarSolicitudes(yo.solicitudes || 0);
+    revisarPoliticas(yo);
+}
+
+// =========================================================
+// AVISO DE POLÍTICAS NUEVAS: si cambiaron los Términos o la Política de Privacidad
+// y no los ha aceptado, no puede seguir hasta aceptarlos (o cerrar sesión).
+// =========================================================
+function revisarPoliticas(yo) {
+    if (!yo?.politicas_pendientes || document.querySelector('.dialogo-politicas')) return;
+
+    const casilla = crear('input', { type: 'checkbox', id: 'acepto-politicas-nuevas' });
+    const error = crear('p', { class: 'politicas-error', role: 'alert', hidden: '' });
+    const btnAceptar = crear('button', { type: 'button', class: 'pregunta-btn principal', text: 'Aceptar y continuar', disabled: '' });
+    const btnSalir = crear('button', { type: 'submit', class: 'pregunta-btn', text: 'Cerrar sesión' });
+    const dialogo = crear('dialog', { class: 'pregunta dialogo-politicas', 'aria-labelledby': 'politicas-titulo' });
+
+    agregar(dialogo,
+        crear('div', { class: 'pregunta-icono' }, icono('escudo')),
+        crear('h2', { id: 'politicas-titulo', class: 'pregunta-titulo', text: 'Actualizamos nuestros Términos y Política de Privacidad' }),
+        crear('p', { class: 'pregunta-texto', text: 'Para seguir usando Oniria necesitamos que leas y aceptes la versión nueva. Lo más importante:' }),
+        crear('ul', { class: 'politicas-lista' },
+            crear('li', { text: 'Ahora incluye los Términos de uso y las normas de la comunidad.' }),
+            crear('li', { text: 'Explica que tus sueños pueden tener datos sensibles y pide tu consentimiento para tratarlos.' }),
+            crear('li', { text: 'Explica qué servicios de IA reciben tus sueños (Google Gemini y Cloudflare) y que algunos están fuera de México.' }),
+            crear('li', { text: 'Explica la memoria de sueños, el clima onírico, las reacciones y el recordatorio de cada mañana.' }),
+            crear('li', { text: 'Aclara qué puede ver la administración y cuáles son tus derechos.' })),
+        crear('a', { href: '/privacidad', target: '_blank', rel: 'noopener', class: 'politicas-enlace' },
+            icono('escudo', 'icono-xs'), 'Leer los Términos y la Política de Privacidad'),
+        crear('label', { class: 'politicas-casilla', for: 'acepto-politicas-nuevas' }, casilla,
+            crear('span', { text: 'He leído y acepto los Términos de uso y la Política de Privacidad de Oniria, incluido el uso de mis sueños por la IA.' })),
+        error,
+        // "Cerrar sesión" es un formulario normal (igual que el del menú)
+        crear('form', { action: '/cerrar-sesion', method: 'POST', class: 'pregunta-acciones' }, btnSalir, btnAceptar)
+    );
+
+    casilla.addEventListener('change', () => {
+        btnAceptar.disabled = !casilla.checked;
+        error.hidden = true;
+    });
+    btnAceptar.addEventListener('click', async () => {
+        btnAceptar.disabled = true;
+        try {
+            await api('/api/politicas/aceptar', { method: 'POST', body: JSON.stringify({ acepto: true }) });
+            aceptado = true;
+            dialogo.close();
+        } catch (err) {
+            error.textContent = err.message;
+            error.hidden = false;
+            btnAceptar.disabled = false;
+        }
+    });
+    // No se puede cerrar con Esc ni picando afuera: hay que aceptar o cerrar sesión
+    // (algunos navegadores lo cierran igual con un segundo Esc: entonces se vuelve a abrir)
+    let aceptado = false;
+    dialogo.addEventListener('cancel', (e) => e.preventDefault());
+    dialogo.addEventListener('close', () => {
+        if (!aceptado) { dialogo.showModal(); return; }
+        dialogo.classList.add('saliendo');
+        setTimeout(() => dialogo.remove(), 150);
+    });
+
+    document.body.append(dialogo);
+    dialogo.showModal();
+    casilla.focus();
 }
 
 function pintarSolicitudes(total) {

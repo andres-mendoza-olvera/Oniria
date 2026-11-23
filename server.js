@@ -1367,24 +1367,44 @@ const POR_PAGINA = 10;
 const SON_AMIGOS = (a, b) => `EXISTS (SELECT 1 FROM amistades am WHERE am.estado = 'aceptada'
     AND ((am.id_solicitante = ${a} AND am.id_destinatario = ${b}) OR (am.id_solicitante = ${b} AND am.id_destinatario = ${a})))`;
 
-// Quién soy: apodo, foto y cuántas solicitudes de amistad tengo sin responder
+// Desde cuándo rige la versión actual de los Términos y la Política de Privacidad.
+// Quien los aceptó antes (o nunca) ve un aviso al entrar y tiene que aceptarlos para seguir.
+// Si se vuelven a cambiar, basta con poner aquí la fecha y hora (UTC) del cambio.
+const POLITICAS_VIGENTES_DESDE = '2026-11-23T20:00:00Z';
+
+// Quién soy: apodo, foto, cuántas solicitudes de amistad tengo sin responder
+// y si me falta aceptar la versión nueva de las políticas
 app.get('/api/yo', requiereSesionApi, async (req, res) => {
     try {
         const resultado = await db.query(
             `SELECT COALESCE(NULLIF(apodo, ''), nombre) AS apodo, foto_perfil,
-                    (SELECT COUNT(*)::int FROM amistades WHERE id_destinatario = $1 AND estado = 'pendiente') AS solicitudes
+                    (SELECT COUNT(*)::int FROM amistades WHERE id_destinatario = $1 AND estado = 'pendiente') AS solicitudes,
+                    (rol = 'usuario' AND (politicas_aceptadas_en IS NULL OR politicas_aceptadas_en < $2::timestamptz)) AS politicas_pendientes
              FROM usuarios WHERE id_usuario = $1`,
-            [req.session.idUsuario]
+            [req.session.idUsuario, POLITICAS_VIGENTES_DESDE]
         );
         const yo = resultado.rows[0];
         if (!yo) return res.status(401).json({ error: 'Tu sesión terminó. Vuelve a iniciar sesión.' });
         req.session.apodo = yo.apodo;
         req.session.foto = yo.foto_perfil;
-        res.json({ idUsuario: req.session.idUsuario, apodo: yo.apodo, foto: yo.foto_perfil, solicitudes: yo.solicitudes, rol: req.session.rol || 'usuario' });
+        res.json({ idUsuario: req.session.idUsuario, apodo: yo.apodo, foto: yo.foto_perfil, solicitudes: yo.solicitudes, rol: req.session.rol || 'usuario',
+            politicas_pendientes: Boolean(yo.politicas_pendientes) });
     } catch (err) {
         console.error('Error cargando /api/yo:', err.message);
         // Si la base falla, al menos lo que hay en la sesión
         res.json({ idUsuario: req.session.idUsuario, apodo: req.session.apodo, foto: req.session.foto || null, solicitudes: 0 });
+    }
+});
+
+// Aceptar la versión actual de los Términos y la Política de Privacidad (aviso al entrar)
+app.post('/api/politicas/aceptar', requiereSesionApi, async (req, res) => {
+    if (req.body.acepto !== true) return res.status(400).json({ error: 'Para continuar necesitas marcar la casilla de aceptación.' });
+    try {
+        await db.query('UPDATE usuarios SET politicas_aceptadas_en = NOW() WHERE id_usuario = $1', [req.session.idUsuario]);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('Error aceptando las políticas:', err.message);
+        res.status(500).json({ error: 'No se pudo guardar tu aceptación. Intenta de nuevo.' });
     }
 });
 

@@ -1080,6 +1080,16 @@ a.perfil:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(164, 
 
 /* Ventana para reportar (reportar() en Comun.js) */
 .pregunta.reporte { width: min(420px, calc(100% - 32px)); }
+
+/* Aviso de políticas nuevas */
+.dialogo-politicas { width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.politicas-lista { margin: 10px 0 0; padding-left: 20px; text-align: left; font-size: 0.86rem; line-height: 1.5; color: var(--text-muted); }
+.politicas-lista li + li { margin-top: 4px; }
+.politicas-enlace { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 0.9rem; font-weight: 600; color: var(--color-accent); text-decoration: underline; }
+.politicas-casilla { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; text-align: left; font-size: 0.88rem; line-height: 1.45; cursor: pointer; }
+.politicas-casilla input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; accent-color: var(--color-accent); }
+.politicas-error { margin-top: 8px; color: var(--corazon); font-size: 0.85rem; text-align: left; }
+.pregunta-btn:disabled { opacity: 0.55; cursor: default; transform: none; filter: none; }
 .reporte-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; text-align: left; }
 .reporte-opcion { position: relative; cursor: pointer; }
 .reporte-opcion input { position: absolute; opacity: 0; pointer-events: none; }
