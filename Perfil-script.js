@@ -63,21 +63,22 @@ function irAPestana(nombre) {
     // "#buscar" (acceso directo del menú) = pestaña Amigos con el cursor en el buscador
     const enfocarBuscador = nombre === 'buscar';
     if (enfocarBuscador) nombre = 'amigos';
-    if (!['suenos', 'conversaciones', 'amigos', 'solicitudes', 'bloqueados'].includes(nombre)) nombre = 'suenos';
-    if (!estado.esMio && ['solicitudes', 'bloqueados', 'conversaciones'].includes(nombre)) nombre = 'suenos';
+    if (!['suenos', 'conversaciones', 'memoria', 'amigos', 'solicitudes', 'bloqueados'].includes(nombre)) nombre = 'suenos';
+    if (!estado.esMio && ['solicitudes', 'bloqueados', 'conversaciones', 'memoria'].includes(nombre)) nombre = 'suenos';
     estado.pestana = nombre;
     document.querySelectorAll('.pestana').forEach((b) => {
         const activa = b.dataset.pestana === nombre;
         b.classList.toggle('activa', activa);
         b.setAttribute('aria-selected', activa ? 'true' : 'false');
     });
-    ['suenos', 'conversaciones', 'amigos', 'solicitudes', 'bloqueados'].forEach((p) => { $(`panel-${p}`).hidden = p !== nombre; });
+    ['suenos', 'conversaciones', 'memoria', 'amigos', 'solicitudes', 'bloqueados'].forEach((p) => { $(`panel-${p}`).hidden = p !== nombre; });
     history.replaceState(null, '', nombre === 'suenos' ? location.pathname : `${location.pathname}#${nombre}`);
 
     if (nombre === 'amigos') cargarAmigos();
     if (nombre === 'solicitudes') cargarSolicitudes();
     if (nombre === 'bloqueados') cargarBloqueados();
     if (nombre === 'conversaciones') cargarConversaciones();
+    if (nombre === 'memoria') cargarMemoria();
     if (enfocarBuscador && estado.esMio) {
         $('buscar-personas').focus();
         $('buscar-personas').scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -317,6 +318,94 @@ document.querySelectorAll('[data-filtro-conv]').forEach((chip) => chip.addEventL
     document.querySelectorAll('[data-filtro-conv]').forEach((c) => c.classList.toggle('activo', c === chip));
     pintarConversaciones();
 }));
+
+// ---------------------------------------------------------
+// Memoria de sueños (pestaña "Memoria", solo en mi perfil): ver, borrar y apagar
+// ---------------------------------------------------------
+const memoria = { activa: true, lista: [] };
+
+async function cargarMemoria() {
+    try {
+        const r = await api('/api/memoria');
+        memoria.activa = r.activa;
+        memoria.lista = r.memorias;
+        pintarMemoria();
+    } catch (err) {
+        $('lista-memoria').replaceChildren(mensajeVacio(err.message));
+    }
+}
+
+function pintarMemoria() {
+    const { activa, lista } = memoria;
+    $('memoria-activa').checked = activa;
+    $('memoria-estado').textContent = activa
+        ? 'Encendida: Oniria usa estos recuerdos al interpretar tus sueños nuevos y guarda uno por cada sueño.'
+        : 'Apagada: Oniria no lee estos recuerdos ni guarda nuevos. Los que ya hay se quedan hasta que los borres.';
+    $('total-memoria').textContent = lista.length ? `${lista.length} recuerdo${lista.length === 1 ? '' : 's'}` : '';
+    $('btn-borrar-memoria').hidden = lista.length === 0;
+    $('lista-memoria').classList.toggle('apagada', !activa);
+    $('lista-memoria').replaceChildren(...(lista.length ? lista.map(tarjetaRecuerdo) : [mensajeVacio(activa
+        ? 'Todavía no hay recuerdos. Cuando interpretes un sueño, aquí aparecerá su resumen.'
+        : 'No hay recuerdos guardados.')]));
+}
+
+function tarjetaRecuerdo(m) {
+    const borrar = crear('button', { type: 'button', class: 'icon-btn', title: 'Borrar este recuerdo', 'aria-label': 'Borrar este recuerdo' }, icono('basura', 'icono-sm'));
+    borrar.addEventListener('click', async () => {
+        borrar.disabled = true;
+        try {
+            await api(`/api/memoria/${m.id}`, { method: 'DELETE' });
+            memoria.lista = memoria.lista.filter((x) => x.id !== m.id);
+            pintarMemoria();
+        } catch (err) {
+            borrar.disabled = false;
+            avisar(err.message);
+        }
+    });
+    return crear('article', { class: 'recuerdo' },
+        crear('div', { class: 'recuerdo-cuerpo' },
+            crear('div', { class: 'recuerdo-meta' },
+                m.id_conversacion
+                    ? crear('a', { href: `/sueno?c=${m.id_conversacion}`, class: 'recuerdo-titulo', text: m.titulo || 'Sueño sin título' })
+                    : crear('span', { class: 'recuerdo-titulo', text: m.titulo || 'Sueño' }),
+                crear('span', { text: ` · ${tiempoRelativo(m.creado_en)}` })),
+            crear('p', { class: 'recuerdo-texto', text: m.resumen })),
+        borrar);
+}
+
+$('memoria-activa').addEventListener('change', async (e) => {
+    const casilla = e.currentTarget;
+    casilla.disabled = true;
+    try {
+        const r = await api('/api/memoria', { method: 'PUT', body: JSON.stringify({ activa: casilla.checked }) });
+        memoria.activa = r.activa;
+        pintarMemoria();
+    } catch (err) {
+        casilla.checked = !casilla.checked;
+        avisar(err.message);
+    } finally {
+        casilla.disabled = false;
+    }
+});
+
+$('btn-borrar-memoria').addEventListener('click', async (e) => {
+    const boton = e.currentTarget;
+    if (!(await preguntar({
+        titulo: '¿Borrar toda tu memoria?',
+        texto: 'Oniria olvidará los resúmenes de todos tus sueños anteriores. Tus sueños y conversaciones no se borran. No se puede deshacer.',
+        aceptar: 'Borrar todo', peligro: true, icono: 'basura'
+    }))) return;
+    boton.disabled = true;
+    try {
+        await api('/api/memoria', { method: 'DELETE' });
+        memoria.lista = [];
+        pintarMemoria();
+    } catch (err) {
+        avisar(err.message);
+    } finally {
+        boton.disabled = false;
+    }
+});
 
 // Personas que bloqueé (pestaña "Bloqueados", solo en mi perfil)
 async function cargarBloqueados() {

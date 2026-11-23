@@ -156,6 +156,13 @@
 /* Primera respuesta: título + imagen + interpretación */
 .burbuja.interpretacion { padding: 0; overflow: hidden; max-width: min(560px, 92%); }
 .burbuja.interpretacion .contenido { padding: 14px 16px 16px; }
+/* Conexión con sueños anteriores (memoria) */
+.memoria-conexion {
+    margin-top: 14px; padding: 12px 14px; border-radius: 14px;
+    background-color: var(--surface-2); border-left: 3px solid var(--color-accent);
+}
+.memoria-conexion p { margin: 6px 0 0; }
+.memoria-enlace { display: inline-block; margin-top: 8px; font-size: 0.76rem; color: var(--text-muted); text-decoration: underline; }
 .interpretacion-titulo { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; }
 .imagen-ia {
     display: block;

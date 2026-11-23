@@ -570,3 +570,14 @@
     .conversacion { padding: 12px; gap: 12px; }
     .conversacion-imagen { width: 64px; height: 64px; }
 }
+
+/* Memoria de sueños */
+.memoria-interruptor { margin: 0 4px 14px; padding: 12px 14px; border-radius: 14px; background-color: var(--surface); border: 1px solid var(--border-color); }
+.lista-memoria { display: flex; flex-direction: column; gap: 10px; }
+.lista-memoria.apagada .recuerdo { opacity: 0.6; }
+.recuerdo { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 14px; background-color: var(--surface); border: 1px solid var(--border-color); }
+.recuerdo-cuerpo { flex: 1; min-width: 0; }
+.recuerdo-meta { font-size: 0.78rem; color: var(--text-muted); }
+.recuerdo-titulo { font-weight: 700; color: var(--text-main); }
+a.recuerdo-titulo:hover { text-decoration: underline; }
+.recuerdo-texto { margin-top: 4px; font-size: 0.9rem; line-height: 1.5; overflow-wrap: anywhere; }

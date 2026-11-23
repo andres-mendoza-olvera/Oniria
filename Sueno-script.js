@@ -113,6 +113,13 @@ function mensajeIA(m) {
             crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), 'Interpretación psicológica'),
             ...parrafos(m.texto)
         );
+        // Lo que Oniria recordó de sueños anteriores (privado: no se publica en el feed)
+        if (m.conexion) {
+            contenido.append(crear('div', { class: 'memoria-conexion' },
+                crear('span', { class: 'interpretacion-etiqueta' }, icono('luna', 'icono-xs'), 'Recordando tus sueños anteriores'),
+                ...parrafos(m.conexion),
+                crear('a', { class: 'memoria-enlace', href: '/perfil#memoria', text: 'Solo tú ves esto · Ver, borrar o apagar tu memoria' })));
+        }
         burbuja.append(contenido);
         li.append(avatar, burbuja);
         return li;

@@ -83,6 +83,7 @@
             <nav id="pestanas" class="pestanas" role="tablist" hidden>
                 <button type="button" role="tab" class="pestana activa" data-pestana="suenos"><span class="icono icono-sm" data-icono="cuadricula"></span>Sueños</button>
                 <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="conversaciones" hidden><span class="icono icono-sm" data-icono="comentario"></span>Conversaciones</button>
+                <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="memoria" hidden><span class="icono icono-sm" data-icono="luna"></span>Memoria</button>
                 <button type="button" role="tab" class="pestana" data-pestana="amigos"><span class="icono icono-sm" data-icono="amigos"></span>Amigos</button>
                 <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="solicitudes" hidden><span class="icono icono-sm" data-icono="sobre"></span>Solicitudes<span class="globo globo-pestana js-solicitudes" hidden></span></button>
                 <button type="button" role="tab" class="pestana js-solo-mio" data-pestana="bloqueados" hidden><span class="icono icono-sm" data-icono="bloquear"></span>Bloqueados</button>
@@ -127,6 +128,20 @@
                     <button type="button" class="chip" data-filtro-conv="publicadas">Publicadas</button>
                 </div>
                 <div id="lista-conversaciones" class="lista-conversaciones"></div>
+            </section>
+
+            <!-- Memoria de sueños (solo en mi perfil) -->
+            <section id="panel-memoria" class="panel" hidden>
+                <div class="panel-encabezado">
+                    <h2 class="panel-titulo">Tu memoria de sueños <small id="total-memoria" class="panel-contador"></small></h2>
+                    <button type="button" id="btn-borrar-memoria" class="btn-amistad btn-peligro" hidden><span class="icono icono-sm" data-icono="basura"></span>Borrar todo</button>
+                </div>
+                <p class="panel-explicacion">Cuando interpretas un sueño, Oniria guarda un resumen corto. Así, en tus sueños siguientes puede decirte cosas como "la semana pasada también soñaste con agua y mencionaste tu mudanza", junto a la interpretación. Solo tú lo ves: nunca se publica en el feed. Si borras un sueño, también se borra su recuerdo.</p>
+                <label class="interruptor memoria-interruptor">
+                    <input type="checkbox" id="memoria-activa">
+                    <span><b>Recordar mis sueños</b><br><small id="memoria-estado" class="tel-ayuda"></small></span>
+                </label>
+                <div id="lista-memoria" class="lista-memoria"></div>
             </section>
 
             <!-- Bloqueados (solo en mi perfil) -->
