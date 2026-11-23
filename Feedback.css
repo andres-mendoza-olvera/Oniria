@@ -577,7 +577,48 @@ a { color: inherit; text-decoration: none; }
 .action-btn:disabled { opacity: 0.6; cursor: default; }
 
 .action-btn.activo .icono { color: var(--corazon); }
-.action-btn.latido .icono { animation: pop 0.35s ease; }
+.action-btn.latido .icono,
+.action-btn.latido .emoji-reaccion { animation: pop 0.35s ease; }
+
+/* Reacciones: mi emoji en el botón, la carita para elegir, el resumen y el selector */
+.post-footer { position: relative; }
+.emoji-reaccion { display: inline-block; font-size: 1.35rem; line-height: 26px; width: 26px; text-align: center; transition: transform 0.15s ease; }
+.action-btn:hover .emoji-reaccion { transform: scale(1.08); }
+.btn-elegir-reaccion { padding: 8px 6px; color: var(--text-muted); }
+.btn-elegir-reaccion .icono { width: 22px; height: 22px; }
+.resumen-reacciones { margin-left: auto; display: inline-flex; padding: 0 8px; font-size: 1rem; cursor: default; }
+.resumen-reacciones span + span { margin-left: -4px; }
+.selector-reacciones {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 8px;
+    z-index: 20;
+    display: flex;
+    gap: 2px;
+    padding: 6px;
+    border-radius: 999px;
+    background-color: var(--surface);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+    animation: aparecer-selector 0.16s ease-out;
+}
+.opcion-reaccion {
+    width: 42px; height: 42px;
+    border: none; border-radius: 50%;
+    background: none;
+    font-size: 1.55rem; line-height: 1;
+    cursor: pointer;
+    transition: transform 0.12s ease, background-color 0.12s ease;
+}
+.opcion-reaccion:hover, .opcion-reaccion:focus-visible { transform: scale(1.25) translateY(-3px); background-color: var(--surface-2); outline: none; }
+.opcion-reaccion.elegida { background-color: var(--surface-2); }
+@keyframes aparecer-selector {
+    from { opacity: 0; transform: translateY(6px) scale(0.95); }
+    to   { opacity: 1; transform: none; }
+}
+@media (max-width: 380px) {
+    .opcion-reaccion { width: 36px; height: 36px; font-size: 1.35rem; }
+}
 @keyframes pop {
     0%   { transform: scale(1); }
     40%  { transform: scale(1.35); }

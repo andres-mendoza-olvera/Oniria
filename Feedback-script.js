@@ -120,12 +120,61 @@ function crearInterpretacion(p) {
     return bloque;
 }
 
-function pintarCorazon(boton, activo, total) {
-    boton.dataset.activo = activo ? '1' : '0';
-    boton.classList.toggle('activo', activo);
-    boton.setAttribute('aria-pressed', activo ? 'true' : 'false');
-    boton.replaceChildren(icono(activo ? 'corazon-lleno' : 'corazon'), crear('span', { text: total }));
+// [clave, emoji, nombre] — el orden es el del selector
+const REACCIONES = [
+    ['corazon', '❤️', 'Me encanta'],
+    ['risa', '😂', 'Me da risa'],
+    ['asombro', '😮', '¡Wow!'],
+    ['miedo', '😱', 'Qué miedo'],
+    ['triste', '😢', 'Qué triste'],
+    ['yo_tambien', '🔮', 'Yo también lo he soñado']
+];
+const INFO_REACCION = Object.fromEntries(REACCIONES.map(([clave, emoji, nombre]) => [clave, { emoji, nombre }]));
+
+// Pinta el botón de reacción (la mía + el total) y el resumen con las 3 reacciones más usadas
+function pintarReaccion(tarjeta, mia, reacciones, total) {
+    const boton = tarjeta.querySelector('.btn-corazon');
+    const resumen = tarjeta.querySelector('.resumen-reacciones');
+    if (!boton) return;
+    boton.dataset.mia = mia || '';
+    boton.classList.toggle('activo', Boolean(mia));
+    boton.setAttribute('aria-pressed', mia ? 'true' : 'false');
+    boton.title = mia ? `${INFO_REACCION[mia]?.nombre || 'Reaccionaste'} · toca para quitarla` : 'Me encanta';
+    boton.replaceChildren(
+        mia && mia !== 'corazon' ? crear('span', { class: 'emoji-reaccion', 'aria-hidden': 'true', text: INFO_REACCION[mia]?.emoji || '❤️' })
+            : icono(mia ? 'corazon-lleno' : 'corazon'),
+        crear('span', { text: String(total) })
+    );
+    const usadas = Object.entries(reacciones || {}).filter(([clave, n]) => n > 0 && INFO_REACCION[clave]).sort((a, b) => b[1] - a[1]);
+    resumen.replaceChildren(...usadas.slice(0, 3).map(([clave]) => crear('span', { text: INFO_REACCION[clave].emoji })));
+    resumen.title = usadas.map(([clave, n]) => `${INFO_REACCION[clave].emoji} ${n}`).join('  ·  ');
+    resumen.hidden = usadas.length === 0;
 }
+
+// ---- Selector de reacciones (se abre con el botón de la carita o dejando presionado el corazón) ----
+let selectorAbierto = null;
+function cerrarSelector() {
+    selectorAbierto?.remove();
+    selectorAbierto = null;
+}
+function abrirSelector(id, tarjeta) {
+    if (selectorAbierto && selectorAbierto.dataset.id === String(id)) return cerrarSelector();
+    cerrarSelector();
+    const mia = tarjeta.querySelector('.btn-corazon')?.dataset.mia;
+    selectorAbierto = crear('div', { class: 'selector-reacciones', role: 'menu', 'aria-label': 'Elige una reacción', 'data-id': id },
+        ...REACCIONES.map(([clave, emoji, nombre]) => crear('button', {
+            type: 'button',
+            class: `opcion-reaccion${clave === mia ? ' elegida' : ''}`,
+            role: 'menuitem', title: nombre, 'aria-label': nombre,
+            onclick: (e) => { e.stopPropagation(); cerrarSelector(); reaccionar(id, tarjeta, clave); }
+        }, emoji)));
+    tarjeta.querySelector('.post-footer').append(selectorAbierto);
+    selectorAbierto.querySelector('button').focus();
+}
+document.addEventListener('click', (e) => {
+    if (selectorAbierto && !e.target.closest('.selector-reacciones, .btn-elegir-reaccion')) cerrarSelector();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarSelector(); });
 
 function pintarComentarios(boton, total) {
     boton.replaceChildren(icono('comentario'), crear('span', { text: total }));
@@ -188,12 +237,17 @@ function crearPublicacion(p) {
     // --- Corazones y comentarios (solo cuando ya está lista) ---
     let seccionComentarios = null;
     if (p.estado === 'listo') {
+        // Tocar = ❤️ (o quitar mi reacción); la carita (o dejar presionado) = elegir otra
         const btnCorazon = crear('button', {
             class: 'action-btn btn-corazon',
-            title: 'Me gusta',
-            onclick: () => alternarCorazon(p.id_publicacion, btnCorazon)
+            onclick: () => reaccionar(p.id_publicacion, tarjeta, btnCorazon.dataset.mia || 'corazon'),
+            oncontextmenu: (e) => { e.preventDefault(); abrirSelector(p.id_publicacion, tarjeta); }
         });
-        pintarCorazon(btnCorazon, p.di_corazon, p.total_corazones);
+        const btnElegir = crear('button', {
+            class: 'action-btn btn-elegir-reaccion',
+            title: 'Elegir reacción', 'aria-label': 'Elegir reacción', 'aria-haspopup': 'menu',
+            onclick: () => abrirSelector(p.id_publicacion, tarjeta)
+        }, icono('reaccionar'));
 
         seccionComentarios = crear('div', { class: 'comentarios', hidden: '' });
         const btnComentarios = crear('button', {
@@ -203,7 +257,9 @@ function crearPublicacion(p) {
         });
         pintarComentarios(btnComentarios, p.total_comentarios);
 
-        tarjeta.append(crear('div', { class: 'post-footer' }, btnCorazon, btnComentarios));
+        tarjeta.append(crear('div', { class: 'post-footer' }, btnCorazon, btnElegir, btnComentarios,
+            crear('span', { class: 'resumen-reacciones', hidden: '' })));
+        pintarReaccion(tarjeta, p.mi_reaccion || (p.di_corazon ? 'corazon' : null), p.reacciones, p.total_corazones);
     }
 
     // --- Texto del sueño e interpretación (como el pie de foto) ---
@@ -341,10 +397,11 @@ const manejadores = {
         if (feedCargado) revisarVacio();
     },
 
-    // Alguien dio o quitó corazón: solo cambia el número (mi corazón sigue igual)
-    corazones: ({ id_publicacion, total_corazones }) => {
-        const boton = buscarTarjeta(id_publicacion)?.querySelector('.btn-corazon');
-        if (boton) pintarCorazon(boton, boton.dataset.activo === '1', total_corazones);
+    // Alguien reaccionó: cambian los números (mi reacción sigue igual)
+    corazones: ({ id_publicacion, total_corazones, reacciones }) => {
+        const tarjeta = buscarTarjeta(id_publicacion);
+        const boton = tarjeta?.querySelector('.btn-corazon');
+        if (boton) pintarReaccion(tarjeta, boton.dataset.mia || null, reacciones, total_corazones);
     },
 
     'comentario-nuevo': ({ id_publicacion, comentario, total_comentarios }) => {
@@ -391,12 +448,14 @@ function conectarTiempoReal() {
 // =========================================================
 // 6. ACCIONES: corazón, comentarios, borrar
 // =========================================================
-async function alternarCorazon(id, boton) {
+// Pone, cambia o quita (si ya era esa) mi reacción
+async function reaccionar(id, tarjeta, reaccion) {
+    const boton = tarjeta.querySelector('.btn-corazon');
     boton.disabled = true;
     try {
-        const { di_corazon, total_corazones } = await api(`/api/publicaciones/${id}/corazon`, { method: 'POST' });
-        pintarCorazon(boton, di_corazon, total_corazones);
-        if (di_corazon) {
+        const r = await api(`/api/publicaciones/${id}/reaccion`, { method: 'POST', body: JSON.stringify({ reaccion }) });
+        pintarReaccion(tarjeta, r.mi_reaccion, r.reacciones, r.total_corazones);
+        if (r.mi_reaccion) {
             boton.classList.remove('latido');
             void boton.offsetWidth; // reinicia la animación
             boton.classList.add('latido');

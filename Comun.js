@@ -48,6 +48,7 @@ const ICONOS = {
     descargar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
     compartir: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
     llave: '<circle cx="8" cy="14" r="4"/><path d="m11 11 9-9M16 6l3 3M14 8l2 2"/>',
+    reaccionar: '<path d="M20.8 11.2A8.8 8.8 0 1 1 12.8 3.2"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01M19 2.5v5M16.5 5h5"/>',
     clip: '<path d="m20.5 11.5-8.3 8.3a5.3 5.3 0 0 1-7.5-7.5l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.6 8.6a1.8 1.8 0 0 1-2.5-2.5l7.9-7.9"/>'
 };
 

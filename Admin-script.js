@@ -67,7 +67,7 @@ function numerosAdmin(d) {
         [n.publicados, 'sueños publicados'],
         [n.conversaciones, 'conversaciones con la IA'],
         [n.comentarios, 'comentarios'],
-        [n.corazones, 'corazones'],
+        [n.corazones, 'reacciones'],
         [n.reportes_pendientes, 'reportes pendientes']
     ];
 }
@@ -85,7 +85,7 @@ function numerosPersona(d) {
         [n.publicados + n.sin_publicar, 'sueños contados'],
         [n.publicados, 'publicados'],
         [n.sin_publicar, 'sin publicar'],
-        [n.corazones, 'corazones recibidos'],
+        [n.corazones, 'reacciones recibidas'],
         [n.comentarios, 'comentarios recibidos'],
         [n.amigos, 'amigos'],
         [d.persona.reportes, 'reportes recibidos']

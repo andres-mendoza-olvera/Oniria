@@ -1259,6 +1259,10 @@ const CONSULTA_PUBLICACIONES = `
            ${CUENTA_IDA('u')} AS autor_eliminado,
            (SELECT COUNT(*)::int FROM corazones c WHERE c.id_publicacion = p.id_publicacion) AS total_corazones,
            EXISTS (SELECT 1 FROM corazones c WHERE c.id_publicacion = p.id_publicacion AND c.id_usuario = $1) AS di_corazon,
+           -- Reacciones: la mía (o NULL) y cuántas hay de cada una, p. ej. {"corazon": 3, "risa": 1}
+           (SELECT c.reaccion FROM corazones c WHERE c.id_publicacion = p.id_publicacion AND c.id_usuario = $1) AS mi_reaccion,
+           COALESCE((SELECT json_object_agg(r.reaccion, r.n) FROM (SELECT c.reaccion, COUNT(*)::int AS n FROM corazones c
+                       WHERE c.id_publicacion = p.id_publicacion GROUP BY c.reaccion) r), '{}') AS reacciones,
            (SELECT COUNT(*)::int FROM comentarios m WHERE m.id_publicacion = p.id_publicacion) AS total_comentarios,
            -- La imagen de la IA (la que tiene prompt_ia) siempre va primero
            COALESCE((SELECT json_agg(json_build_object('tipo', mp.tipo, 'url', mp.url, 'es_ia', mp.prompt_ia IS NOT NULL)
@@ -1394,35 +1398,44 @@ app.delete('/api/publicaciones/:id', requiereSesionApi, async (req, res) => {
 });
 
 // ---------------------------------------------------------
-// CORAZONES
+// REACCIONES (se guardan en la tabla "corazones": una por persona y sueño)
 // ---------------------------------------------------------
+const REACCIONES = ['corazon', 'risa', 'asombro', 'miedo', 'triste', 'yo_tambien'];
 
-// Dar o quitar corazón (si ya lo tenía, se quita; si no, se pone)
-app.post('/api/publicaciones/:id/corazon', requiereSesionApi, async (req, res) => {
+// Reaccionar: si ya tenía ESA reacción, se quita; si tenía otra, se cambia; si no tenía, se pone.
+async function reaccionar(req, res, reaccion) {
     const id = idValido(req.params.id);
     if (!id) return res.status(404).json({ error: 'Publicación no encontrada.' });
+    if (!REACCIONES.includes(reaccion)) return res.status(400).json({ error: 'Esa reacción no existe.' });
     const yo = req.session.idUsuario;
     try {
-        const quitado = await db.query('DELETE FROM corazones WHERE id_usuario = $1 AND id_publicacion = $2', [yo, id]);
+        const quitado = await db.query('DELETE FROM corazones WHERE id_usuario = $1 AND id_publicacion = $2 AND reaccion = $3', [yo, id, reaccion]);
         if (quitado.rowCount === 0) {
             const puesto = await db.query(
-                `INSERT INTO corazones (id_usuario, id_publicacion)
-                 SELECT $1, p.id_publicacion FROM publicaciones p
+                `INSERT INTO corazones (id_usuario, id_publicacion, reaccion)
+                 SELECT $1, p.id_publicacion, $3 FROM publicaciones p
                  WHERE p.id_publicacion = $2 AND p.estado = 'listo' AND NOT ${HAY_BLOQUEO('$1', 'p.id_usuario')}
-                 ON CONFLICT DO NOTHING`,
-                [yo, id]
+                 ON CONFLICT (id_usuario, id_publicacion) DO UPDATE SET reaccion = EXCLUDED.reaccion`,
+                [yo, id, reaccion]
             );
             if (puesto.rowCount === 0) return res.status(404).json({ error: 'Publicación no encontrada.' });
         }
-        const total = (await db.query('SELECT COUNT(*)::int AS n FROM corazones WHERE id_publicacion = $1', [id])).rows[0].n;
-        res.json({ di_corazon: quitado.rowCount === 0, total_corazones: total });
+        const conteo = await db.query('SELECT reaccion, COUNT(*)::int AS n FROM corazones WHERE id_publicacion = $1 GROUP BY reaccion', [id]);
+        const reacciones = Object.fromEntries(conteo.rows.map((r) => [r.reaccion, r.n]));
+        const total = conteo.rows.reduce((suma, r) => suma + r.n, 0);
+        const mia = quitado.rowCount === 0 ? reaccion : null;
+        res.json({ mi_reaccion: mia, reacciones, total_corazones: total, di_corazon: Boolean(mia) });
 
-        emitir('corazones', { id_publicacion: id, total_corazones: total });
+        emitir('corazones', { id_publicacion: id, total_corazones: total, reacciones });
     } catch (err) {
-        console.error('Error con el corazón:', err.message);
-        res.status(500).json({ error: 'No se pudo guardar tu corazón.' });
+        console.error('Error con la reacción:', err.message);
+        res.status(500).json({ error: 'No se pudo guardar tu reacción.' });
     }
-});
+}
+
+app.post('/api/publicaciones/:id/reaccion', requiereSesionApi, (req, res) => reaccionar(req, res, String(req.body.reaccion || '')));
+// Compatibilidad: el botón viejo de corazón
+app.post('/api/publicaciones/:id/corazon', requiereSesionApi, (req, res) => reaccionar(req, res, 'corazon'));
 
 // ---------------------------------------------------------
 // COMENTARIOS
@@ -1565,7 +1578,7 @@ app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
         const resultado = await db.query(
             `SELECT u.id_usuario, COALESCE(NULLIF(u.apodo, ''), u.nombre) AS apodo, u.apodo AS apodo_original,
                     u.nombre, u.email, u.foto_perfil, u.biografia, u.telefono, u.telefono_canal,
-                    u.canal_preferido, u.notif_solicitudes, u.notif_publicaciones,
+                    u.canal_preferido, u.notif_solicitudes, u.notif_publicaciones, u.notif_recordatorio,
                     (SELECT COUNT(*)::int FROM publicaciones p WHERE p.id_usuario = u.id_usuario AND p.estado = 'listo') AS total_suenos,
                     (SELECT COUNT(*)::int FROM amistades a WHERE a.estado = 'aceptada'
                         AND (a.id_solicitante = u.id_usuario OR a.id_destinatario = u.id_usuario)) AS total_amigos
@@ -1593,6 +1606,7 @@ app.get('/api/perfil/:id', requiereSesionApi, async (req, res) => {
                 canal_preferido: perfil.canal_preferido,
                 notif_solicitudes: perfil.notif_solicitudes,
                 notif_publicaciones: perfil.notif_publicaciones,
+                notif_recordatorio: perfil.notif_recordatorio,
                 sms_disponible: SMS_LISTO
             } : {})
         });
@@ -1633,6 +1647,7 @@ app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) =>
     const canal = req.body.canal_preferido === 'sms' ? 'sms' : 'correo';
     const notifSolicitudes = req.body.notif_solicitudes !== '0';
     const notifPublicaciones = req.body.notif_publicaciones !== '0';
+    const notifRecordatorio = req.body.notif_recordatorio !== '0';
 
     if (apodo.length < 2 || apodo.length > 30) return res.status(400).json({ error: 'El apodo debe tener entre 2 y 30 caracteres.' });
     if (nombre.length < 2 || nombre.length > 80) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 80 caracteres.' });
@@ -1654,9 +1669,9 @@ app.put('/api/perfil', requiereSesionApi, recibirFotoPerfil, async (req, res) =>
 
         await db.query(
             `UPDATE usuarios SET apodo = $1, nombre = $2, biografia = $3, foto_perfil = $4,
-                    canal_preferido = $5, notif_solicitudes = $6, notif_publicaciones = $7
-             WHERE id_usuario = $8`,
-            [apodo, nombre, biografia || null, foto, canal, notifSolicitudes, notifPublicaciones, yo]
+                    canal_preferido = $5, notif_solicitudes = $6, notif_publicaciones = $7, notif_recordatorio = $8
+             WHERE id_usuario = $9`,
+            [apodo, nombre, biografia || null, foto, canal, notifSolicitudes, notifPublicaciones, notifRecordatorio, yo]
         );
         // La foto vieja ya no se usa: se borra de Storage
         if (anterior.foto_perfil && anterior.foto_perfil !== foto) borrarImagenesStorage([anterior.foto_perfil]);
@@ -1951,7 +1966,7 @@ app.post('/api/cuenta/eliminar', requiereSesionApi, async (req, res) => {
         await cliente.query(
             `UPDATE usuarios SET eliminado_en = NOW(), nombre = $2, apodo = NULL, email = $3, contrasena = $4,
                     foto_perfil = NULL, biografia = NULL, telefono = NULL, telefono_verificado_en = NULL, telefono_canal = NULL,
-                    canal_preferido = 'correo', notif_solicitudes = FALSE, notif_publicaciones = FALSE,
+                    canal_preferido = 'correo', notif_solicitudes = FALSE, notif_publicaciones = FALSE, notif_recordatorio = FALSE,
                     token_verificacion = NULL, token_verificacion_expira = NULL,
                     token_recuperacion = NULL, token_recuperacion_expira = NULL
              WHERE id_usuario = $1`,
@@ -1993,7 +2008,7 @@ app.post('/api/cuenta/eliminar', requiereSesionApi, async (req, res) => {
 // Se mandan "en segundo plano": si fallan, solo se anota en el log.
 async function notificar(idDestino, tipo, { asunto, texto, sms, enlace }) {
     const u = (await db.query(
-        `SELECT email, nombre, telefono, canal_preferido, notif_solicitudes, notif_publicaciones
+        `SELECT email, nombre, telefono, canal_preferido, notif_solicitudes, notif_publicaciones, notif_recordatorio
          FROM usuarios WHERE id_usuario = $1 AND verificado IS TRUE AND eliminado_en IS NULL`,
         [idDestino]
     )).rows[0];
@@ -2001,6 +2016,7 @@ async function notificar(idDestino, tipo, { asunto, texto, sms, enlace }) {
     // tipo 'cuenta' (avisos de sanciones y reportes) se manda siempre
     if (tipo === 'solicitudes' && !u.notif_solicitudes) return;
     if (tipo === 'publicaciones' && !u.notif_publicaciones) return;
+    if (tipo === 'recordatorio' && !u.notif_recordatorio) return;
 
     if (u.canal_preferido === 'sms' && u.telefono && SMS_LISTO) {
         try {
@@ -2044,6 +2060,70 @@ async function notificarPublicacion(idAutor, apodo, titulo) {
         }).catch((err) => console.error(`Error notificando publicación a ${id}:`, err.message));
     }
 }
+
+// =========================================================
+// RECORDATORIO DE CADA MAÑANA ("¿Qué soñaste anoche?")
+// =========================================================
+// Sale por el canal preferido de cada quien (correo o SMS) a partir de las 8:00 de México.
+// Se revisa cada 5 minutos entre las 8:00 y las 12:00: si el servidor estaba dormido
+// (Render gratis se duerme), sale en cuanto despierte dentro de ese horario.
+// No le llega a quien ya contó un sueño hoy, ni a quien lo apagó en su perfil.
+const ZONA_MEXICO = 'America/Mexico_City';
+const HORA_RECORDATORIO = { desde: 8, hasta: 12 };
+const FRASES_RECORDATORIO = [
+    '¿qué soñaste anoche? Escríbelo antes de que se te olvide: los sueños se desvanecen en pocos minutos después de despertar.',
+    'buenos días. ¿Recuerdas algo de lo que soñaste? Aunque sea una imagen o una sensación, cuéntaselo a Oniria.',
+    'tus sueños de anoche todavía están frescos. Tómate un minuto para escribirlos y descubrir qué podrían significar.'
+];
+let revisandoRecordatorios = false;
+
+async function mandarRecordatorios() {
+    if (revisandoRecordatorios) return;
+    revisandoRecordatorios = true;
+    try {
+        const { hoy, hora } = (await db.query(
+            `SELECT (NOW() AT TIME ZONE '${ZONA_MEXICO}')::date::text AS hoy,
+                    EXTRACT(HOUR FROM NOW() AT TIME ZONE '${ZONA_MEXICO}')::int AS hora`
+        )).rows[0];
+        if (hora < HORA_RECORDATORIO.desde || hora >= HORA_RECORDATORIO.hasta) return;
+
+        const frase = FRASES_RECORDATORIO[new Date(hoy).getUTCDate() % FRASES_RECORDATORIO.length];
+        for (;;) {
+            // Se "aparta" a cada persona (se marca el día) ANTES de mandarle: así nunca le llega dos veces
+            const apartados = await db.query(
+                `UPDATE usuarios SET ultimo_recordatorio = $1::date
+                 WHERE id_usuario IN (
+                     SELECT u.id_usuario FROM usuarios u
+                     WHERE u.notif_recordatorio IS TRUE AND u.verificado IS TRUE AND ${CUENTA_VISIBLE('u')}
+                       AND (u.ultimo_recordatorio IS NULL OR u.ultimo_recordatorio < $1::date)
+                       AND NOT EXISTS (SELECT 1 FROM conversaciones c WHERE c.id_usuario = u.id_usuario
+                                       AND (c.creado_en AT TIME ZONE '${ZONA_MEXICO}')::date = $1::date)
+                       AND NOT EXISTS (SELECT 1 FROM publicaciones p WHERE p.id_usuario = u.id_usuario
+                                       AND (p.creado_en AT TIME ZONE '${ZONA_MEXICO}')::date = $1::date)
+                     ORDER BY u.id_usuario LIMIT 20 FOR UPDATE SKIP LOCKED)
+                 RETURNING id_usuario`,
+                [hoy]
+            );
+            if (apartados.rows.length === 0) break;
+            // Uno por uno, para no saturar el correo ni el celular que manda los SMS
+            for (const { id_usuario } of apartados.rows) {
+                await notificar(id_usuario, 'recordatorio', {
+                    asunto: '¿Qué soñaste anoche? 🌙',
+                    texto: frase,
+                    sms: '¿qué soñaste anoche? Escríbelo antes de que se te olvide.',
+                    enlace: `${BASE_URL}/sueno`
+                }).catch((err) => console.error(`Error mandando recordatorio a ${id_usuario}:`, err.message));
+            }
+        }
+    } catch (err) {
+        console.error('Error revisando los recordatorios de la mañana:', err.message);
+    } finally {
+        revisandoRecordatorios = false;
+    }
+}
+
+setInterval(mandarRecordatorios, 5 * 60 * 1000);
+setTimeout(mandarRecordatorios, 30 * 1000); // al arrancar (por si despertó dentro del horario)
 
 // =========================================================
 // DOBLE AUTENTICACIÓN (código al iniciar sesión)
@@ -2925,6 +3005,46 @@ app.get('/api/mis-estadisticas', requiereSesionApi, async (req, res) => {
     } catch (err) {
         console.error('Error en mis estadísticas:', err.message);
         res.status(500).json({ error: 'No se pudieron calcular tus estadísticas.' });
+    }
+});
+
+// ---------------------------------------------------------
+// CLIMA ONÍRICO: lo que soñó toda la comunidad en los últimos 7 días.
+// Es público y anónimo: solo porcentajes, nunca quién soñó qué, y no se muestra
+// si hay muy pocos sueños (con 2 o 3 sería fácil adivinar de quién son).
+// ---------------------------------------------------------
+const MINIMO_CLIMA = 5;
+let climaGuardado = { hasta: 0, datos: null };
+
+// La categoría que más se repite ('otra'/'otro' solo si no hay nada más)
+function masComun(conteos) {
+    const total = Object.values(conteos).reduce((a, b) => a + b, 0);
+    const ordenadas = Object.entries(conteos).sort((a, b) => b[1] - a[1]);
+    const [clave, n] = ordenadas.find(([c]) => c !== 'otra' && c !== 'otro') || ordenadas[0] || [];
+    return clave ? { clave, porcentaje: Math.round((n / total) * 100) } : null;
+}
+
+app.get('/api/clima-onirico', requiereSesionApi, async (req, res) => {
+    try {
+        if (Date.now() > climaGuardado.hasta) { // se recalcula cada 10 minutos como mucho
+            const [emocion, tipo, tema] = await Promise.all([conteoPor('emocion', 7), conteoPor('tipo_sueno', 7), conteoPor('tema', 7)]);
+            const total = Object.values(emocion).reduce((a, b) => a + b, 0);
+            const totalTipo = Object.values(tipo).reduce((a, b) => a + b, 0);
+            climaGuardado = {
+                hasta: Date.now() + 10 * 60 * 1000,
+                datos: total < MINIMO_CLIMA ? { suficiente: false, total, minimo: MINIMO_CLIMA } : {
+                    suficiente: true, total,
+                    emocion: masComun(emocion),
+                    tema: masComun(tema),
+                    pesadillas: totalTipo ? Math.round(((tipo.pesadilla || 0) / totalTipo) * 100) : 0,
+                    lucidos: totalTipo ? Math.round(((tipo.lucido || 0) / totalTipo) * 100) : 0
+                }
+            };
+        }
+        res.json(climaGuardado.datos);
+    } catch (err) {
+        console.error('Error calculando el clima onírico:', err.message);
+        res.status(500).json({ error: 'No se pudo calcular el clima onírico.' });
     }
 });
 

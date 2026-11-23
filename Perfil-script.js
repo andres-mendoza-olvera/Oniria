@@ -165,7 +165,11 @@ function verSueno(p) {
         ),
         imagenes.length ? crearCarrusel(imagenes) : null,
         crear('div', { class: 'post-footer' },
-            crear('span', { class: 'action-btn' }, icono(p.di_corazon ? 'corazon-lleno' : 'corazon'), String(p.total_corazones)),
+            crear('span', { class: 'action-btn' },
+                p.mi_reaccion && p.mi_reaccion !== 'corazon'
+                    ? crear('span', { class: 'emoji-reaccion', text: { risa: '😂', asombro: '😮', miedo: '😱', triste: '😢', yo_tambien: '🔮' }[p.mi_reaccion] || '❤️' })
+                    : icono(p.di_corazon ? 'corazon-lleno' : 'corazon'),
+                String(p.total_corazones)),
             crear('span', { class: 'action-btn' }, icono('comentario'), String(p.total_comentarios))
         ),
         crear('div', { class: 'post-body' },
@@ -399,6 +403,7 @@ function abrirEditar() {
     $(p.canal_preferido === 'sms' ? 'canal-sms' : 'canal-correo').checked = true;
     $('notif-solicitudes').checked = p.notif_solicitudes !== false;
     $('notif-publicaciones').checked = p.notif_publicaciones !== false;
+    $('notif-recordatorio').checked = p.notif_recordatorio !== false;
     pintarCanales();
     $('dialogo-editar').showModal();
 }
@@ -879,6 +884,7 @@ $('form-editar').addEventListener('submit', async (e) => {
     datos.append('canal_preferido', $('canal-sms').checked ? 'sms' : 'correo');
     datos.append('notif_solicitudes', $('notif-solicitudes').checked ? '1' : '0');
     datos.append('notif_publicaciones', $('notif-publicaciones').checked ? '1' : '0');
+    datos.append('notif_recordatorio', $('notif-recordatorio').checked ? '1' : '0');
     if (edicion.foto) datos.append('foto', edicion.foto);
     if (edicion.quitarFoto) datos.append('quitar_foto', '1');
 

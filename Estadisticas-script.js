@@ -12,7 +12,7 @@ function numerosResumen(d) {
     return [
         [n.publicados + n.sin_publicar, 'sueños contados'],
         [n.publicados, 'publicados'],
-        [n.corazones, 'corazones recibidos'],
+        [n.corazones, 'reacciones recibidas'],
         [n.comentarios, 'comentarios recibidos']
     ];
 }
@@ -76,7 +76,44 @@ $('periodo').addEventListener('change', cargar);
 // Redibuja con los colores del tema si se cambia claro/oscuro
 new MutationObserver(() => { if (datos) pintar(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
+// =========================================================
+// CLIMA ONÍRICO: lo que soñó toda la comunidad esta semana (anónimo)
+// =========================================================
+const EMOCION_FRASE = {
+    feliz: 'fue feliz', triste: 'tuvo tristeza', miedo: 'tuvo miedo',
+    calma: 'se sintió en calma', confusion: 'fue confuso', otra: 'tuvo emociones variadas'
+};
+const TEMA_FRASE = {
+    personas: 'la familia y las personas cercanas', peligro: 'el peligro y las persecuciones', volar_caer: 'volar o caer',
+    naturaleza: 'la naturaleza y el agua', fantasia: 'los mundos de fantasía', otro: 'algo muy variado'
+};
+
+async function cargarClima() {
+    const caja = $('clima');
+    let c;
+    try { c = await api('/api/clima-onirico'); } catch { return; } // si falla, la tarjeta no aparece
+    const etiqueta = crear('span', { class: 'clima-etiqueta' }, icono('luna', 'icono-xs'), 'Clima onírico de la semana');
+    if (!c.suficiente) {
+        caja.replaceChildren(etiqueta,
+            crear('p', { class: 'clima-frase', text: 'Esta semana todavía hay muy pocos sueños en Oniria para leer el clima.' }),
+            crear('p', { class: 'clima-detalle' }, 'Se muestra cuando la comunidad cuenta al menos ', String(c.minimo), ' sueños. ',
+                crear('a', { href: '/sueno', text: 'Cuenta el tuyo' })));
+    } else {
+        const partes = [`Esta semana, el ${c.emocion.porcentaje}% de los sueños en Oniria ${EMOCION_FRASE[c.emocion.clave] || 'tuvo otras emociones'}`];
+        if (c.tema) partes.push(`el tema más común fue ${TEMA_FRASE[c.tema.clave] || 'algo muy variado'}`);
+        const detalle = [`${c.total} sueños contados`];
+        if (c.pesadillas) detalle.push(`${c.pesadillas}% pesadillas`);
+        if (c.lucidos) detalle.push(`${c.lucidos}% lúcidos`);
+        caja.replaceChildren(etiqueta,
+            crear('p', { class: 'clima-frase', text: `${partes.join(' y ')}.` }),
+            crear('p', { class: 'clima-detalle', text: detalle.join(' · ') }));
+    }
+    caja.append(crear('p', { class: 'clima-nota', text: 'Anónimo: son porcentajes de toda la comunidad en los últimos 7 días; nadie ve quién soñó qué.' }));
+    caja.hidden = false;
+}
+
 (async () => {
     try { pintarMiPerfil(await api('/api/yo')); } catch { /* el menú queda sin foto */ }
+    cargarClima();
     cargar();
 })();
