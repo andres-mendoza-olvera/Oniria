@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Política de Privacidad - Oniria</title>
+    <title>Términos y Política de Privacidad - Oniria</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,75 +11,261 @@
     <script src="/Tema.js"></script>
     <link rel="stylesheet" href="/OlvideContrasena.css">
     <style>
-        .login-box.privacidad { max-width: 640px; text-align: left; }
-        .privacidad h2 { font-size: 1.05rem; margin: 22px 0 6px; }
+        .login-box.privacidad { max-width: 720px; text-align: left; }
+        .privacidad h2 { font-size: 1.05rem; margin: 26px 0 6px; scroll-margin-top: 16px; }
+        .privacidad h3 { font-size: 0.95rem; margin: 14px 0 4px; }
         .privacidad p, .privacidad li { line-height: 1.55; font-size: 0.95rem; }
-        .privacidad ul { padding-left: 20px; margin: 6px 0; }
+        .privacidad p { margin: 6px 0; }
+        .privacidad ul, .privacidad ol { padding-left: 20px; margin: 6px 0; }
+        .privacidad li + li { margin-top: 4px; }
         .privacidad .recover-title { text-align: center; }
         .privacidad .fecha { text-align: center; opacity: 0.7; font-size: 0.85rem; }
+        .privacidad .resumen {
+            margin: 18px 0 8px; padding: 14px 18px; border-radius: 14px;
+            background: rgba(164, 99, 242, 0.1); border: 1px solid rgba(164, 99, 242, 0.3);
+        }
+        .privacidad .resumen h2 { margin-top: 0; }
+        .privacidad .indice { columns: 2; column-gap: 24px; font-size: 0.9rem; }
+        .privacidad .indice a { color: inherit; }
+        .privacidad .aviso-importante {
+            margin: 10px 0; padding: 12px 16px; border-radius: 12px;
+            background: rgba(255, 59, 92, 0.08); border: 1px solid rgba(255, 59, 92, 0.3);
+        }
+        @media (max-width: 560px) { .privacidad .indice { columns: 1; } }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="login-box privacidad">
-            <h1 class="app-name recover-title">Política de Privacidad</h1>
-            <p class="fecha">Última actualización: 21 de noviembre de 2026</p>
+            <h1 class="app-name recover-title">Términos y Política de Privacidad</h1>
+            <p class="fecha">Última actualización: 23 de noviembre de 2026</p>
 
-            <p>Oniria es un proyecto escolar. Esta página explica qué datos guardamos y para qué los usamos.</p>
+            <p>Oniria es una red social escolar para contar, interpretar con inteligencia artificial (IA) y compartir sueños. Este documento junta los <b>Términos de uso</b> (las reglas para usar Oniria) y la <b>Política de Privacidad</b> (qué datos guardamos, para qué y qué puedes hacer con ellos). <b>Al crear tu cuenta y marcar la casilla de aceptación, aceptas todo lo que dice aquí.</b> Si no estás de acuerdo, no crees una cuenta.</p>
 
-            <h2>Datos que guardamos</h2>
+            <section class="resumen" aria-labelledby="titulo-resumen">
+                <h2 id="titulo-resumen">Lo más importante, en corto</h2>
+                <ul>
+                    <li>Tus sueños pueden contar cosas muy personales (emociones, salud, relaciones). Tú decides qué escribes y qué publicas.</li>
+                    <li>Para interpretarlos, lo que escribes y las imágenes que adjuntas se envían a servicios de IA de Google y Cloudflare.</li>
+                    <li>Tus conversaciones con la IA y tu memoria de sueños son privadas. Lo que publicas lo ven los demás usuarios de Oniria.</li>
+                    <li>La interpretación de la IA es una reflexión, <b>no un diagnóstico ni una terapia</b>.</li>
+                    <li>No vendemos tus datos ni mostramos publicidad.</li>
+                    <li>Puedes ver, corregir y borrar tus datos, apagar avisos y memoria, y eliminar tu cuenta cuando quieras.</li>
+                    <li>Respeta a los demás: el acoso, el odio, el contenido sexual o violento y el spam pueden llevar a suspender o dar de baja tu cuenta.</li>
+                </ul>
+            </section>
+
+            <nav aria-label="Contenido">
+                <ol class="indice">
+                    <li><a href="#responsable">Quién es responsable</a></li>
+                    <li><a href="#requisitos">Quién puede usar Oniria</a></li>
+                    <li><a href="#datos">Datos que guardamos</a></li>
+                    <li><a href="#sensibles">Datos sensibles</a></li>
+                    <li><a href="#finalidades">Para qué los usamos</a></li>
+                    <li><a href="#visibilidad">Quién ve qué</a></li>
+                    <li><a href="#ia">La inteligencia artificial</a></li>
+                    <li><a href="#memoria">Memoria y estadísticas</a></li>
+                    <li><a href="#avisos">Avisos y recordatorios</a></li>
+                    <li><a href="#normas">Normas de la comunidad</a></li>
+                    <li><a href="#sanciones">Reportes y sanciones</a></li>
+                    <li><a href="#contenido">Tu contenido</a></li>
+                    <li><a href="#terceros">Servicios de terceros</a></li>
+                    <li><a href="#cookies">Cookies y almacenamiento</a></li>
+                    <li><a href="#seguridad">Seguridad</a></li>
+                    <li><a href="#conservacion">Cuánto tiempo guardamos tus datos</a></li>
+                    <li><a href="#derechos">Tus derechos</a></li>
+                    <li><a href="#limitaciones">Límites del servicio</a></li>
+                    <li><a href="#cambios">Cambios a este documento</a></li>
+                    <li><a href="#aceptacion">Aceptación</a></li>
+                </ol>
+            </nav>
+
+            <h2 id="responsable">1. Quién es responsable de tus datos</h2>
+            <p>Oniria es un proyecto escolar sin fines de lucro, hecho en México. El equipo de Oniria es responsable de cuidar tus datos personales y de usarlos solo como dice este documento, de acuerdo con la legislación mexicana de protección de datos personales.</p>
+            <p>Para cualquier duda, solicitud o queja sobre tus datos o sobre estos términos, escríbenos a <b>oniria.sistema@gmail.com</b>.</p>
+
+            <h2 id="requisitos">2. Quién puede usar Oniria</h2>
             <ul>
-                <li>Tu nombre, tu apodo y, si los agregas, tu foto de perfil y tu biografía.</li>
-                <li>Tu correo electrónico (solo puede haber una cuenta por correo).</li>
-                <li>Tu teléfono, solo si decides agregarlo y verificarlo en tu perfil.</li>
-                <li>Tu contraseña, siempre cifrada (nadie puede leerla, ni siquiera nosotros).</li>
-                <li>Tus conversaciones con la IA sobre tus sueños (privadas), los sueños que publicas, sus imágenes, tus reacciones y tus comentarios.</li>
-                <li>Tus amistades, las solicitudes de amistad y las personas que bloqueas.</li>
-                <li>Tus preferencias: por dónde quieres recibir códigos y avisos, y qué avisos quieres.</li>
+                <li>Debes tener al menos <b>13 años</b>. Si eres menor de 18, necesitas el permiso de tu madre, padre o tutor, y ellos deben leer este documento contigo.</li>
+                <li>Debes registrarte con datos reales y un correo electrónico que sea tuyo. Solo puede haber una cuenta por correo y por teléfono.</li>
+                <li>Tu cuenta es personal: no la compartas ni te hagas pasar por otra persona.</li>
+                <li>Eres responsable de cuidar tu contraseña y de lo que se haga con tu cuenta. Si crees que alguien entró sin permiso, cambia tu contraseña y avísanos.</li>
             </ul>
 
-            <h2>Quién ve qué</h2>
+            <h2 id="datos">3. Datos que guardamos</h2>
+            <h3>Los que tú nos das</h3>
             <ul>
-                <li><b>Público para otros usuarios:</b> tu apodo, tu foto, tu biografía, tus amigos y los sueños que publicas.</li>
-                <li><b>Privado (solo tú):</b> tu nombre completo, tu correo, tu teléfono, a quién bloqueaste y tus conversaciones con la IA.</li>
-                <li>Las personas que bloquees no ven tus sueños ni tus comentarios, y no pueden encontrarte.</li>
+                <li><b>Cuenta:</b> tu nombre, tu apodo, tu correo electrónico y tu contraseña (guardada cifrada: nadie puede leerla, ni siquiera nosotros).</li>
+                <li><b>Perfil (opcional):</b> tu foto de perfil, tu biografía y tu teléfono (solo si decides agregarlo y verificarlo).</li>
+                <li><b>Sueños:</b> lo que escribes o dictas sobre tus sueños, las imágenes que adjuntas, tus conversaciones con la IA y los sueños que publicas.</li>
+                <li><b>Actividad social:</b> tus comentarios, tus reacciones, tus amistades y solicitudes de amistad, las personas que bloqueas y los reportes que haces.</li>
+                <li><b>Preferencias:</b> tu canal preferido (correo o SMS), qué avisos quieres recibir y si la memoria de sueños está encendida.</li>
+            </ul>
+            <h3>Los que se generan al usar Oniria</h3>
+            <ul>
+                <li>La interpretación, el título y la imagen que crea la IA para cada sueño.</li>
+                <li>La clasificación de cada sueño (emoción, tipo de sueño y tema) y el resumen de tu memoria de sueños.</li>
+                <li>Las fechas en que creas tu cuenta, aceptas este documento, cuentas un sueño, publicas o comentas.</li>
+                <li>Códigos y enlaces temporales para verificar tu cuenta, iniciar sesión, cambiar tu correo o teléfono y recuperar tu contraseña.</li>
+                <li>Si la administración te sanciona: la fecha, la duración y el motivo.</li>
+                <li>Registros técnicos del servidor (por ejemplo, errores y la dirección IP de las conexiones), que usamos solo para que la página funcione y para detectar problemas.</li>
+            </ul>
+            <p>No pedimos ni guardamos datos bancarios, tu ubicación ni tus contactos.</p>
+
+            <h2 id="sensibles">4. Datos sensibles</h2>
+            <p>Lo que cuentas de tus sueños puede revelar información sensible: tu salud emocional o mental, tu vida sexual, tus creencias, tus relaciones o situaciones difíciles de tu vida. La ley protege esta información de forma especial y necesitamos tu <b>consentimiento expreso</b> para tratarla.</p>
+            <p>Al marcar la casilla de aceptación nos das ese consentimiento, solo para lo que explica este documento: interpretar tus sueños con IA, guardar tus conversaciones, calcular tus estadísticas y tu memoria de sueños, y mostrar lo que tú decidas publicar.</p>
+            <p>Te recomendamos no escribir datos que identifiquen a otras personas (nombres completos, direcciones, teléfonos) ni información que no quieras que procese un servicio de IA. Puedes retirar tu consentimiento cuando quieras borrando tus sueños o eliminando tu cuenta.</p>
+
+            <h2 id="finalidades">5. Para qué usamos tus datos</h2>
+            <ul>
+                <li>Crear tu cuenta, verificar tu correo y dejarte iniciar sesión.</li>
+                <li>Protegerla con un código en cada inicio de sesión (doble autenticación) y cuando cambias tu correo o tu teléfono.</li>
+                <li>Interpretar tus sueños con IA, crear su imagen y guardar tus conversaciones para que las retomes.</li>
+                <li>Mostrar tu perfil, tus sueños publicados, tus comentarios y tus reacciones a los demás usuarios, y conectar con tus amigos.</li>
+                <li>Calcular tus estadísticas personales, tu memoria de sueños y las estadísticas anónimas de la comunidad.</li>
+                <li>Mandarte los avisos que elegiste y el recordatorio de cada mañana.</li>
+                <li>Revisar reportes, cuidar que se respeten las normas y aplicar sanciones.</li>
+                <li>Mantener la página funcionando, segura y sin errores.</li>
+            </ul>
+            <p><b>No usamos tus datos para publicidad, no los vendemos y no los compartimos con nadie</b>, salvo con los servicios que hacen funcionar Oniria (sección 13) o si una autoridad competente nos lo exige conforme a la ley.</p>
+
+            <h2 id="visibilidad">6. Quién ve qué</h2>
+            <ul>
+                <li><b>Los demás usuarios de Oniria</b> (solo personas con cuenta e inicio de sesión) ven: tu apodo, tu foto, tu biografía, tus amigos, los sueños que publicas (relato, interpretación e imágenes), tus comentarios y cuántas reacciones de cada tipo tiene cada sueño.</li>
+                <li><b>Solo tú</b> ves: tu nombre completo, tu correo, tu teléfono, tus conversaciones con la IA, tus sueños sin publicar, tu memoria de sueños, tus estadísticas personales, a quién bloqueaste y los reportes que hiciste.</li>
+                <li><b>La administración de Oniria</b> (administradores y moderadores) puede ver: tu nombre, tu apodo, tu correo y tu foto; tus sueños publicados y tus comentarios; los reportes sobre tu cuenta; y tus estadísticas por persona (cuántos sueños contaste y sus porcentajes por emoción, tipo, tema y horario, incluidos los que no publicaste). <b>No</b> puede leer tus conversaciones con la IA, tus sueños sin publicar ni tu memoria de sueños. Usa esta información solo para moderar y cuidar la comunidad.</li>
+                <li>Las personas que bloquees no ven tus sueños ni tus comentarios, no pueden abrir tu perfil ni encontrarte en el buscador, y no pueden mandarte solicitudes.</li>
+                <li>Si compartes la imagen de tus estadísticas o un sueño fuera de Oniria, lo que pase con esa copia ya no depende de nosotros.</li>
             </ul>
 
-            <h2>Para qué los usamos</h2>
+            <h2 id="ia">7. La inteligencia artificial</h2>
             <ul>
-                <li>Crear tu cuenta y dejarte iniciar sesión.</li>
-                <li>Enviarte el correo para verificar tu cuenta y el enlace para recuperar tu contraseña cuando lo pidas.</li>
-                <li>Enviarte un código cada vez que inicias sesión (doble autenticación) y cuando cambias tu correo o tu teléfono.</li>
-                <li>Avisarte cuando alguien te manda o acepta una solicitud de amistad, o cuando un amigo publica un sueño, y recordarte cada mañana que escribas lo que soñaste. Puedes apagar estos avisos en tu perfil.</li>
+                <li>Para interpretar tu sueño, lo que escribes o dictas, las imágenes que adjuntas y, si está encendida, tu memoria de sueños se envían a <b>Google Gemini</b>. La imagen del sueño la crea <b>Cloudflare Workers AI</b> a partir de una descripción del sueño (no se le envían tus fotos).</li>
+                <li>Estos servicios procesan la información para darnos la respuesta, según sus propias condiciones. Si Oniria usa la versión gratuita de Gemini, Google puede usar lo que recibe para mejorar sus servicios, y personas de Google podrían revisarlo. Lo que se envía no lleva tu nombre, tu correo ni tu teléfono, pero sí el texto que escribas: por eso te pedimos no poner datos que te identifiquen a ti o a otras personas.</li>
+                <li>El dictado por voz lo procesa tu navegador (por ejemplo, Chrome usa los servidores de Google), no Oniria.</li>
             </ul>
-            <p>No enviamos publicidad y no vendemos ni compartimos tus datos con nadie.</p>
+            <div class="aviso-importante">
+                <p><b>La interpretación no es un consejo profesional.</b> Es una reflexión creada por una IA a partir de enfoques de la psicología de los sueños. Puede equivocarse, no hace diagnósticos y no sustituye a un psicólogo, a un médico ni a ninguna terapia. No tomes decisiones importantes solo por lo que diga.</p>
+                <p>Si estás pasando por un momento muy difícil o piensas en hacerte daño, habla con alguien de confianza o busca ayuda profesional. En México puedes llamar gratis a la <b>Línea de la Vida: 800 911 2000</b> (24 horas), o al <b>911</b> en una emergencia.</p>
+            </div>
 
-            <h2>Estadísticas, reportes y sanciones</h2>
+            <h2 id="memoria">8. Memoria de sueños y estadísticas</h2>
             <ul>
-                <li>Al interpretar tu sueño, la IA lo clasifica por emoción, tipo y tema. Con eso armamos tus estadísticas personales (solo tú las ves, y tú decides si las compartes) y estadísticas generales de la comunidad, que la administración ve solo como totales.</li>
-                <li>La <b>memoria de sueños</b>: al interpretar un sueño, Oniria guarda un resumen corto (por ejemplo, los símbolos principales y lo que contaste de tu vida) para relacionarlo con tus sueños siguientes. Solo tú la ves, nunca se publica, y en tu perfil puedes verla, borrar cada recuerdo o todos, y apagarla.</li>
-                <li>El <b>clima onírico</b> que todos ven en sus estadísticas son solo porcentajes de toda la comunidad en los últimos 7 días (por ejemplo, qué emoción y qué tema se repitieron más). Es anónimo: no dice quién soñó qué, y no se muestra si hay muy pocos sueños.</li>
-                <li>Puedes reportar a una persona o uno de sus sueños. El reporte es anónimo para la persona reportada y lo revisa la administración de Oniria.</li>
-                <li>Si una cuenta no respeta las normas, la administración puede suspenderla por un tiempo o darla de baja. Te avisaríamos por correo o SMS, según tu canal preferido.</li>
-                <li>Si una cuenta se da de baja, sus sueños y comentarios se quedan, pero firmados como "Cuenta eliminada" (sin su nombre ni su foto). La administración puede borrar cualquier publicación que no respete las normas.</li>
-            </ul>
-
-            <h2>Cuando cuentas un sueño</h2>
-            <ul>
-                <li>Para interpretarlo, lo que escribes o dictas y las imágenes que adjuntas se envían a Google Gemini; la imagen del sueño se crea con Cloudflare Workers AI.</li>
-                <li>La conversación con Oniria (tus mensajes, las respuestas y las imágenes) se guarda en tu perfil para que la retomes cuando quieras. Solo tú la ves mientras no la publiques.</li>
-                <li>Si publicas el sueño, el relato, la interpretación y las imágenes se ven en el feed; la conversación sigue siendo privada.</li>
-                <li>Puedes eliminar cualquier conversación sin publicar desde tu perfil; si eliminas una publicación, se borra también su conversación.</li>
-                <li>El dictado por voz lo procesa tu navegador (por ejemplo, Chrome usa los servidores de Google).</li>
+                <li><b>Clasificación:</b> al interpretar tu sueño, la IA lo clasifica por emoción (feliz, triste, miedo, calma, confusión u otra), tipo (normal, pesadilla, lúcido o recurrente) y tema. Con eso se arman tus estadísticas personales.</li>
+                <li><b>Memoria de sueños:</b> por cada sueño, Oniria guarda un resumen corto (por ejemplo, los símbolos principales y lo que contaste de tu vida) para relacionarlo con tus sueños siguientes, como en "la semana pasada también soñaste con agua". Esa conexión solo aparece en tu chat y nunca se publica. En <b>Perfil → Memoria</b> puedes ver cada recuerdo, borrarlo, borrar todos o apagar la memoria. Si borras un sueño, también se borra su recuerdo.</li>
+                <li><b>Clima onírico:</b> en las estadísticas, todos los usuarios ven porcentajes de toda la comunidad en los últimos 7 días (por ejemplo, qué emoción y qué tema se repitieron más). Es anónimo: no dice quién soñó qué, y no se muestra si hay muy pocos sueños. Ahí cuentan también los sueños sin publicar, pero solo como números.</li>
+                <li>La administración ve estadísticas generales de la comunidad (totales) y las estadísticas por persona que se explican en la sección 6.</li>
             </ul>
 
-            <h2>Dónde se guardan</h2>
-            <p>Los datos se guardan en una base de datos de Supabase, y las fotos e imágenes en Supabase Storage. Los correos se envían con la cuenta de Gmail de Oniria, que solo tiene permiso para enviar correos, no para leerlos.</p>
-            <p>Los SMS (códigos y avisos, solo si elegiste SMS) se envían con httpSMS desde un celular de Oniria; por eso el mensaje te llega desde un número de teléfono normal.</p>
+            <h2 id="avisos">9. Avisos y recordatorios</h2>
+            <ul>
+                <li>Te mandamos por correo, o por SMS si lo eliges, los códigos para iniciar sesión, verificar tu cuenta, cambiar tu correo o teléfono y recuperar tu contraseña. Estos mensajes son necesarios para usar Oniria.</li>
+                <li>Si los tienes encendidos, te avisamos cuando alguien te manda o acepta una solicitud de amistad, cuando un amigo publica un sueño, y cada mañana (alrededor de las 8:00, hora de México) para recordarte que escribas lo que soñaste. Puedes apagar cada uno en <b>Perfil → Editar perfil</b>.</li>
+                <li>Siempre te avisamos si la administración suspende o da de baja tu cuenta, y si revisamos un reporte que hiciste.</li>
+                <li>Los SMS salen de un celular de Oniria con la aplicación httpSMS, así que llegan desde un número de teléfono normal. Tu compañía telefónica podría cobrarte por recibirlos según tu plan. Nunca te pediremos tu contraseña ni tus códigos por mensaje o llamada.</li>
+            </ul>
 
-            <h2>Borrar tus datos</h2>
-            <p>Puedes eliminar tu cuenta tú mismo en <b>Perfil → Editar perfil → Eliminar mi cuenta</b> (te pedimos tu contraseña para confirmar). Al hacerlo borramos tu nombre, tu apodo, tu correo, tu teléfono, tu foto, tu biografía, tus amistades, tus bloqueos y tus conversaciones con la IA.</p>
-            <p>Los sueños y comentarios que ya publicaste se quedan, firmados como "Cuenta eliminada". Si no quieres que se queden, bórralos antes de eliminar tu cuenta, o escríbenos a <b>oniria.sistema@gmail.com</b> y los borramos. Tu teléfono lo puedes quitar desde tu perfil en cualquier momento.</p>
+            <h2 id="normas">10. Normas de la comunidad</h2>
+            <p>Oniria es un espacio para compartir algo muy íntimo. Para que todos se sientan seguros, <b>no está permitido</b>:</p>
+            <ul>
+                <li>Acosar, humillar, amenazar o hacer bullying a otras personas.</li>
+                <li>Publicar discursos de odio o discriminación por origen, género, orientación sexual, religión, discapacidad o cualquier otra condición.</li>
+                <li>Publicar contenido sexual explícito o cualquier contenido sexual que involucre a menores de edad.</li>
+                <li>Publicar violencia gráfica, promover autolesiones o incitar a hacer daño.</li>
+                <li>Publicar datos personales o fotos de otras personas sin su permiso.</li>
+                <li>Hacer spam, crear cuentas falsas o hacerse pasar por otra persona.</li>
+                <li>Publicar contenido ilegal o que viole derechos de autor de otros.</li>
+                <li>Intentar entrar a cuentas ajenas, saturar el sistema o aprovechar fallas de la página.</li>
+            </ul>
+            <p>Los sueños pueden tener momentos de miedo, tristeza o violencia, y está bien contarlos. Si los publicas, hazlo con cuidado y sin detalles explícitos.</p>
+
+            <h2 id="sanciones">11. Reportes y sanciones</h2>
+            <ul>
+                <li>Puedes reportar a una persona o un sueño. La persona reportada no sabe quién la reportó, y el reporte lo revisa la administración de Oniria.</li>
+                <li>Si una cuenta rompe las normas, la administración puede borrar sus publicaciones, suspenderla por un tiempo (mientras dure, no puede entrar y su contenido se oculta) o darla de baja para siempre.</li>
+                <li>Si una cuenta se da de baja, sus sueños y comentarios se quedan, pero firmados como "Cuenta eliminada" (sin su nombre ni su foto). La administración puede borrarlos si no respetan las normas.</li>
+                <li>Si crees que una sanción fue un error, escríbenos a oniria.sistema@gmail.com.</li>
+            </ul>
+
+            <h2 id="contenido">12. Tu contenido</h2>
+            <ul>
+                <li>Lo que escribes, tus fotos y tus sueños siguen siendo tuyos.</li>
+                <li>Al publicar un sueño o un comentario, nos das permiso de guardarlo y mostrarlo a los demás usuarios dentro de Oniria mientras siga publicado. No lo usamos para nada más.</li>
+                <li>Solo sube imágenes que sean tuyas o que tengas permiso de usar, y no subas fotos de otras personas sin su consentimiento.</li>
+                <li>Las imágenes que crea la IA son para que las uses en Oniria y al compartir tus sueños.</li>
+                <li>Eres responsable de lo que publicas.</li>
+            </ul>
+
+            <h2 id="terceros">13. Servicios de terceros</h2>
+            <p>Oniria funciona con estos servicios. Cada uno recibe solo lo necesario para hacer su parte, y algunos procesan los datos fuera de México (por ejemplo, en Estados Unidos). Al aceptar este documento, aceptas también ese envío.</p>
+            <ul>
+                <li><b>Render:</b> el servidor donde funciona la página.</li>
+                <li><b>Supabase:</b> la base de datos con tu cuenta y tu contenido, y el almacenamiento de fotos e imágenes.</li>
+                <li><b>Google Gemini:</b> la interpretación, la clasificación y la memoria de tus sueños.</li>
+                <li><b>Cloudflare Workers AI:</b> la imagen de cada sueño.</li>
+                <li><b>Gmail (Google):</b> el envío de correos desde la cuenta de Oniria, que solo tiene permiso para enviar, no para leer.</li>
+                <li><b>httpSMS:</b> el envío de SMS, solo si agregaste tu teléfono.</li>
+                <li><b>DiceBear:</b> el avatar automático de quien no sube foto. Se genera a partir de tu apodo.</li>
+                <li><b>Google Fonts:</b> la tipografía de la página. Tu navegador la descarga de los servidores de Google.</li>
+            </ul>
+
+            <h2 id="cookies">14. Cookies y almacenamiento en tu navegador</h2>
+            <ul>
+                <li>Usamos <b>una sola cookie</b>, necesaria para mantener tu sesión iniciada. Solo contiene un identificador al azar, dura hasta 7 días y se borra al cerrar sesión.</li>
+                <li>Tu navegador guarda dos preferencias: el tema (claro u oscuro) y el filtro del feed ("Todos" o "Amigos").</li>
+                <li>No usamos cookies de publicidad ni de rastreo, ni herramientas de analítica.</li>
+            </ul>
+
+            <h2 id="seguridad">15. Seguridad</h2>
+            <ul>
+                <li>Tu contraseña se guarda cifrada y la conexión con la página va cifrada (HTTPS).</li>
+                <li>Cada inicio de sesión pide un código que dura 10 minutos. Los enlaces para recuperar tu contraseña duran 1 hora, y los de verificación de cuenta, 24 horas.</li>
+                <li>Solo la administración puede entrar al panel de moderación, y lo que puede ver es limitado (sección 6).</li>
+                <li>Hacemos lo posible por proteger tus datos, pero ningún sistema es 100 % seguro. Si llegara a pasar algo que afecte tus datos, te avisaremos lo antes posible.</li>
+            </ul>
+
+            <h2 id="conservacion">16. Cuánto tiempo guardamos tus datos</h2>
+            <ul>
+                <li>Mientras tengas tu cuenta, guardamos tus datos para que Oniria funcione. Puedes borrar en cualquier momento tus sueños, tus conversaciones, tus comentarios, tus recuerdos y tu teléfono.</li>
+                <li>Los recuerdos de la memoria de sueños solo se le dan a la IA si son de los últimos 4 meses, pero se quedan en tu perfil hasta que los borres.</li>
+                <li>Los códigos y enlaces temporales dejan de servir cuando caducan o cuando los usas.</li>
+                <li><b>Si eliminas tu cuenta</b> (en <b>Perfil → Editar perfil → Eliminar mi cuenta</b>, con tu contraseña): borramos tu nombre, tu apodo, tu correo, tu teléfono, tu foto, tu biografía, tu contraseña, tus amistades, tus bloqueos, tus conversaciones con la IA y tu memoria de sueños. Los sueños y comentarios que ya publicaste se quedan, firmados como "Cuenta eliminada". Si no quieres que se queden, bórralos antes o escríbenos y los borramos.</li>
+                <li>Los reportes y las sanciones pueden guardarse un tiempo después para evitar abusos (por ejemplo, que una cuenta dada de baja vuelva a registrarse para seguir molestando).</li>
+            </ul>
+
+            <h2 id="derechos">17. Tus derechos</h2>
+            <p>Conforme a la ley mexicana de protección de datos personales, tienes derecho a:</p>
+            <ul>
+                <li><b>Acceder</b> a tus datos: los ves en tu perfil, tus conversaciones, tu memoria y tus estadísticas.</li>
+                <li><b>Rectificarlos</b>: puedes corregir tu nombre, apodo, foto, biografía, correo y teléfono en tu perfil.</li>
+                <li><b>Cancelarlos</b>: puedes borrar tu contenido o eliminar tu cuenta.</li>
+                <li><b>Oponerte</b> a ciertos usos: puedes apagar los avisos, el recordatorio y la memoria de sueños.</li>
+                <li><b>Retirar tu consentimiento</b> en cualquier momento, sabiendo que sin él no podremos darte el servicio.</li>
+            </ul>
+            <p>Si algo no lo puedes hacer desde la página, escríbenos a <b>oniria.sistema@gmail.com</b> desde el correo de tu cuenta, diciéndonos qué necesitas. Te respondemos lo antes posible, a más tardar en 20 días hábiles. Si crees que no respetamos tus derechos, puedes acudir a la autoridad mexicana de protección de datos personales.</p>
+
+            <h2 id="limitaciones">18. Límites del servicio</h2>
+            <ul>
+                <li>Oniria es un proyecto escolar gratuito. Puede tener fallas, ponerse lento, dejar de funcionar por ratos o cambiar sus funciones.</li>
+                <li>No garantizamos que el contenido de otros usuarios ni las respuestas de la IA sean correctos o apropiados para ti. Si algo te molesta, repórtalo o bloquea a la persona.</li>
+                <li>Si el proyecto termina, te avisaremos con anticipación por correo para que puedas guardar lo que quieras, y después borraremos los datos.</li>
+            </ul>
+
+            <h2 id="cambios">19. Cambios a este documento</h2>
+            <p>Si cambiamos este documento, actualizaremos la fecha de arriba. Si el cambio es importante (por ejemplo, un nuevo uso de tus datos), te avisaremos por correo o dentro de la página antes de que aplique. Si sigues usando Oniria después del cambio, significa que lo aceptas. Si no estás de acuerdo, puedes eliminar tu cuenta.</p>
+
+            <h2 id="aceptacion">20. Aceptación</h2>
+            <p>Al marcar la casilla <b>"He leído y acepto los Términos de uso y la Política de Privacidad"</b> y crear tu cuenta, confirmas que:</p>
+            <ol>
+                <li>Leíste y aceptas los Términos de uso y las normas de la comunidad.</li>
+                <li>Aceptas que tratemos tus datos personales como explica esta Política de Privacidad.</li>
+                <li>Das tu consentimiento expreso para el tratamiento de los datos sensibles que puedan contener tus sueños (sección 4).</li>
+                <li>Aceptas que tus sueños se envíen a los servicios de IA y a los demás servicios de la sección 13, incluso fuera de México.</li>
+                <li>Entiendes que la interpretación de la IA no es un consejo profesional.</li>
+                <li>Tienes al menos 13 años y, si eres menor de 18, tienes el permiso de tu madre, padre o tutor.</li>
+            </ol>
+            <p>Guardamos la fecha en que lo aceptaste.</p>
 
             <!-- El botón cambia según desde dónde se abrió esta página (ver el script de abajo) -->
             <a href="/" id="btn-salir" class="btn-primary" style="text-decoration: none; display: block; margin-top: 24px; text-align: center;">Ir a Iniciar Sesión</a>

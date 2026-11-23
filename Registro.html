@@ -44,7 +44,7 @@
                     <label class="aceptar-politicas" for="politicas">
                         <input type="checkbox" id="politicas" name="acepto_politicas" value="1">
                         <span class="casilla" aria-hidden="true"></span>
-                        <span>He leído y acepto la <a href="/privacidad?desde=registro" target="_blank" rel="noopener">Política de Privacidad</a> de Oniria.</span>
+                        <span>He leído y acepto los <a href="/privacidad?desde=registro" target="_blank" rel="noopener">Términos de uso y la Política de Privacidad</a> de Oniria, incluido el uso de mis sueños por la IA.</span>
                     </label>
                     <span id="error-politicas" class="error-text"></span>
                 </div>
@@ -65,7 +65,7 @@
         document.querySelector('.login-form').addEventListener('submit', (e) => {
             if (casillaPoliticas.checked) return;
             e.preventDefault();
-            errorPoliticas.textContent = 'Para crear tu cuenta necesitas aceptar la Política de Privacidad.';
+            errorPoliticas.textContent = 'Para crear tu cuenta necesitas aceptar los Términos y la Política de Privacidad.';
             errorPoliticas.style.display = 'block';
             casillaPoliticas.classList.add('input-error');
             casillaPoliticas.focus();

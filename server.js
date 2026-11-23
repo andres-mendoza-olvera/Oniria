@@ -405,7 +405,7 @@ app.post('/registro', async (req, res) => {
     }
     // Sin aceptar la Política de Privacidad no se crea la cuenta (el formulario también lo revisa)
     if (req.body.acepto_politicas !== '1') {
-        return res.redirect('/registro?error=' + encodeURIComponent('Para crear tu cuenta necesitas aceptar la Política de Privacidad.') + '&field=politicas');
+        return res.redirect('/registro?error=' + encodeURIComponent('Para crear tu cuenta necesitas aceptar los Términos y la Política de Privacidad.') + '&field=politicas');
     }
 
     // Misma regla que en recuperar contraseña (por si alguien se salta el HTML)
