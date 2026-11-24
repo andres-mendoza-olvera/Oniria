@@ -457,3 +457,18 @@
 }
 .aviso-publicada > .icono { color: #1f9d55; }
 .aviso-publicada .btn-publish { padding: 8px 18px; font-size: 0.85rem; }
+
+/* Etiqueta "Beta": respuestas del modelo propio de Oniria */
+.insignia-beta {
+    display: inline-block;
+    margin: 0 0 6px 8px;
+    padding: 1px 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    border-radius: 999px;
+    vertical-align: middle;
+}

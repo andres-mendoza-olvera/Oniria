@@ -27,7 +27,17 @@ const GRAFICAS = [
 function pintar() {
     $('numeros').replaceChildren(...numerosResumen(datos).map(([valor, etiqueta]) =>
         crear('div', { class: 'numero' }, crear('strong', { text: String(valor) }), crear('span', { text: etiqueta }))));
-    $('graficas').replaceChildren(...GRAFICAS.map(({ tipo, campo }) => crearGrafica(tipo, datos[campo])));
+    $('graficas').replaceChildren(
+        ...GRAFICAS.map(({ tipo, campo }) => crearGrafica(tipo, datos[campo])),
+        crearRanking('Símbolos de tus sueños', datos.simbolos, {
+            subtitulo: 'Lo que más aparece en lo que cuentas. "Se repite" = está en 2 o más sueños.',
+            marcarRepetidos: true,
+            vacio: 'Aún no hay símbolos: aparecerán con los sueños que cuentes desde ahora.'
+        }),
+        crearRanking('Lo que pasa en tus sueños', datos.acciones, {
+            subtitulo: 'Las acciones más frecuentes.',
+            vacio: 'Aún no hay acciones: aparecerán con los sueños que cuentes desde ahora.'
+        }));
     $('numeros').hidden = false;
     $('graficas').hidden = false;
     $('estado').hidden = true;
@@ -104,6 +114,8 @@ async function cargarClima() {
         const detalle = [`${c.total} sueños contados`];
         if (c.pesadillas) detalle.push(`${c.pesadillas}% pesadillas`);
         if (c.lucidos) detalle.push(`${c.lucidos}% lúcidos`);
+        if (c.simbolos?.length) detalle.push(`lo que más apareció: ${c.simbolos.join(', ')}`);
+        if (c.acciones?.length) detalle.push(`lo que más pasó: ${c.acciones.join(', ')}`);
         caja.replaceChildren(etiqueta,
             crear('p', { class: 'clima-frase', text: `${partes.join(' y ')}.` }),
             crear('p', { class: 'clima-detalle', text: detalle.join(' · ') }));

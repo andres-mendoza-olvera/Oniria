@@ -327,3 +327,31 @@ function exportarCSV(secciones, nombreArchivo) {
     // BOM para que Excel lea bien los acentos
     descargarBlob(new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' }), nombreArchivo);
 }
+
+// ---------------------------------------------------------
+// RANKING (barras) para listas abiertas: símbolos y acciones más frecuentes
+// filas = [{ clave, total, personas }] ya ordenadas de mayor a menor.
+// ---------------------------------------------------------
+function crearRanking(titulo, filas, { subtitulo = '', marcarRepetidos = false, vacio = 'Todavía no hay datos para esta lista.', unidad = ['vez', 'veces'] } = {}) {
+    const tarjeta = crear('section', { class: 'grafica ranking', 'aria-label': titulo },
+        crear('h3', { class: 'grafica-titulo', text: titulo }),
+        subtitulo ? crear('p', { class: 'grafica-sub', text: subtitulo }) : null);
+    if (!filas?.length) {
+        tarjeta.append(crear('p', { class: 'grafica-vacia', text: vacio }));
+        return tarjeta;
+    }
+    const maximo = Math.max(...filas.map((f) => f.total));
+    const lista = crear('ol', { class: 'ranking-lista' });
+    for (const f of filas) {
+        const relleno = crear('span', { class: 'ranking-relleno' });
+        // El ancho se pone por CSSOM (no como atributo style) para no depender de la política de seguridad del navegador
+        relleno.style.width = `${Math.max(6, (f.total / maximo) * 100)}%`;
+        lista.append(crear('li', { class: 'ranking-fila', title: `${f.clave}: ${f.total} ${f.total === 1 ? unidad[0] : unidad[1]}` },
+            crear('span', { class: 'ranking-nombre', text: f.clave }),
+            crear('span', { class: 'ranking-barra', 'aria-hidden': 'true' }, relleno),
+            crear('span', { class: 'ranking-cuanto', text: String(f.total) }),
+            marcarRepetidos && f.total >= 2 ? crear('span', { class: 'ranking-etiqueta', text: 'se repite' }) : null));
+    }
+    tarjeta.append(lista);
+    return tarjeta;
+}

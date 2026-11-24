@@ -96,6 +96,11 @@ function mensajeUsuario(texto, urlsImagenes) {
     return li;
 }
 
+// Etiqueta "Beta" para las respuestas del modelo propio de Oniria
+function insigniaBeta() {
+    return crear('span', { class: 'insignia-beta', title: 'Respuesta del modelo propio de Oniria, aún en pruebas', text: 'Beta' });
+}
+
 function mensajeIA(m) {
     const li = crear('li', { class: 'mensaje ia' });
     const avatar = crear('div', { class: 'bot-avatar chico', 'aria-hidden': 'true' }, icono('destellos'));
@@ -111,6 +116,7 @@ function mensajeIA(m) {
         if (!m.imagenIA) contenido.append(crear('p', { class: 'sin-imagen', text: 'No pude crear la imagen esta vez, pero aquí está la interpretación.' }));
         contenido.append(
             crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), 'Interpretación psicológica'),
+            ...(m.motor === 'oniria' ? [insigniaBeta()] : []),
             ...parrafos(m.texto)
         );
         // Lo que Oniria recordó de sueños anteriores (privado: no se publica en el feed)
@@ -126,7 +132,7 @@ function mensajeIA(m) {
     }
 
     // Respuestas siguientes
-    const burbuja = crear('div', { class: 'burbuja' }, ...parrafos(m.texto));
+    const burbuja = crear('div', { class: 'burbuja' }, ...(m.motor === 'oniria' ? [insigniaBeta()] : []), ...parrafos(m.texto));
     if (m.relatoActualizado || m.interpretacionActualizada) {
         const cambios = crear('div', { class: 'cambios' });
         if (m.relatoActualizado) cambios.append(crear('span', { class: 'cambio' }, icono('check', 'icono-xs'), 'Detalles agregados a tu relato'));
