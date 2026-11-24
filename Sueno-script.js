@@ -51,7 +51,9 @@ function ajustarAltura() {
 }
 
 function parrafos(texto) {
-    return String(texto || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p) => crear('p', { text: p }));
+    // Los saltos de línea dentro de un párrafo se respetan (p. ej. la lista de teléfonos de ayuda, uno por línea)
+    return String(texto || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+        .map((p) => crear('p', { text: p, class: p.includes('\n') ? 'con-saltos' : '' }));
 }
 
 // URL (en Storage) de una imagen de la conversación: 'ia' o el número de imagen del usuario

@@ -527,3 +527,6 @@
     border-radius: 14px;
 }
 .aviso-servicio .icono-xs { flex: none; width: 14px; height: 14px; margin-top: 2px; color: #d98e0b; }
+
+/* Párrafos con saltos de línea (lista de teléfonos de ayuda): una línea por recurso */
+.burbuja p.con-saltos { white-space: pre-line; line-height: 1.8; }
