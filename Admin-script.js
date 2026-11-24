@@ -100,8 +100,11 @@ function pintarEstadisticas() {
     const d = estado.estadisticas;
     $('numeros').replaceChildren(...numerosActuales().map(([valor, etiqueta]) =>
         crear('div', { class: 'numero' }, crear('strong', { text: String(valor) }), crear('span', { text: etiqueta }))));
-    $('graficas').replaceChildren(...graficasActuales().map(({ tipo, campo, unidad, titulo }) =>
-        crearGrafica(tipo, d[campo], { unidad, titulo, subtitulo: tipo === 'cuentas' ? 'Todas las cuentas de usuarios (sin importar el periodo)' : '' })));
+    $('graficas').replaceChildren(
+        ...graficasActuales().map(({ tipo, campo, unidad, titulo }) =>
+            crearGrafica(tipo, d[campo], { unidad, titulo, subtitulo: tipo === 'cuentas' ? 'Todas las cuentas de usuarios (sin importar el periodo)' : '' })),
+        crearRanking(esDePersona() ? 'Símbolos de sus sueños' : 'Símbolos más frecuentes', d.simbolos, { subtitulo: 'Elementos que aparecen en los sueños.', marcarRepetidos: esDePersona() }),
+        crearRanking(esDePersona() ? 'Acciones en sus sueños' : 'Acciones más frecuentes', d.acciones, { subtitulo: 'Lo que ocurre en los sueños.' }));
     $('numeros').hidden = false;
     $('graficas').hidden = false;
     $('estado-estadisticas').hidden = true;

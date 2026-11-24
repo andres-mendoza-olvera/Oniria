@@ -30,7 +30,8 @@ const estado = {
     yo: null,          // { idUsuario, apodo }
     borrador: null,    // la conversación en curso: { id, titulo, relato, interpretacion, imagenIA, imagenes[], publicada }
     adjuntos: [],      // imágenes elegidas que aún no se envían: { archivo, url }
-    enviando: false
+    enviando: false,
+    oniriaActivo: false // el modelo propio (beta) está encendido y disponible: sus respuestas tardan 1-4 min
 };
 
 // ---------------------------------------------------------
@@ -51,7 +52,9 @@ function ajustarAltura() {
 }
 
 function parrafos(texto) {
-    return String(texto || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p) => crear('p', { text: p }));
+    // Los saltos de línea dentro de un párrafo se respetan (p. ej. la lista de teléfonos de ayuda, uno por línea)
+    return String(texto || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+        .map((p) => crear('p', { text: p, class: p.includes('\n') ? 'con-saltos' : '' }));
 }
 
 // URL (en Storage) de una imagen de la conversación: 'ia' o el número de imagen del usuario
@@ -67,9 +70,9 @@ function imagenesDisponibles() {
 function actualizarInterfaz() {
     const hayBorrador = Boolean(estado.borrador);
     const publicada = Boolean(estado.borrador?.publicada);
-    // Publicada = solo lectura: sin caja de texto ni botones de publicar/eliminar
+    // Publicada: se puede seguir platicando (en privado), pero ya no hay botones de publicar/eliminar
     acciones.hidden = !hayBorrador || publicada;
-    form.hidden = publicada;
+    form.hidden = false;
     avisoPublicada.hidden = !publicada;
     document.getElementById('btn-nuevo').hidden = !hayBorrador;
     bienvenida.hidden = listaMensajes.children.length > 0;
@@ -96,6 +99,13 @@ function mensajeUsuario(texto, urlsImagenes) {
     return li;
 }
 
+// Etiqueta "Beta" para las respuestas del modelo propio de Oniria
+function insigniaBeta() {
+    return crear('span', { class: 'insignia-beta', title: 'Respuesta de Oniria, nuestro modelo propio. Está en fase beta: puede equivocarse.' },
+        icono('destellos', 'icono-xs'),
+        crear('span', { class: 'insignia-beta-texto' }, 'Oniria ', crear('b', { text: 'Beta' })));
+}
+
 function mensajeIA(m) {
     const li = crear('li', { class: 'mensaje ia' });
     const avatar = crear('div', { class: 'bot-avatar chico', 'aria-hidden': 'true' }, icono('destellos'));
@@ -108,11 +118,26 @@ function mensajeIA(m) {
         }
         const contenido = crear('div', { class: 'contenido' });
         if (m.titulo) contenido.append(crear('h3', { class: 'interpretacion-titulo', text: m.titulo }));
-        if (!m.imagenIA) contenido.append(crear('p', { class: 'sin-imagen', text: 'No pude crear la imagen esta vez, pero aquí está la interpretación.' }));
+        // Con el modelo propio, este primer mensaje es la "primera lectura" (análisis + preguntas);
+        // la interpretación completa llega cuando la persona responde o pide verla.
+        const primeraLectura = m.motor === 'oniria';
+        if (!m.imagenIA) {
+            contenido.append(crear('p', { class: 'sin-imagen', text: primeraLectura
+                ? 'No pude crear la imagen esta vez.'
+                : 'No pude crear la imagen esta vez, pero aquí está la interpretación.' }));
+        }
         contenido.append(
-            crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), 'Interpretación psicológica'),
+            crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), primeraLectura ? 'Primera lectura' : 'Interpretación psicológica'),
+            ...(primeraLectura ? [insigniaBeta()] : []),
             ...parrafos(m.texto)
         );
+        if (primeraLectura) {
+            contenido.append(crear('button', {
+                type: 'button', class: 'btn-ver-interpretacion',
+                title: 'Oniria te da su interpretación sin que respondas las preguntas',
+                onclick: () => { if (estado.enviando) return; textarea.value = 'omitir'; enviar(); }
+            }, icono('destellos', 'icono-xs'), 'Ver la interpretación completa'));
+        }
         // Lo que Oniria recordó de sueños anteriores (privado: no se publica en el feed)
         if (m.conexion) {
             contenido.append(crear('div', { class: 'memoria-conexion' },
@@ -126,7 +151,7 @@ function mensajeIA(m) {
     }
 
     // Respuestas siguientes
-    const burbuja = crear('div', { class: 'burbuja' }, ...parrafos(m.texto));
+    const burbuja = crear('div', { class: 'burbuja' }, ...(m.motor === 'oniria' ? [insigniaBeta()] : []), ...parrafos(m.texto));
     if (m.relatoActualizado || m.interpretacionActualizada) {
         const cambios = crear('div', { class: 'cambios' });
         if (m.relatoActualizado) cambios.append(crear('span', { class: 'cambio' }, icono('check', 'icono-xs'), 'Detalles agregados a tu relato'));
@@ -137,12 +162,16 @@ function mensajeIA(m) {
     return li;
 }
 
-function mensajeEscribiendo(primero) {
+function mensajeEscribiendo(primero, lenta = false) {
+    // "lenta" = responde el modelo propio de Oniria, que tarda de 1 a 4 minutos
+    const texto = lenta
+        ? 'Oniria está leyendo tu sueño con calma. Puede tardar de 1 a 4 minutos; no cierres esta página.'
+        : primero ? 'Interpretando tu sueño y creando su imagen…' : 'Pensando…';
     return crear('li', { class: 'mensaje ia', id: 'escribiendo' },
         crear('div', { class: 'bot-avatar chico', 'aria-hidden': 'true' }, icono('destellos')),
         crear('div', { class: 'burbuja escribiendo-burbuja' },
             crear('span', { class: 'puntos' }, crear('span'), crear('span'), crear('span')),
-            primero ? 'Interpretando tu sueño y creando su imagen…' : 'Pensando…'
+            texto
         )
     );
 }
@@ -154,6 +183,14 @@ function pintarConversacion(mensajes) {
         if (m.rol === 'usuario') listaMensajes.append(mensajeUsuario(m.texto, (m.imagenes || []).map(urlImagenBorrador)));
         else listaMensajes.append(mensajeIA(m));
     }
+    quitarBotonesInterpretacion(true);
+}
+
+// El botón "Ver la interpretación completa" solo tiene sentido mientras la primera lectura
+// sea el último mensaje; en cuanto hay otra respuesta, se quita.
+function quitarBotonesInterpretacion(soloLosViejos = false) {
+    const botones = [...listaMensajes.querySelectorAll('.btn-ver-interpretacion')];
+    (soloLosViejos ? botones.filter((b) => b.closest('.mensaje') !== listaMensajes.lastElementChild) : botones).forEach((b) => b.remove());
 }
 
 // ---------------------------------------------------------
@@ -180,6 +217,19 @@ async function prepararImagen(archivo) {
     } catch {
         return archivo;
     }
+}
+
+// Aviso al adjuntar imágenes (ventana emergente): el modelo propio todavía no lee imágenes
+let avisoImagenesMostrado = false;
+function avisarImagenes() {
+    if (avisoImagenesMostrado) return;
+    avisoImagenesMostrado = true;
+    preguntar({
+        titulo: 'Oniria está en desarrollo',
+        texto: 'Aún no contamos con un modelo especializado en leer imágenes, por lo que Oniria puede equivocarse al interpretarlas. '
+            + 'Para mejores resultados, cuéntanos también tu sueño con palabras.',
+        aceptar: 'Entendido', soloAceptar: true, icono: 'destellos'
+    });
 }
 
 function pintarAdjuntos() {
@@ -220,6 +270,7 @@ inputImagenes.addEventListener('change', async () => {
         estado.adjuntos.push({ archivo, url: URL.createObjectURL(archivo) });
     }
     pintarAdjuntos();
+    if (estado.adjuntos.length) avisarImagenes();
 });
 
 // ---------------------------------------------------------
@@ -305,11 +356,15 @@ async function enviar() {
     if (estado.borrador) datos.append('conversacion', estado.borrador.id);
     adjuntos.forEach((a) => datos.append('imagenes', a.archivo, a.archivo.name));
 
+    quitarBotonesInterpretacion();
     // Mostrar el mensaje de inmediato y limpiar la caja
     const esPrimero = !estado.borrador;
     const burbujaUsuario = mensajeUsuario(texto, adjuntos.map((a) => a.url));
     listaMensajes.append(burbujaUsuario);
-    const escribiendo = mensajeEscribiendo(esPrimero);
+    // Con el modelo propio (y sin imágenes) las respuestas de las dos primeras vueltas tardan minutos
+    const turnosPrevios = listaMensajes.querySelectorAll('.mensaje.usuario').length;
+    const lenta = estado.oniriaActivo && adjuntos.length === 0 && (esPrimero || (estado.borrador?.motor === 'oniria' && turnosPrevios === 1));
+    const escribiendo = mensajeEscribiendo(esPrimero, lenta);
     listaMensajes.append(escribiendo);
     textarea.value = '';
     ajustarAltura();
@@ -328,6 +383,7 @@ async function enviar() {
             if (esPrimero) history.replaceState(null, '', `/sueno?c=${conversacion.id}`);
         }
         escribiendo.replaceWith(mensajeIA(mensaje));
+        mostrarOpinion();
     } catch (err) {
         // Regresamos el texto y las imágenes para que pueda intentarlo otra vez
         escribiendo.remove();
@@ -341,6 +397,7 @@ async function enviar() {
         estado.enviando = false;
         actualizarInterfaz();
         bajarAlFinal();
+        revisarEstadoIA();
     }
 }
 
@@ -451,6 +508,84 @@ async function pintarPendientes() {
 }
 
 // ---------------------------------------------------------
+// Opinión durante el chat: "¿Cómo ha sido tu experiencia hasta ahora?" + comentario opcional
+// ---------------------------------------------------------
+const CARITAS = [[1, '😞', 'Muy mal'], [2, '🙁', 'Mal'], [3, '😐', 'Regular'], [4, '🙂', 'Bien'], [5, '😍', 'Excelente']];
+
+function crearOpinion() {
+    let valoracion = null;
+    const caja = crear('div', { class: 'opinion-caja', hidden: true });
+    const texto = crear('textarea', { class: 'opinion-texto', rows: '3', maxlength: '1000', 'aria-label': 'Tu comentario',
+        placeholder: 'Cuéntanos qué te gustó o qué podría mejorar (opcional si ya elegiste una carita)…' });
+    const gracias = crear('p', { class: 'opinion-gracias', role: 'status', hidden: true });
+    const error = crear('p', { class: 'opinion-error', role: 'alert', hidden: true });
+    const botones = CARITAS.map(([valor, emoji, nombre]) => crear('button', {
+        type: 'button', class: 'opinion-carita', 'aria-label': nombre, 'aria-pressed': 'false', title: nombre,
+        onclick: () => {
+            valoracion = valoracion === valor ? null : valor;
+            botones.forEach((b, i) => { const activo = CARITAS[i][0] === valoracion; b.setAttribute('aria-pressed', String(activo)); b.classList.toggle('activa', activo); });
+            caja.hidden = false;
+        }
+    }, emoji));
+    const enviarBtn = crear('button', { type: 'button', class: 'opinion-enviar', text: 'Enviar opinión' });
+    const fila = crear('div', { class: 'opinion-fila' },
+        crear('span', { class: 'opinion-pregunta', text: '¿Cómo ha sido tu experiencia hasta ahora?' }),
+        crear('span', { class: 'opinion-caritas', role: 'group', 'aria-label': 'Valora tu experiencia' }, ...botones),
+        crear('button', { type: 'button', class: 'opinion-enlace', text: 'Dejar un comentario', onclick: () => { caja.hidden = false; texto.focus(); } }));
+    const cuadro = crear('div', { id: 'opinion', class: 'opinion' }, fila, caja, error, gracias);
+    caja.append(texto, crear('div', { class: 'opinion-acciones' }, enviarBtn,
+        crear('button', { type: 'button', class: 'opinion-cancelar', text: 'Cancelar', onclick: () => { caja.hidden = true; } })));
+
+    enviarBtn.addEventListener('click', async () => {
+        error.hidden = true;
+        const comentario = texto.value.trim();
+        if (valoracion === null && !comentario) { error.textContent = 'Elige una carita o escribe un comentario.'; error.hidden = false; return; }
+        enviarBtn.disabled = true;
+        try {
+            const r = await api('/api/opiniones', { method: 'POST',
+                body: JSON.stringify({ conversacion: estado.borrador?.id || null, valoracion, comentario }) });
+            gracias.replaceChildren(crear('span', { text: '¡Gracias por tu opinión! Nos ayuda a mejorar Oniria. 💜' }));
+            if (r.apoyo) gracias.append(crear('span', { class: 'opinion-apoyo', text: r.apoyo }));
+            gracias.hidden = false; fila.hidden = true; caja.hidden = true;
+            texto.value = ''; valoracion = null; botones.forEach((b) => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('activa'); });
+            // Vuelve a aparecer más tarde por si quiere decir algo más
+            setTimeout(() => { gracias.hidden = true; fila.hidden = false; }, r.apoyo ? 60000 : 8000);
+        } catch (err) {
+            error.textContent = err.message; error.hidden = false;
+        } finally {
+            enviarBtn.disabled = false;
+        }
+    });
+    return cuadro;
+}
+
+// Se muestra solo cuando ya hay una conversación con respuesta de la IA
+function mostrarOpinion() {
+    if (!estado.borrador || document.getElementById('opinion')) return;
+    form.before(crearOpinion());
+}
+
+// ---------------------------------------------------------
+// Aviso cuando Gemini (Google) está saturado: así no se culpa a la página ni a Oniria
+// ---------------------------------------------------------
+async function revisarEstadoIA() {
+    try {
+        const { gemini, oniria } = await api('/api/estado-ia');
+        estado.oniriaActivo = Boolean(oniria);
+        let aviso = document.getElementById('aviso-servicio');
+        if (gemini === 'saturado' && !aviso) {
+            aviso = crear('div', { id: 'aviso-servicio', class: 'aviso-servicio', role: 'status' },
+                icono('destellos', 'icono-xs'),
+                crear('span', { text: 'Gemini (el servicio de Google que usamos para títulos, imágenes y clasificación) está saturado ahora mismo. '
+                    + 'No es un fallo de tu sueño ni de Oniria: puede tardar o fallar. Intenta de nuevo en unos minutos.' }));
+            form.before(aviso);
+        } else if (gemini !== 'saturado' && aviso) {
+            aviso.remove();
+        }
+    } catch { /* sin aviso si no se pudo consultar */ }
+}
+
+// ---------------------------------------------------------
 // Arranque: quién soy y si había un sueño en curso
 // ---------------------------------------------------------
 (async () => {
@@ -468,6 +603,7 @@ async function pintarPendientes() {
             estado.borrador = resumen;
             document.title = `${resumen.titulo || 'Tu sueño'} - Oniria`;
             pintarConversacion(mensajes);
+            if (mensajes.some((m) => m.rol === 'ia')) mostrarOpinion();
             bajarAlFinal();
         } else {
             pintarPendientes();
@@ -476,5 +612,6 @@ async function pintarPendientes() {
         mostrarError(err.message);
     }
     actualizarInterfaz();
+    revisarEstadoIA();
     textarea.focus();
 })();

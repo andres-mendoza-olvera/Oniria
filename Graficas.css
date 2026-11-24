@@ -111,3 +111,31 @@
 @media (prefers-reduced-motion: reduce) {
     .dona path { transition: none; }
 }
+
+/* Ranking de símbolos y acciones (crearRanking) */
+.ranking-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ranking-fila {
+    display: grid;
+    grid-template-columns: minmax(96px, 42%) 1fr auto;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.86rem;
+}
+.ranking-nombre { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-main); font-weight: 600; }
+.ranking-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ranking-barra { height: 10px; border-radius: 6px; background-color: var(--surface-2); overflow: hidden; }
+.ranking-relleno { display: block; height: 100%; border-radius: 6px; background: var(--gradiente); }
+.ranking-cuanto { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 20px; text-align: right; }
+.ranking-etiqueta {
+    flex: none;
+    padding: 0 7px;
+    font-size: 0.6rem;
+    line-height: 1.5;
+    white-space: nowrap;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+}

@@ -327,3 +327,57 @@ function exportarCSV(secciones, nombreArchivo) {
     // BOM para que Excel lea bien los acentos
     descargarBlob(new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' }), nombreArchivo);
 }
+
+// ---------------------------------------------------------
+// RANKING (barras) para listas abiertas: símbolos y acciones más frecuentes
+// filas = [{ clave, total, personas }] ya ordenadas de mayor a menor.
+// ---------------------------------------------------------
+// Los símbolos y acciones se guardan sin acentos para poder contarlos ("estacion tren"). Al mostrarlos se
+// restauran los acentos y la ñ de las palabras más comunes y solo se pone mayúscula la primera letra.
+const ACENTOS = {
+    arbol: 'árbol', arboles: 'árboles', telefono: 'teléfono', musica: 'música', carcel: 'cárcel', camara: 'cámara',
+    avion: 'avión', balcon: 'balcón', corazon: 'corazón', camion: 'camión', jardin: 'jardín', cafe: 'café',
+    sofa: 'sofá', papa: 'papá', mama: 'mamá', bebe: 'bebé', lapiz: 'lápiz', rio: 'río', tunel: 'túnel',
+    pajaro: 'pájaro', murcielago: 'murciélago', ataud: 'ataúd', maquina: 'máquina', pais: 'país', angel: 'ángel',
+    lagrima: 'lágrima', helicoptero: 'helicóptero', medico: 'médico', fotografia: 'fotografía', fotografias: 'fotografías',
+    reloj: 'reloj', nino: 'niño', ninos: 'niños', nina: 'niña', ninas: 'niñas', montana: 'montaña', cabana: 'cabaña',
+    bano: 'baño', sueno: 'sueño', pequeno: 'pequeño', extrano: 'extraño', reir: 'reír', sonreir: 'sonreír', oir: 'oír',
+    huir: 'huir', caida: 'caída', salida: 'salida', habitacion: 'habitación', estacion: 'estación', ciudad: 'ciudad',
+    oscuridad: 'oscuridad', luz: 'luz', tren: 'tren', pasillo: 'pasillo', ventana: 'ventana', espejo: 'espejo',
+    familia: 'familia', multitud: 'multitud', unico: 'único', ultimo: 'último', rapido: 'rápido', facil: 'fácil',
+    dificil: 'difícil', dolor: 'dolor', cancion: 'canción', escuela: 'escuela', hospital: 'hospital', playa: 'playa',
+    lluvia: 'lluvia', tormenta: 'tormenta', fuego: 'fuego', agua: 'agua', puente: 'puente', carretera: 'carretera'
+};
+function etiquetaBonita(clave) {
+    const texto = String(clave || '').split(' ').map((p) => {
+        if (ACENTOS[p]) return ACENTOS[p];
+        if (/cion(es)?$/.test(p)) return p.replace(/cion(es)?$/, (m) => (m === 'cion' ? 'ción' : 'ciones'));
+        if (/sion(es)?$/.test(p) && p.length > 5) return p.replace(/sion(es)?$/, (m) => (m === 'sion' ? 'sión' : 'siones'));
+        return p;
+    }).join(' ');
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function crearRanking(titulo, filas, { subtitulo = '', marcarRepetidos = false, vacio = 'Todavía no hay datos para esta lista.', unidad = ['vez', 'veces'] } = {}) {
+    const tarjeta = crear('section', { class: 'grafica ranking', 'aria-label': titulo },
+        crear('h3', { class: 'grafica-titulo', text: titulo }),
+        subtitulo ? crear('p', { class: 'grafica-sub', text: subtitulo }) : null);
+    if (!filas?.length) {
+        tarjeta.append(crear('p', { class: 'grafica-vacia', text: vacio }));
+        return tarjeta;
+    }
+    const maximo = Math.max(...filas.map((f) => f.total));
+    const lista = crear('ol', { class: 'ranking-lista' });
+    for (const f of filas) {
+        const relleno = crear('span', { class: 'ranking-relleno' });
+        // El ancho se pone por CSSOM (no como atributo style) para no depender de la política de seguridad del navegador
+        relleno.style.width = `${Math.max(6, (f.total / maximo) * 100)}%`;
+        lista.append(crear('li', { class: 'ranking-fila', title: `${etiquetaBonita(f.clave)}: ${f.total} ${f.total === 1 ? unidad[0] : unidad[1]}` },
+            crear('span', { class: 'ranking-nombre' }, crear('span', { class: 'ranking-texto', text: etiquetaBonita(f.clave) }),
+                marcarRepetidos && f.total >= 2 ? crear('span', { class: 'ranking-etiqueta', text: 'se repite' }) : null),
+            crear('span', { class: 'ranking-barra', 'aria-hidden': 'true' }, relleno),
+            crear('span', { class: 'ranking-cuanto', text: String(f.total) })));
+    }
+    tarjeta.append(lista);
+    return tarjeta;
+}

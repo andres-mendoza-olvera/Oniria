@@ -457,3 +457,111 @@
 }
 .aviso-publicada > .icono { color: #1f9d55; }
 .aviso-publicada .btn-publish { padding: 8px 18px; font-size: 0.85rem; }
+
+/* Insignia "Beta": respuestas del modelo propio de Oniria */
+.insignia-beta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0 0 8px;
+    padding: 3px 11px 3px 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    vertical-align: middle;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    /* Borde con degradado (violeta a rosa) y relleno suave que funciona en claro y oscuro */
+    background:
+        linear-gradient(color-mix(in srgb, var(--surface, #fff) 88%, #8b5cf6), color-mix(in srgb, var(--surface, #fff) 88%, #8b5cf6)) padding-box,
+        linear-gradient(120deg, #6c7bff, #a066f2 55%, #f06fb0) border-box;
+    box-shadow: 0 2px 10px rgba(160, 102, 242, 0.22);
+    cursor: help;
+}
+.insignia-beta .icono-xs { width: 12px; height: 12px; color: #a066f2; flex: none; }
+.insignia-beta-texto {
+    background: linear-gradient(120deg, #5b6cf0, #a066f2 55%, #e0589f);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.insignia-beta b { font-weight: 800; }
+
+
+/* Botón para pedir la interpretación sin responder las preguntas */
+.btn-ver-interpretacion {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(120deg, #6c7bff, #a066f2 55%, #f06fb0);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(160, 102, 242, 0.3);
+}
+.btn-ver-interpretacion .icono-xs { width: 14px; height: 14px; }
+.btn-ver-interpretacion:hover { filter: brightness(1.06); }
+.btn-ver-interpretacion:focus-visible { outline: 2px solid #a066f2; outline-offset: 2px; }
+.interpretacion-etiqueta + .insignia-beta { margin-left: 8px; }
+
+/* Aviso de servicio: Gemini saturado */
+.aviso-servicio {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--text-main, inherit);
+    background: color-mix(in srgb, var(--surface, #fff) 90%, #f5a524);
+    border: 1px solid color-mix(in srgb, #f5a524 55%, transparent);
+    border-radius: 14px;
+}
+.aviso-servicio .icono-xs { flex: none; width: 14px; height: 14px; margin-top: 2px; color: #d98e0b; }
+
+/* Párrafos con saltos de línea (lista de teléfonos de ayuda): una línea por recurso */
+.burbuja p.con-saltos { white-space: pre-line; line-height: 1.8; }
+
+/* Aviso al adjuntar imágenes */
+/* Opinión durante el chat */
+.opinion {
+    margin: 0 0 10px; padding: 9px 13px; font-size: 0.82rem; border-radius: 14px;
+    background-color: var(--surface); border: 1px solid var(--border-color);
+}
+.opinion-fila { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.opinion-fila[hidden], .opinion-caja[hidden], .opinion-gracias[hidden], .opinion-error[hidden] { display: none; }
+.opinion-pregunta { font-weight: 600; }
+.opinion-caritas { display: inline-flex; gap: 2px; }
+.opinion-carita {
+    font-size: 1.25rem; line-height: 1; padding: 4px 6px; background: transparent; border: 2px solid transparent;
+    border-radius: 999px; cursor: pointer; filter: grayscale(0.6); transition: transform .12s, filter .12s;
+}
+.opinion-carita:hover, .opinion-carita:focus-visible { transform: scale(1.18); filter: none; }
+.opinion-carita.activa { filter: none; border-color: #a066f2; background: color-mix(in srgb, #a066f2 14%, transparent); }
+.opinion-enlace, .opinion-cancelar {
+    font: inherit; font-size: 0.8rem; background: none; border: 0; padding: 2px 4px; cursor: pointer;
+    color: var(--color-accent, #7c4ddb); text-decoration: underline;
+}
+.opinion-caja { margin-top: 8px; }
+.opinion-texto {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 0.85rem; padding: 8px 10px; resize: vertical;
+    color: inherit; background: var(--surface-2, transparent); border: 1px solid var(--border-color); border-radius: 10px;
+}
+.opinion-acciones { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.opinion-enviar {
+    font: inherit; font-size: 0.82rem; font-weight: 700; color: #fff; padding: 7px 16px; border: 0; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(120deg, #6c7bff, #a066f2 55%, #f06fb0);
+}
+.opinion-enviar:disabled { opacity: .6; cursor: default; }
+.opinion-gracias { margin: 0; font-weight: 600; }
+.opinion-apoyo { display: block; margin-top: 8px; font-weight: 400; white-space: pre-line; line-height: 1.7; }
+.opinion-error { margin: 6px 0 0; color: #c0392b; }
