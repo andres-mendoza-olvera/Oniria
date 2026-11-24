@@ -113,6 +113,34 @@ function evaluarRiesgo(sueno = '', respuestas = '') {
     return { riesgo: motivos.length > 0, motivos };
 }
 
+// ------------------------------------------------- segundo nivel: "cuidado"
+// Ideación PASIVA: no dice "me quiero matar", pero expresa cansancio de vivir o ganas de desaparecer,
+// aunque sea dentro del relato de un sueño ("pensé que sería agradable dejar de estar allí",
+// "estaba cansado de tener que continuar", "que nadie notara mi ausencia").
+// Respuesta: mensaje de cuidado (más suave que el de crisis), sin que intervenga ninguna IA.
+// Lo que le pasa a OTRAS personas o a personajes del sueño ("mi abuelo quería morir") no cuenta.
+const CONTINUAR_SIN_OBJETO = String.raw`(?! (?:con|corriendo|caminando|esperando|trabajando|estudiando|haciendo|discutiendo|peleando|buscando|intentando|`
+    + String.raw`insistiendo|escribiendo|leyendo|viendo|jugando|manejando|subiendo|bajando|el|la|los|las|este|esta|ese|esa|mi|mis|tu|un|una|asi))`;
+const CUIDADO = [
+    ['cansado_de_continuar', new RegExp(String.raw`\b(?:cansad[oa]|harto|harta|agotad[oa]|fatigad[oa]) de (?:tener que )?(?:continuar|seguir|luchar)\b${CONTINUAR_SIN_OBJETO}`)],
+    ['cansado_de_vivir', /\b(?:cansad[oa]|harto|harta|agotad[oa]|fatigad[oa]) de (?:tener que )?(?:vivir|existir)\b(?! (?:aqui|alli|en (?:esta|esa|este|ese) (?:ciudad|casa|pais|barrio|departamento)|con (?:mis|mi|tanto|ruido)))/],
+    ['dejar_de_existir', /\bdejar de (?:existir|respirar)\b|\bdejar de estar (?:alli|aqui|ahi|en este mundo|en el mundo|presente)\b/],
+    ['nadie_notara_ausencia', /\bnadie (?:notara|notaria|se dara cuenta de|se daria cuenta de|se enterara de|se enteraria de) (?:mi )?(?:ausencia|que (?:ya )?no estoy|que me (?:fui|voy|vaya))\b/],
+    ['desear_desaparecer', /\b(?:quisiera|queria|quiero|me gustaria|desearia|seria (?:agradable|lindo|bonito|un alivio|un descanso|mejor)) (?:simplemente |solo |solamente )?(?:desaparecer(?! (?:del mapa|de las redes|de redes|un rato|un tiempo|por (?:unos|un)|unos dias|de aqui un))|no existir|no estar aqui|no estar alli|dejar de ser)\b/],
+    ['no_seguir_adelante', /\b(?:ya )?no quiero (?:seguir|continuar) (?:adelante|asi|con mi vida|con todo|con nada)\b/],
+    ['sin_fuerzas_para_vivir', /\bno (?:tengo|me quedan) (?:fuerzas|ganas|energia) (?:para|de) (?:seguir|continuar|vivir)\b(?! (?:con|el|la|los|las|este|esta|trabajando|estudiando))/],
+    ['que_todo_pare', /\b(?:quiero|queria|quisiera) que (?:el tiempo|todo|la vida) (?:se detuviera|se detenga|parara|pare|dejara de avanzar|dejara de seguir)\b.{0,80}\b(?:nadie|ausencia|desaparec|dejar de estar)\b/]
+];
+
+// Devuelve { cuidado: boolean, motivos }. Se usa SOLO si evaluarRiesgo no detectó crisis explícita.
+function evaluarCuidado(sueno = '', respuestas = '') {
+    let texto = normalizarTexto(`${sueno} . ${respuestas || ''}`);
+    texto = texto.replace(MODISMO, ' modismo ');
+    for (const [patron, reemplazo] of VARIANTES) texto = texto.replace(patron, reemplazo);
+    const motivos = CUIDADO.filter(([, patron]) => patron.test(texto)).map(([nombre]) => nombre);
+    return { cuidado: motivos.length > 0, motivos };
+}
+
 // ----------------------------------------------------------- respuesta fija
 // REVISAR CON UN PROFESIONAL DE SALUD MENTAL antes de publicar.
 const MENSAJE_CRISIS = 'Gracias por contarme esto, de verdad. Lo que cuentas es más importante que cualquier '
@@ -121,6 +149,14 @@ const MENSAJE_CRISIS = 'Gracias por contarme esto, de verdad. Lo que cuentas es 
     + 'confianza o con un profesional de salud mental. Si sientes que podrías hacerte daño pronto '
     + 'o estás en peligro, contacta de inmediato a los servicios de emergencia de tu país o a una '
     + 'línea de ayuda; abajo encontrarás recursos. Aquí sigo contigo.';
+
+// REVISAR CON UN PROFESIONAL DE SALUD MENTAL antes de publicar.
+const MENSAJE_CUIDADO = 'Gracias por contarme este sueño. Antes de interpretarlo quiero detenerme en algo: lo que escribes habla de '
+    + 'mucho cansancio y de ganas de desaparecer o de que nadie lo note. Eso me importa más que cualquier interpretación. '
+    + 'Si algo de eso lo sientes también cuando estás despierto, no tienes que cargarlo solo: hablar con alguien de confianza '
+    + 'o con un profesional puede ayudar. Si en algún momento sientes que podrías hacerte daño, contacta de inmediato a '
+    + 'emergencias; abajo hay líneas que atienden. Si solo quieres que miremos el sueño, cuéntame cómo te sentiste al '
+    + 'despertar y seguimos con calma.';
 
 // VERIFICAR que los teléfonos sigan vigentes antes de publicar.
 const RECURSOS = {
@@ -142,7 +178,7 @@ function textoCrisis(pais = 'MX', mensaje = MENSAJE_CRISIS) {
     return `${mensaje}\n\n${lineas.join('\n')}`;
 }
 
-module.exports = { evaluarRiesgo, normalizarTexto, textoCrisis, recursosPara, MENSAJE_CRISIS, RECURSOS };
+module.exports = { evaluarRiesgo, evaluarCuidado, normalizarTexto, textoCrisis, recursosPara, MENSAJE_CRISIS, MENSAJE_CUIDADO, RECURSOS };
 
 // ------------------------------------------------------------------ pruebas
 if (require.main === module) {
@@ -216,5 +252,44 @@ if (require.main === module) {
         if (r.riesgo) { console.log(`  FALLO (no debía alertar): ${t} -> ${r.motivos}`); fallos++; }
     }
     console.log(`Frases de prueba: ${DEBE_ALERTAR.length} deben alertar, ${NO_DEBE_ALERTAR.length} no. Fallos: ${fallos}`);
+
+    // ---- segundo nivel: cuidado (ideación pasiva)
+    const DEBE_CUIDAR = [
+        'Soñé que estaba en una estación vacía. Pensé que sería agradable simplemente dejar de estar allí. No tenía miedo, estaba cansado de tener que continuar. Solo quería que el tiempo dejara de avanzar y que nadie notara mi ausencia.',
+        'Estaba cansada de seguir y quería desaparecer.',
+        'Sentía que nadie notaría mi ausencia si no estuviera.',
+        'Quisiera dejar de existir un rato.',
+        'Ya no quiero seguir adelante.',
+        'No tengo fuerzas para seguir.',
+        'Estoy harto de tener que vivir así.',
+        'Quisiera desaparecer, simplemente no existir.'
+    ];
+    const NO_DEBE_CUIDAR = [
+        'Soñé que corría por un bosque y estaba cansado de seguir corriendo, pero llegué a una casa.',
+        'Estoy cansada de seguir con este trabajo, quiero cambiar de empleo.',
+        'Soñé que mi abuelo quería morir y yo se lo impedía.',
+        'Soñé que dejaba de estar en la escuela y me daba alegría.',
+        'Quiero dejar de estar triste, ¿qué puedo hacer?',
+        'Soñé que el tiempo se detenía y yo podía volar sobre la ciudad.',
+        'Voy a desaparecer un tiempo de las redes.',
+        'Soñé que me escondía y nadie notaba mi presencia, fue divertido.',
+        'No quiero seguir con esta tarea, es muy larga.',
+        'Estaba cansado de seguir esperando el autobús.',
+        'Soñé que estaba en mi casa y cayeron bombas del cielo.',
+        'Soñé que explotaba la luna y desperté.',
+        'No tengo ganas de seguir estudiando esta noche.',
+        'Me gustaría desaparecer del mapa en vacaciones, irme a una playa.'
+    ];
+    let fallosCuidado = 0;
+    for (const t of DEBE_CUIDAR) {
+        if (!evaluarCuidado(t).cuidado) { console.log(`  FALLO (debía cuidar): ${t.slice(0, 70)}`); fallosCuidado++; }
+    }
+    for (const t of NO_DEBE_CUIDAR) {
+        const r = evaluarCuidado(t);
+        if (r.cuidado) { console.log(`  FALLO (no debía cuidar): ${t} -> ${r.motivos}`); fallosCuidado++; }
+    }
+    // El primer nivel no cambia: ninguna frase de cuidado debe quedar fuera de revisión, y las de crisis siguen siendo crisis
+    console.log(`Cuidado: ${DEBE_CUIDAR.length} deben activarlo, ${NO_DEBE_CUIDAR.length} no. Fallos: ${fallosCuidado}`);
+    fallos += fallosCuidado;
     process.exit(fallos ? 1 : 0);
 }

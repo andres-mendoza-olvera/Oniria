@@ -1023,6 +1023,13 @@ function resumenConversacion(c, { conMensajes = false } = {}) {
     };
 }
 
+// Segundo nivel: la persona expresa cansancio de vivir o ganas de desaparecer sin decirlo de forma explícita.
+// Mensaje de cuidado fijo, sin IA y sin guardar nada. (Misma forma que la respuesta de crisis.)
+function respuestaDeCuidado(motivos) {
+    console.log(`[seguridad] cuidado: ${motivos.join(',')}`);
+    return { mensaje: { rol: 'ia', texto: seguridad.textoCrisis('MX', seguridad.MENSAJE_CUIDADO), crisis: true }, conversacion: null };
+}
+
 // Primer mensaje: interpretar el sueño, crear su imagen y guardar la conversación
 // Si la persona habla de hacerse daño: mensaje fijo de apoyo con recursos. No se llama a ninguna
 // IA, no se guarda nada y en el registro solo queda el nombre del patrón (nunca el texto).
@@ -1039,6 +1046,8 @@ function respuestaDeCrisis(motivos, mensajeDelModelo) {
 async function primerTurno(idUsuario, texto, imagenes) {
     const riesgo = seguridad.evaluarRiesgo(texto);
     if (riesgo.riesgo) return respuestaDeCrisis(riesgo.motivos);
+    const cuidado = seguridad.evaluarCuidado(texto);
+    if (cuidado.cuidado) return respuestaDeCuidado(cuidado.motivos);
 
     const memorias = await memoriasParaIA(idUsuario);
 
@@ -1198,6 +1207,8 @@ async function interpretarConOniria(c, texto) {
 async function siguienteTurno(c, texto, imagenes) {
     const riesgo = seguridad.evaluarRiesgo('', texto);
     if (riesgo.riesgo) return respuestaDeCrisis(riesgo.motivos);
+    const cuidado = seguridad.evaluarCuidado('', texto);
+    if (cuidado.cuidado) return respuestaDeCuidado(cuidado.motivos);
 
     if (c.motor === 'oniria' && c.fase_oniria === 'preguntas' && imagenes.length === 0 && oniria.disponible()) {
         const resultado = await interpretarConOniria(c, texto);
