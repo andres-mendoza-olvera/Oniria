@@ -98,7 +98,9 @@ function mensajeUsuario(texto, urlsImagenes) {
 
 // Etiqueta "Beta" para las respuestas del modelo propio de Oniria
 function insigniaBeta() {
-    return crear('span', { class: 'insignia-beta', title: 'Respuesta del modelo propio de Oniria, aún en pruebas', text: 'Beta' });
+    return crear('span', { class: 'insignia-beta', title: 'Respuesta de Oniria, nuestro modelo propio. Está en fase beta: puede equivocarse.' },
+        icono('destellos', 'icono-xs'),
+        crear('span', { class: 'insignia-beta-texto' }, 'Oniria ', crear('b', { text: 'Beta' })));
 }
 
 function mensajeIA(m) {

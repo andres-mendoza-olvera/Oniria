@@ -458,17 +458,33 @@
 .aviso-publicada > .icono { color: #1f9d55; }
 .aviso-publicada .btn-publish { padding: 8px 18px; font-size: 0.85rem; }
 
-/* Etiqueta "Beta": respuestas del modelo propio de Oniria */
+/* Insignia "Beta": respuestas del modelo propio de Oniria */
 .insignia-beta {
-    display: inline-block;
-    margin: 0 0 6px 8px;
-    padding: 1px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0 0 8px;
+    padding: 3px 11px 3px 8px;
     font-size: 0.68rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--color-accent);
-    border: 1px solid var(--color-accent);
-    border-radius: 999px;
+    line-height: 1.2;
     vertical-align: middle;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    /* Borde con degradado (violeta a rosa) y relleno suave que funciona en claro y oscuro */
+    background:
+        linear-gradient(color-mix(in srgb, var(--surface, #fff) 88%, #8b5cf6), color-mix(in srgb, var(--surface, #fff) 88%, #8b5cf6)) padding-box,
+        linear-gradient(120deg, #6c7bff, #a066f2 55%, #f06fb0) border-box;
+    box-shadow: 0 2px 10px rgba(160, 102, 242, 0.22);
+    cursor: help;
 }
+.insignia-beta .icono-xs { width: 12px; height: 12px; color: #a066f2; flex: none; }
+.insignia-beta-texto {
+    background: linear-gradient(120deg, #5b6cf0, #a066f2 55%, #e0589f);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.insignia-beta b { font-weight: 800; }
