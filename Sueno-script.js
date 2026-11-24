@@ -372,6 +372,7 @@ async function enviar() {
         estado.enviando = false;
         actualizarInterfaz();
         bajarAlFinal();
+        revisarEstadoIA();
     }
 }
 
@@ -482,6 +483,25 @@ async function pintarPendientes() {
 }
 
 // ---------------------------------------------------------
+// Aviso cuando Gemini (Google) está saturado: así no se culpa a la página ni a Oniria
+// ---------------------------------------------------------
+async function revisarEstadoIA() {
+    try {
+        const { gemini } = await api('/api/estado-ia');
+        let aviso = document.getElementById('aviso-servicio');
+        if (gemini === 'saturado' && !aviso) {
+            aviso = crear('div', { id: 'aviso-servicio', class: 'aviso-servicio', role: 'status' },
+                icono('destellos', 'icono-xs'),
+                crear('span', { text: 'Gemini (el servicio de Google que usamos para títulos, imágenes y clasificación) está saturado ahora mismo. '
+                    + 'No es un fallo de tu sueño ni de Oniria: puede tardar o fallar. Intenta de nuevo en unos minutos.' }));
+            form.before(aviso);
+        } else if (gemini !== 'saturado' && aviso) {
+            aviso.remove();
+        }
+    } catch { /* sin aviso si no se pudo consultar */ }
+}
+
+// ---------------------------------------------------------
 // Arranque: quién soy y si había un sueño en curso
 // ---------------------------------------------------------
 (async () => {
@@ -507,5 +527,6 @@ async function pintarPendientes() {
         mostrarError(err.message);
     }
     actualizarInterfaz();
+    revisarEstadoIA();
     textarea.focus();
 })();

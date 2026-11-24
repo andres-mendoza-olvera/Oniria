@@ -125,4 +125,8 @@ function etiquetasAEstadisticas(et) {
     return { emocion, tipo_sueno, tema: tema || 'otro' };
 }
 
-module.exports = { disponible, analizar, interpretar, quiereOmitir, textoAnalisis, etiquetasAEstadisticas };
+// ¿El modelo se negó a interpretar por falta de contexto? (pasa cuando la persona no responde las preguntas)
+const EVASIVA = /sin m[aá]s contexto|no puedo asegur|prefiero no (darle|dar|interpret)|no (tengo|cuento con|hay) (suficiente|m[aá]s) (contexto|informaci[oó]n)/i;
+const esEvasiva = (texto) => EVASIVA.test(String(texto || ''));
+
+module.exports = { disponible, analizar, interpretar, quiereOmitir, esEvasiva, textoAnalisis, etiquetasAEstadisticas };

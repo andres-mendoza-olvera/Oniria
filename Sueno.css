@@ -511,3 +511,19 @@
 .btn-ver-interpretacion:hover { filter: brightness(1.06); }
 .btn-ver-interpretacion:focus-visible { outline: 2px solid #a066f2; outline-offset: 2px; }
 .interpretacion-etiqueta + .insignia-beta { margin-left: 8px; }
+
+/* Aviso de servicio: Gemini saturado */
+.aviso-servicio {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--text-main, inherit);
+    background: color-mix(in srgb, var(--surface, #fff) 90%, #f5a524);
+    border: 1px solid color-mix(in srgb, #f5a524 55%, transparent);
+    border-radius: 14px;
+}
+.aviso-servicio .icono-xs { flex: none; width: 14px; height: 14px; margin-top: 2px; color: #d98e0b; }

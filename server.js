@@ -853,7 +853,25 @@ const MODELOS_GEMINI = (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest,ge
 
 // Pide a Gemini una respuesta en JSON, probando otros modelos si uno falla.
 // Se rinde a los 90 segundos para no dejar al usuario esperando para siempre.
-async function llamarGemini({ sistema, contents, esquema }) {
+// Para avisar en la página cuando Gemini (Google) está fallando, y que no se culpe a Oniria ni al sueño
+const estadoIA = { geminiOk: 0, geminiFallo: 0 };
+const geminiSaturado = () => estadoIA.geminiFallo > estadoIA.geminiOk && Date.now() - estadoIA.geminiFallo < 5 * 60 * 1000;
+const MENSAJE_GEMINI_CAIDO = 'Gemini, el servicio de Google que usamos para el título, la imagen y la clasificación de tu sueño, '
+    + 'está saturado en este momento. No es un problema de tu sueño ni de Oniria: tu texto no se perdió. Intenta de nuevo en unos minutos.';
+
+async function llamarGemini(args) {
+    try {
+        const r = await llamarGeminiConReintentos(args);
+        estadoIA.geminiOk = Date.now();
+        return r;
+    } catch (err) {
+        estadoIA.geminiFallo = Date.now();
+        err.origenGemini = true;
+        throw err;
+    }
+}
+
+async function llamarGeminiConReintentos({ sistema, contents, esquema }) {
     const limite = Date.now() + 90000;
     let ultimoError;
     for (let vuelta = 0; vuelta < 2; vuelta++) {
@@ -1128,8 +1146,9 @@ async function primerTurno(idUsuario, texto, imagenes) {
 // Devuelve la respuesta lista, o null si no se pudo (entonces sigue Gemini).
 async function interpretarConOniria(c, texto) {
     let o;
+    const omitio = oniria.quiereOmitir(texto);
     try {
-        o = await oniria.interpretar(c.relato, oniria.quiereOmitir(texto) ? null : texto);
+        o = await oniria.interpretar(c.relato, omitio ? null : texto);
     } catch (err) {
         console.warn(`Oniria (beta) no respondió: ${err.message}`);
         return null;
@@ -1137,6 +1156,13 @@ async function interpretarConOniria(c, texto) {
     if (o?.ok && o.alerta === 'atencion') return respuestaDeCrisis(['modelo'], o.mensaje);
     if (!o?.ok || o.alerta !== 'ninguna' || !o.interpretacion) {
         console.warn('Oniria (beta) no dio una interpretación válida; se usa Gemini.');
+        return null;
+    }
+
+    // Si la persona no respondió y el modelo se negó a interpretar ("sin más contexto no puedo..."),
+    // esa respuesta no sirve: sigue Gemini con una instrucción explícita (ver siguienteTurno)
+    if (omitio && oniria.esEvasiva(o.interpretacion)) {
+        console.log('[sueño] Oniria no quiso interpretar sin contexto; se usa Gemini');
         return null;
     }
 
@@ -1179,7 +1205,11 @@ async function siguienteTurno(c, texto, imagenes) {
     }
 
     const primeraNueva = c.imagenes.length;
-    const textoTurno = texto || '(Te comparto esta imagen de mi sueño.)';
+    // "Omitir" tras las preguntas de Oniria: Gemini debe interpretar con lo que ya hay, no contestar "ok"
+    const pidioInterpretacion = c.motor === 'oniria' && c.fase_oniria === 'preguntas' && texto.trim() !== '' && oniria.quiereOmitir(texto);
+    const textoTurno = pidioInterpretacion
+        ? '(Prefiero no responder las preguntas. Con lo que te conté, dame tu interpretación del sueño: lo que sí se puede leer, dicho como posibilidades y sin exagerar.)'
+        : texto || '(Te comparto esta imagen de mi sueño.)';
 
     const [memorias, recuerdoActual] = await Promise.all([
         memoriasParaIA(c.id_usuario, c.id_conversacion),
@@ -1284,6 +1314,11 @@ app.get('/api/conversaciones/:id', requiereSesionApi, async (req, res) => {
 
 // Mandar un mensaje (texto y/o imágenes) a la IA.
 // Sin "conversacion" empieza una nueva; con "conversacion" sigue esa.
+// ¿Gemini está fallando ahora mismo? La página lo usa para mostrar un aviso.
+app.get('/api/estado-ia', requiereSesionApi, (req, res) => {
+    res.json({ gemini: geminiSaturado() ? 'saturado' : 'ok' });
+});
+
 app.post('/api/sueno/mensaje', requiereSesionApi, recibirImagenesChat, async (req, res) => {
     const idUsuario = req.session.idUsuario;
     const texto = String(req.body.texto || '').trim().slice(0, 2000);
@@ -1323,6 +1358,7 @@ app.post('/api/sueno/mensaje', requiereSesionApi, recibirImagenesChat, async (re
         res.json(c ? await siguienteTurno(c, texto, imagenes) : await primerTurno(idUsuario, texto, imagenes));
     } catch (err) {
         console.error('Error en el chat del sueño:', err.message);
+        if (err.origenGemini) return res.status(503).json({ error: MENSAJE_GEMINI_CAIDO, origen: 'gemini' });
         res.status(502).json({ error: 'Oniria no pudo responder en este momento. Intenta de nuevo en unos segundos.' });
     } finally {
         ocupados.delete(llave);
