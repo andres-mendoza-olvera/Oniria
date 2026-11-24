@@ -530,3 +530,47 @@
 
 /* Párrafos con saltos de línea (lista de teléfonos de ayuda): una línea por recurso */
 .burbuja p.con-saltos { white-space: pre-line; line-height: 1.8; }
+
+/* Aviso al adjuntar imágenes */
+.aviso-imagenes {
+    display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; padding: 9px 13px;
+    font-size: 0.8rem; line-height: 1.45; color: var(--text-main, inherit);
+    background: color-mix(in srgb, var(--surface, #fff) 92%, #8b5cf6);
+    border: 1px solid color-mix(in srgb, #a066f2 40%, transparent); border-radius: 14px;
+}
+.aviso-imagenes[hidden] { display: none; }
+.aviso-imagenes .icono-xs { flex: none; width: 14px; height: 14px; margin-top: 2px; color: #a066f2; }
+
+/* Opinión durante el chat */
+.opinion {
+    margin: 0 0 10px; padding: 9px 13px; font-size: 0.82rem; border-radius: 14px;
+    background-color: var(--surface); border: 1px solid var(--border-color);
+}
+.opinion-fila { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.opinion-fila[hidden], .opinion-caja[hidden], .opinion-gracias[hidden], .opinion-error[hidden] { display: none; }
+.opinion-pregunta { font-weight: 600; }
+.opinion-caritas { display: inline-flex; gap: 2px; }
+.opinion-carita {
+    font-size: 1.25rem; line-height: 1; padding: 4px 6px; background: transparent; border: 2px solid transparent;
+    border-radius: 999px; cursor: pointer; filter: grayscale(0.6); transition: transform .12s, filter .12s;
+}
+.opinion-carita:hover, .opinion-carita:focus-visible { transform: scale(1.18); filter: none; }
+.opinion-carita.activa { filter: none; border-color: #a066f2; background: color-mix(in srgb, #a066f2 14%, transparent); }
+.opinion-enlace, .opinion-cancelar {
+    font: inherit; font-size: 0.8rem; background: none; border: 0; padding: 2px 4px; cursor: pointer;
+    color: var(--color-accent, #7c4ddb); text-decoration: underline;
+}
+.opinion-caja { margin-top: 8px; }
+.opinion-texto {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 0.85rem; padding: 8px 10px; resize: vertical;
+    color: inherit; background: var(--surface-2, transparent); border: 1px solid var(--border-color); border-radius: 10px;
+}
+.opinion-acciones { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.opinion-enviar {
+    font: inherit; font-size: 0.82rem; font-weight: 700; color: #fff; padding: 7px 16px; border: 0; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(120deg, #6c7bff, #a066f2 55%, #f06fb0);
+}
+.opinion-enviar:disabled { opacity: .6; cursor: default; }
+.opinion-gracias { margin: 0; font-weight: 600; }
+.opinion-apoyo { display: block; margin-top: 8px; font-weight: 400; white-space: pre-line; line-height: 1.7; }
+.opinion-error { margin: 6px 0 0; color: #c0392b; }

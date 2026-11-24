@@ -30,7 +30,8 @@ const estado = {
     yo: null,          // { idUsuario, apodo }
     borrador: null,    // la conversación en curso: { id, titulo, relato, interpretacion, imagenIA, imagenes[], publicada }
     adjuntos: [],      // imágenes elegidas que aún no se envían: { archivo, url }
-    enviando: false
+    enviando: false,
+    oniriaActivo: false // el modelo propio (beta) está encendido y disponible: sus respuestas tardan 1-4 min
 };
 
 // ---------------------------------------------------------
@@ -161,12 +162,16 @@ function mensajeIA(m) {
     return li;
 }
 
-function mensajeEscribiendo(primero) {
+function mensajeEscribiendo(primero, lenta = false) {
+    // "lenta" = responde el modelo propio de Oniria, que tarda de 1 a 4 minutos
+    const texto = lenta
+        ? 'Oniria está leyendo tu sueño con calma. Puede tardar de 1 a 4 minutos; no cierres esta página.'
+        : primero ? 'Interpretando tu sueño y creando su imagen…' : 'Pensando…';
     return crear('li', { class: 'mensaje ia', id: 'escribiendo' },
         crear('div', { class: 'bot-avatar chico', 'aria-hidden': 'true' }, icono('destellos')),
         crear('div', { class: 'burbuja escribiendo-burbuja' },
             crear('span', { class: 'puntos' }, crear('span'), crear('span'), crear('span')),
-            primero ? 'Interpretando tu sueño y creando su imagen…' : 'Pensando…'
+            texto
         )
     );
 }
@@ -214,7 +219,16 @@ async function prepararImagen(archivo) {
     }
 }
 
+// Aviso al adjuntar imágenes: el modelo propio todavía no lee imágenes
+const avisoImagenes = crear('p', { id: 'aviso-imagenes', class: 'aviso-imagenes', role: 'note', hidden: true },
+    icono('destellos', 'icono-xs'),
+    crear('span', { text: 'Oniria está en desarrollo y aún no cuenta con un modelo especializado en leer imágenes, '
+        + 'por lo que puede equivocarse al interpretarlas. Cuéntanos también tu sueño con palabras: ayuda mucho.' }));
+avisoImagenes.hidden = true;
+contenedorAdjuntos.before(avisoImagenes);
+
 function pintarAdjuntos() {
+    avisoImagenes.hidden = estado.adjuntos.length === 0;
     contenedorAdjuntos.replaceChildren(...estado.adjuntos.map((adjunto, i) =>
         crear('div', { class: 'adjunto' },
             crear('img', { src: adjunto.url, alt: `Imagen adjunta ${i + 1}` }),
@@ -342,7 +356,10 @@ async function enviar() {
     const esPrimero = !estado.borrador;
     const burbujaUsuario = mensajeUsuario(texto, adjuntos.map((a) => a.url));
     listaMensajes.append(burbujaUsuario);
-    const escribiendo = mensajeEscribiendo(esPrimero);
+    // Con el modelo propio (y sin imágenes) las respuestas de las dos primeras vueltas tardan minutos
+    const turnosPrevios = listaMensajes.querySelectorAll('.mensaje.usuario').length;
+    const lenta = estado.oniriaActivo && adjuntos.length === 0 && (esPrimero || (estado.borrador?.motor === 'oniria' && turnosPrevios === 1));
+    const escribiendo = mensajeEscribiendo(esPrimero, lenta);
     listaMensajes.append(escribiendo);
     textarea.value = '';
     ajustarAltura();
@@ -361,6 +378,7 @@ async function enviar() {
             if (esPrimero) history.replaceState(null, '', `/sueno?c=${conversacion.id}`);
         }
         escribiendo.replaceWith(mensajeIA(mensaje));
+        mostrarOpinion();
     } catch (err) {
         // Regresamos el texto y las imágenes para que pueda intentarlo otra vez
         escribiendo.remove();
@@ -485,11 +503,70 @@ async function pintarPendientes() {
 }
 
 // ---------------------------------------------------------
+// Opinión durante el chat: "¿Cómo ha sido tu experiencia hasta ahora?" + comentario opcional
+// ---------------------------------------------------------
+const CARITAS = [[1, '😞', 'Muy mal'], [2, '🙁', 'Mal'], [3, '😐', 'Regular'], [4, '🙂', 'Bien'], [5, '😍', 'Excelente']];
+
+function crearOpinion() {
+    let valoracion = null;
+    const caja = crear('div', { class: 'opinion-caja', hidden: true });
+    const texto = crear('textarea', { class: 'opinion-texto', rows: '3', maxlength: '1000', 'aria-label': 'Tu comentario',
+        placeholder: 'Cuéntanos qué te gustó o qué podría mejorar (opcional si ya elegiste una carita)…' });
+    const gracias = crear('p', { class: 'opinion-gracias', role: 'status', hidden: true });
+    const error = crear('p', { class: 'opinion-error', role: 'alert', hidden: true });
+    const botones = CARITAS.map(([valor, emoji, nombre]) => crear('button', {
+        type: 'button', class: 'opinion-carita', 'aria-label': nombre, 'aria-pressed': 'false', title: nombre,
+        onclick: () => {
+            valoracion = valoracion === valor ? null : valor;
+            botones.forEach((b, i) => { const activo = CARITAS[i][0] === valoracion; b.setAttribute('aria-pressed', String(activo)); b.classList.toggle('activa', activo); });
+            caja.hidden = false;
+        }
+    }, emoji));
+    const enviarBtn = crear('button', { type: 'button', class: 'opinion-enviar', text: 'Enviar opinión' });
+    const fila = crear('div', { class: 'opinion-fila' },
+        crear('span', { class: 'opinion-pregunta', text: '¿Cómo ha sido tu experiencia hasta ahora?' }),
+        crear('span', { class: 'opinion-caritas', role: 'group', 'aria-label': 'Valora tu experiencia' }, ...botones),
+        crear('button', { type: 'button', class: 'opinion-enlace', text: 'Dejar un comentario', onclick: () => { caja.hidden = false; texto.focus(); } }));
+    const cuadro = crear('div', { id: 'opinion', class: 'opinion' }, fila, caja, error, gracias);
+    caja.append(texto, crear('div', { class: 'opinion-acciones' }, enviarBtn,
+        crear('button', { type: 'button', class: 'opinion-cancelar', text: 'Cancelar', onclick: () => { caja.hidden = true; } })));
+
+    enviarBtn.addEventListener('click', async () => {
+        error.hidden = true;
+        const comentario = texto.value.trim();
+        if (valoracion === null && !comentario) { error.textContent = 'Elige una carita o escribe un comentario.'; error.hidden = false; return; }
+        enviarBtn.disabled = true;
+        try {
+            const r = await api('/api/opiniones', { method: 'POST',
+                body: JSON.stringify({ conversacion: estado.borrador?.id || null, valoracion, comentario }) });
+            gracias.replaceChildren(crear('span', { text: '¡Gracias por tu opinión! Nos ayuda a mejorar Oniria. 💜' }));
+            if (r.apoyo) gracias.append(crear('span', { class: 'opinion-apoyo', text: r.apoyo }));
+            gracias.hidden = false; fila.hidden = true; caja.hidden = true;
+            texto.value = ''; valoracion = null; botones.forEach((b) => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('activa'); });
+            // Vuelve a aparecer más tarde por si quiere decir algo más
+            setTimeout(() => { gracias.hidden = true; fila.hidden = false; }, r.apoyo ? 60000 : 8000);
+        } catch (err) {
+            error.textContent = err.message; error.hidden = false;
+        } finally {
+            enviarBtn.disabled = false;
+        }
+    });
+    return cuadro;
+}
+
+// Se muestra solo cuando ya hay una conversación con respuesta de la IA
+function mostrarOpinion() {
+    if (!estado.borrador || document.getElementById('opinion')) return;
+    form.before(crearOpinion());
+}
+
+// ---------------------------------------------------------
 // Aviso cuando Gemini (Google) está saturado: así no se culpa a la página ni a Oniria
 // ---------------------------------------------------------
 async function revisarEstadoIA() {
     try {
-        const { gemini } = await api('/api/estado-ia');
+        const { gemini, oniria } = await api('/api/estado-ia');
+        estado.oniriaActivo = Boolean(oniria);
         let aviso = document.getElementById('aviso-servicio');
         if (gemini === 'saturado' && !aviso) {
             aviso = crear('div', { id: 'aviso-servicio', class: 'aviso-servicio', role: 'status' },
@@ -521,6 +598,7 @@ async function revisarEstadoIA() {
             estado.borrador = resumen;
             document.title = `${resumen.titulo || 'Tu sueño'} - Oniria`;
             pintarConversacion(mensajes);
+            if (mensajes.some((m) => m.rol === 'ia')) mostrarOpinion();
             bajarAlFinal();
         } else {
             pintarPendientes();

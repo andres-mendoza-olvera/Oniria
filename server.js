@@ -1346,7 +1346,47 @@ app.get('/api/conversaciones/:id', requiereSesionApi, async (req, res) => {
 // Sin "conversacion" empieza una nueva; con "conversacion" sigue esa.
 // ¿Gemini está fallando ahora mismo? La página lo usa para mostrar un aviso.
 app.get('/api/estado-ia', requiereSesionApi, (req, res) => {
-    res.json({ gemini: geminiSaturado() ? 'saturado' : 'ok' });
+    res.json({ gemini: geminiSaturado() ? 'saturado' : 'ok', oniria: oniria.disponible() });
+});
+
+// Opiniones sobre la experiencia (valoración de 1 a 5 y/o comentario), también durante el chat
+const MAX_OPINIONES_DIA = 30;
+app.post('/api/opiniones', requiereSesionApi, async (req, res) => {
+    const idUsuario = req.session.idUsuario;
+    const bruta = req.body.valoracion;
+    const valoracion = bruta === undefined || bruta === null || bruta === '' ? null : Number(bruta);
+    const comentario = String(req.body.comentario || '').trim().slice(0, 1000);
+    if (valoracion !== null && !(Number.isInteger(valoracion) && valoracion >= 1 && valoracion <= 5)) {
+        return res.status(400).json({ error: 'La valoración debe ser de 1 a 5.' });
+    }
+    if (valoracion === null && !comentario) return res.status(400).json({ error: 'Elige una carita o escribe un comentario.' });
+    try {
+        let idConversacion = null;
+        let motor = null;
+        if (req.body.conversacion) {
+            const c = await miConversacion(idValido(req.body.conversacion), idUsuario);
+            if (!c) return res.status(404).json({ error: 'Esa conversación no existe o ya se eliminó.' });
+            idConversacion = c.id_conversacion;
+            motor = c.motor || 'gemini';
+        }
+        const hoy = (await db.query(
+            "SELECT COUNT(*)::int AS n FROM opiniones WHERE id_usuario = $1 AND creado_en > NOW() - INTERVAL '24 hours'", [idUsuario]
+        )).rows[0].n;
+        if (hoy >= MAX_OPINIONES_DIA) return res.status(429).json({ error: 'Ya nos dejaste muchas opiniones hoy. ¡Gracias! Vuelve mañana.' });
+        await db.query(
+            'INSERT INTO opiniones (id_usuario, id_conversacion, motor, valoracion, comentario) VALUES ($1, $2, $3, $4, $5)',
+            [idUsuario, idConversacion, motor, valoracion, comentario || null]
+        );
+        // Si en el comentario hay señales de riesgo, se le responde con cuidado (igual que en el chat)
+        const riesgo = comentario ? seguridad.evaluarRiesgo('', comentario) : { riesgo: false };
+        const cuidado = comentario && !riesgo.riesgo ? seguridad.evaluarCuidado('', comentario) : { cuidado: false };
+        const apoyo = riesgo.riesgo ? seguridad.textoCrisis('MX')
+            : cuidado.cuidado ? seguridad.textoCrisis('MX', seguridad.MENSAJE_CUIDADO) : null;
+        res.status(201).json({ ok: true, apoyo });
+    } catch (err) {
+        console.error('Error guardando la opinión:', err.message);
+        res.status(500).json({ error: 'No se pudo guardar tu opinión. Intenta de nuevo.' });
+    }
 });
 
 app.post('/api/sueno/mensaje', requiereSesionApi, recibirImagenesChat, async (req, res) => {

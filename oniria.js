@@ -9,7 +9,7 @@
 //   ONIRIA_ACTIVO=1        enciende la beta (vacío o 0 = todo sigue con Gemini)
 //   ONIRIA_URL             dirección de la API, p. ej. http://127.0.0.1:8000 o la URL del túnel
 //   ONIRIA_API_KEY         la misma clave que se puso en la API del modelo (ONIRIA_API_KEY)
-//   ONIRIA_TIMEOUT_MS      tiempo máximo de espera por llamada (por defecto 90000)
+//   ONIRIA_TIMEOUT_MS      tiempo máximo de espera por llamada (por defecto 300000 = 5 min; el modelo tarda de 1 a 4)
 //
 // Si el modelo no responde (PC apagada, túnel caído, error), se devuelve null/lanza error y
 // el servidor sigue con Gemini sin que la persona note nada. Tras una caída, no se vuelve a
@@ -17,7 +17,7 @@
 // =========================================================
 const URL_BASE = (process.env.ONIRIA_URL || '').replace(/\/+$/, '');
 const CLAVE = process.env.ONIRIA_API_KEY || '';
-const TIMEOUT_MS = Number(process.env.ONIRIA_TIMEOUT_MS) || 90000;
+const TIMEOUT_MS = Number(process.env.ONIRIA_TIMEOUT_MS) || 300000;
 const ACTIVO = process.env.ONIRIA_ACTIVO === '1' && Boolean(URL_BASE);
 const PAUSA_TRAS_CAIDA_MS = 60000;
 
