@@ -129,6 +129,10 @@ const CUIDADO = [
     ['desear_desaparecer', /\b(?:quisiera|queria|quiero|me gustaria|desearia|seria (?:agradable|lindo|bonito|un alivio|un descanso|mejor)) (?:simplemente |solo |solamente )?(?:desaparecer(?! (?:del mapa|de las redes|de redes|un rato|un tiempo|por (?:unos|un)|unos dias|de aqui un))|no existir|no estar aqui|no estar alli|dejar de ser)\b/],
     ['no_seguir_adelante', /\b(?:ya )?no quiero (?:seguir|continuar) (?:adelante|asi|con mi vida|con todo|con nada)\b/],
     ['sin_fuerzas_para_vivir', /\bno (?:tengo|me quedan) (?:fuerzas|ganas|energia) (?:para|de) (?:seguir|continuar|vivir)\b(?! (?:con|el|la|los|las|este|esta|trabajando|estudiando))/],
+    ['calma_ante_desaparecer', /\b(?:calma|paz|tranquilidad|alivio) (?:ante|con|al pensar en) (?:la idea de )?(?:desaparecer|no estar|no existir|irme para siempre)\b/],
+    ['dudar_si_notarian', /\b(?:me pregunto|me pregunta|dudo|me da curiosidad|pienso|me cuestiono) (?:si )?(?:realmente |de verdad |acaso )?(?:notarian|extranarian|se darian cuenta de|les importaria|le importaria a alguien) (?:mi |que |si )?(?:ausencia|no estoy|no estuviera|me fuera|desapareciera)/],
+    ['dudar_que_alguien_note', /\b(?:dudo que|no creo que|no se si) (?:alguien|nadie|la gente|mi familia|mis amigos) (?:notaria|notara|notase|extranaria|extranara|se daria cuenta de|se diera cuenta de|se enteraria de) (?:mi |que )?(?:ausencia|no estoy|no estuviera|me fuera|desapareciera)/],
+    ['vidas_igual_sin_mi', /\b(?:sus|las|la|el mundo|todo) (?:vidas? )?(?:continuarian|seguirian|seguiria|continuaria) (?:exactamente )?igual sin mi\b/],
     ['que_todo_pare', /\b(?:quiero|queria|quisiera) que (?:el tiempo|todo|la vida) (?:se detuviera|se detenga|parara|pare|dejara de avanzar|dejara de seguir)\b.{0,80}\b(?:nadie|ausencia|desaparec|dejar de estar)\b/]
 ];
 
@@ -262,7 +266,10 @@ if (require.main === module) {
         'Ya no quiero seguir adelante.',
         'No tengo fuerzas para seguir.',
         'Estoy harto de tener que vivir así.',
-        'Quisiera desaparecer, simplemente no existir.'
+        'Quisiera desaparecer, simplemente no existir.',
+        'Me pregunto si realmente notarían mi ausencia o si sus vidas continuarían exactamente igual sin mí.',
+        'No sentí enojo, sino cierta calma ante la idea de desaparecer.',
+        'Dudo que alguien se daría cuenta de mi ausencia.'
     ];
     const NO_DEBE_CUIDAR = [
         'Soñé que corría por un bosque y estaba cansado de seguir corriendo, pero llegué a una casa.',
@@ -278,7 +285,10 @@ if (require.main === module) {
         'Soñé que estaba en mi casa y cayeron bombas del cielo.',
         'Soñé que explotaba la luna y desperté.',
         'No tengo ganas de seguir estudiando esta noche.',
-        'Me gustaría desaparecer del mapa en vacaciones, irme a una playa.'
+        'Me gustaría desaparecer del mapa en vacaciones, irme a una playa.',
+        'Me pregunto si mis amigos notarían el cambio de look que me hice.',
+        'Sentí calma ante la idea de viajar sola.',
+        'Soñé con la vida de mis abuelos y cómo seguirían igual sin mí en la foto, pero me reí.'
     ];
     let fallosCuidado = 0;
     for (const t of DEBE_CUIDAR) {

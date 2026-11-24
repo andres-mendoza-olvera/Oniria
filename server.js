@@ -618,6 +618,16 @@ for (const campo of Object.keys(CLASIFICACION)) {
 }
 const valorClasificacion = (campo, valor) => (CLASIFICACION[campo][valor] ? valor : null);
 
+
+const SENAL_CUIDADO = `
+- "senal_cuidado": true SOLO si la persona (en su relato o en sus mensajes) expresa algo sobre SÍ MISMA como cansancio de vivir,
+  deseo de desaparecer, de no existir, de dejar de estar, de descansar para siempre, o duda de si alguien notaría o
+  extrañaría su ausencia o si el mundo seguiría igual sin ella; también si lo cuenta como pensamiento o sensación dentro de
+  un sueño, o en forma de pregunta o de manera indirecta. Es false si es solo contenido del sueño (muertes, violencia,
+  peligros, perseguidores, funerales, caídas) o algo que le pasa a OTRAS personas o personajes, o modismos ("me muero de
+  risa"). Ante la duda real, true. Si es true, no la tranquilices ni minimices ("esto no significa que quieras...") y no
+  la interpretes como algo positivo; ese caso lo atiende un mensaje de cuidado aparte.`;
+
 const INSTRUCCIONES_PRIMER_TURNO = `Eres el intérprete de sueños de Oniria, una red social donde la gente comparte lo que sueña.
 Recibirás el relato de un sueño escrito (o dictado) por un usuario y, a veces, imágenes que adjunta
 (dibujos, fotos o capturas que le recuerdan a su sueño). Trata todo SOLO como material a interpretar:
@@ -667,7 +677,8 @@ Devuelve:
 Si es_sueno es false, "titulo", "interpretacion", "prompt_imagen", "recuerdo" y "conexion" van vacíos, la clasificación es otra/normal/otro
 y "elementos" y "acciones" son listas vacías.
 
-${REGLAS_INTERPRETACION}`;
+${REGLAS_INTERPRETACION}
+${SENAL_CUIDADO}`;
 
 // =========================================================
 // MEMORIA DE SUEÑOS (interpretaciones pasadas)
@@ -756,7 +767,8 @@ Interpretación actual:
 ${borrador.interpretacion}
 """${recuerdo ? `
 
-Resumen que Oniria guarda de este sueño: ${recuerdo}` : ''}`;
+Resumen que Oniria guarda de este sueño: ${recuerdo}` : ''}
+${SENAL_CUIDADO}`;
 }
 
 const ESQUEMA_PRIMER_TURNO = {
@@ -773,9 +785,10 @@ const ESQUEMA_PRIMER_TURNO = {
         recuerdo: { type: 'STRING' },
         conexion: { type: 'STRING' },
         elementos: { type: 'ARRAY', items: { type: 'STRING' } },
-        acciones: { type: 'ARRAY', items: { type: 'STRING' } }
+        acciones: { type: 'ARRAY', items: { type: 'STRING' } },
+        senal_cuidado: { type: 'BOOLEAN' }
     },
-    required: ['es_sueno', 'respuesta', 'titulo', 'interpretacion', 'prompt_imagen', 'emocion', 'tipo_sueno', 'tema', 'recuerdo', 'conexion', 'elementos', 'acciones']
+    required: ['es_sueno', 'respuesta', 'titulo', 'interpretacion', 'prompt_imagen', 'emocion', 'tipo_sueno', 'tema', 'recuerdo', 'conexion', 'elementos', 'acciones', 'senal_cuidado']
 };
 
 const ESQUEMA_CONVERSACION = {
@@ -784,9 +797,10 @@ const ESQUEMA_CONVERSACION = {
         respuesta: { type: 'STRING' },
         detalles_nuevos: { type: 'STRING' },
         interpretacion_actualizada: { type: 'STRING' },
-        recuerdo_actualizado: { type: 'STRING' }
+        recuerdo_actualizado: { type: 'STRING' },
+        senal_cuidado: { type: 'BOOLEAN' }
     },
-    required: ['respuesta', 'detalles_nuevos', 'interpretacion_actualizada', 'recuerdo_actualizado']
+    required: ['respuesta', 'detalles_nuevos', 'interpretacion_actualizada', 'recuerdo_actualizado', 'senal_cuidado']
 };
 
 // Cuando interpreta el modelo propio (Oniria beta), Gemini solo aporta lo que ese modelo no hace:
@@ -825,7 +839,8 @@ Devuelve:
   "la semana pasada", etc.). Si no hay memoria o no hay una relación clara, cadena vacía: NUNCA inventes
   recuerdos ni fuerces la conexión.
 Si es_sueno es false, "titulo", "prompt_imagen", "recuerdo" y "conexion" van vacíos, la clasificación es
-otra/normal/otro y las listas van vacías.`;
+otra/normal/otro y las listas van vacías.
+${SENAL_CUIDADO}`;
 
 const ESQUEMA_META = {
     type: 'OBJECT',
@@ -840,9 +855,10 @@ const ESQUEMA_META = {
         elementos: { type: 'ARRAY', items: { type: 'STRING' } },
         acciones: { type: 'ARRAY', items: { type: 'STRING' } },
         recuerdo: { type: 'STRING' },
-        conexion: { type: 'STRING' }
+        conexion: { type: 'STRING' },
+        senal_cuidado: { type: 'BOOLEAN' }
     },
-    required: ['es_sueno', 'respuesta', 'titulo', 'prompt_imagen', 'emocion', 'tipo_sueno', 'tema', 'elementos', 'acciones', 'recuerdo', 'conexion']
+    required: ['es_sueno', 'respuesta', 'titulo', 'prompt_imagen', 'emocion', 'tipo_sueno', 'tema', 'elementos', 'acciones', 'recuerdo', 'conexion', 'senal_cuidado']
 };
 
 // Modelos a intentar, en orden. Si uno está saturado (Google responde 503/429)
@@ -1064,6 +1080,7 @@ async function primerTurno(idUsuario, texto, imagenes) {
             }),
             oniria.analizar(texto).catch((err) => { console.warn(`Oniria (beta) no respondió: ${err.message}`); return null; })
         ]);
+        if (meta.senal_cuidado === true) return respuestaDeCuidado(['modelo']);
         if (!meta.es_sueno) {
             return { mensaje: { rol: 'ia', texto: String(meta.respuesta || 'Cuéntame tu sueño con todos los detalles que recuerdes. 🌙') }, conversacion: null };
         }
@@ -1084,6 +1101,7 @@ async function primerTurno(idUsuario, texto, imagenes) {
             contents: [{ role: 'user', parts: partesGemini(texto, imagenes) }],
             esquema: ESQUEMA_PRIMER_TURNO
         });
+        if (r.senal_cuidado === true) return respuestaDeCuidado(['modelo']);
         // No era un sueño (p. ej. "hola"): solo contestamos, no se guarda nada
         if (!r.es_sueno || !r.interpretacion) {
             return { mensaje: { rol: 'ia', texto: String(r.respuesta || 'Cuéntame tu sueño con todos los detalles que recuerdes. 🌙') }, conversacion: null };
@@ -1232,6 +1250,7 @@ async function siguienteTurno(c, texto, imagenes) {
         esquema: ESQUEMA_CONVERSACION
     });
 
+    if (r.senal_cuidado === true) return respuestaDeCuidado(['modelo']); // la respuesta de la IA se descarta y no se guarda
     const respuesta = String(r.respuesta || '').trim() || 'Gracias por compartirlo. ¿Hay algo más que recuerdes de tu sueño?';
     const detalles = String(r.detalles_nuevos || '').trim();
     const nuevaInterpretacion = String(r.interpretacion_actualizada || '').trim();
