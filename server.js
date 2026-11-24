@@ -1367,10 +1367,13 @@ app.post('/api/sueno/mensaje', requiereSesionApi, recibirImagenesChat, async (re
         if (idConversacion) {
             c = await miConversacion(idConversacion, idUsuario);
             if (!c) return res.status(404).json({ error: 'Esa conversación no existe o ya se eliminó.' });
-            if (c.id_publicacion) return res.status(409).json({ error: 'Este sueño ya está publicado; su conversación ya no se puede continuar.' });
+            // Un sueño ya publicado SÍ se puede seguir platicando: la conversación es privada y la publicación
+            // (relato + interpretación breve que se hicieron públicos) no cambia por lo que se diga después.
             if (!texto && imagenes.length === 0) return res.status(400).json({ error: 'Escribe un mensaje o adjunta una imagen.' });
             if (c.mensajes.filter((m) => m.rol === 'usuario').length >= MAX_MENSAJES_USUARIO) {
-                return res.status(400).json({ error: 'Llegaste al límite de mensajes para este sueño. Publícalo o elimínalo.' });
+                return res.status(400).json({ error: c.id_publicacion
+                    ? 'Llegaste al límite de mensajes para este sueño.'
+                    : 'Llegaste al límite de mensajes para este sueño. Publícalo o elimínalo.' });
             }
         } else {
             if (!texto) return res.status(400).json({ error: 'Cuéntame tu sueño con palabras; las imágenes lo acompañan.' });

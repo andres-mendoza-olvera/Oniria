@@ -67,9 +67,9 @@ function imagenesDisponibles() {
 function actualizarInterfaz() {
     const hayBorrador = Boolean(estado.borrador);
     const publicada = Boolean(estado.borrador?.publicada);
-    // Publicada = solo lectura: sin caja de texto ni botones de publicar/eliminar
+    // Publicada: se puede seguir platicando (en privado), pero ya no hay botones de publicar/eliminar
     acciones.hidden = !hayBorrador || publicada;
-    form.hidden = publicada;
+    form.hidden = false;
     avisoPublicada.hidden = !publicada;
     document.getElementById('btn-nuevo').hidden = !hayBorrador;
     bienvenida.hidden = listaMensajes.children.length > 0;
