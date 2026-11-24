@@ -122,7 +122,9 @@ function etiquetasAEstadisticas(et) {
     if (!tema) for (const t of et.environment || []) { if (ENTORNO_A_GRUPO[t]) { tema = ENTORNO_A_GRUPO[t]; break; } }
     if (!tema) for (const t of et.characters || []) { if (PERSONAJE_A_GRUPO[t]) { tema = PERSONAJE_A_GRUPO[t]; break; } }
     if (!tema && caract.has('surrealista')) tema = 'fantasia';
-    return { emocion, tipo_sueno, tema: tema || 'otro' };
+    // Si el modelo no dio un tema que tenga grupo, NO se devuelve "otro": así no se pisa el que ya puso Gemini
+    // (p. ej. "peligro" en un sueño de bombas). null = dejar lo que ya había.
+    return { emocion, tipo_sueno, tema };
 }
 
 // ¿El modelo se negó a interpretar por falta de contexto? (pasa cuando la persona no responde las preguntas)

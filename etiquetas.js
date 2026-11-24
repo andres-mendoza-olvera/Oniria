@@ -37,7 +37,13 @@ for (const [forma, otras] of Object.entries(GRUPOS_SINONIMOS)) for (const o of o
 
 // Palabras que no dicen nada como símbolo o acción
 const VACIAS = new Set(['cosa', 'algo', 'lugar', 'momento', 'sueno', 'parte', 'vez', 'tipo', 'forma', 'todo', 'nada',
-    'persona', 'gente', 'ser', 'estar', 'tener', 'hacer', 'haber']);
+    'persona', 'gente', 'ser', 'estar', 'tener', 'hacer', 'haber',
+    // verbos que casi siempre son "relleno" al contar un sueño (no dicen qué pasó en él)
+    'comenzar', 'empezar', 'despertar', 'pensar', 'preguntar', 'sentir', 'continuar', 'terminar', 'parecer',
+    'quedar', 'recordar', 'saber', 'poder', 'querer', 'deber', 'intentar', 'tratar']);
+
+// Conectores que no cuentan al armar un símbolo de varias palabras ("estación de tren" -> "estacion tren")
+const CONECTORES = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'en', 'con', 'al', 'y', 'a', 'para', 'por']);
 
 const MAX_PALABRAS = 2;
 
@@ -80,7 +86,10 @@ function limpiarLista(valores, textoSueno = '', { max = 8, exigirTexto = true } 
     const salida = [];
     for (const v of valores) {
         if (typeof v !== 'string') continue;
-        let t = normalizarTexto(v).split(' ').filter(Boolean).slice(0, MAX_PALABRAS).join(' ');
+        let palabras = normalizarTexto(v).split(' ').filter(Boolean);
+        const sinConectores = palabras.filter((p) => !CONECTORES.has(p));
+        if (sinConectores.length) palabras = sinConectores;
+        let t = palabras.slice(0, MAX_PALABRAS).join(' ');
         if (t.length < 3 || t.length > 30) continue;
         t = SINONIMOS.get(singular(t)) || SINONIMOS.get(t) || singular(t);
         if (VACIAS.has(t)) continue;
@@ -104,6 +113,7 @@ if (require.main === module) {
         ['inventado se descarta', ['sol', 'dragon', 'plato'], ['plato']],
         ['palabras vacías', ['cosa', 'algo', 'lugar', 'plato'], ['plato']],
         ['máximo 2 palabras', ['plato roto en pedazos'], ['plato roto']],
+        ['verbos de relleno', ['comenzar', 'despertar', 'pensar', 'preguntar', 'romper'], ['romper']],
         ['tipos raros', [null, 42, {}, 'plato', ''], ['plato']],
         ['no es lista', 'plato', []],
         ['repetidos', ['plato', 'platos', 'Plato'], ['plato']]
@@ -125,6 +135,11 @@ if (require.main === module) {
     const bien2 = JSON.stringify(r2) === JSON.stringify(['casa', 'carro']);
     if (!bien2) fallos++;
     console.log(`${bien2 ? '  OK    ' : '  FALLO '} sinónimo -> forma presente en el texto: ${JSON.stringify(r2)}`);
+    // Los conectores no cuentan: "estación de tren" no se corta en "estacion de"
+    const r6 = limpiarLista(['Estación de tren', 'puerta de la casa'], 'Estaba en una estación de tren vacía y vi la puerta de la casa.');
+    const bien6 = JSON.stringify(r6) === JSON.stringify(['estacion tren', 'puerta casa']);
+    if (!bien6) fallos++;
+    console.log(`${bien6 ? '  OK    ' : '  FALLO '} conectores no cuentan: ${JSON.stringify(r6)}`);
     // Sin texto no se filtra por presencia
     const r3 = limpiarLista(['sol', 'plato'], '');
     const bien3 = JSON.stringify(r3) === JSON.stringify(['sol', 'plato']);
