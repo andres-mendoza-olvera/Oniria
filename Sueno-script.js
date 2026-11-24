@@ -115,12 +115,26 @@ function mensajeIA(m) {
         }
         const contenido = crear('div', { class: 'contenido' });
         if (m.titulo) contenido.append(crear('h3', { class: 'interpretacion-titulo', text: m.titulo }));
-        if (!m.imagenIA) contenido.append(crear('p', { class: 'sin-imagen', text: 'No pude crear la imagen esta vez, pero aquí está la interpretación.' }));
+        // Con el modelo propio, este primer mensaje es la "primera lectura" (análisis + preguntas);
+        // la interpretación completa llega cuando la persona responde o pide verla.
+        const primeraLectura = m.motor === 'oniria';
+        if (!m.imagenIA) {
+            contenido.append(crear('p', { class: 'sin-imagen', text: primeraLectura
+                ? 'No pude crear la imagen esta vez.'
+                : 'No pude crear la imagen esta vez, pero aquí está la interpretación.' }));
+        }
         contenido.append(
-            crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), 'Interpretación psicológica'),
-            ...(m.motor === 'oniria' ? [insigniaBeta()] : []),
+            crear('span', { class: 'interpretacion-etiqueta' }, icono('destellos', 'icono-xs'), primeraLectura ? 'Primera lectura' : 'Interpretación psicológica'),
+            ...(primeraLectura ? [insigniaBeta()] : []),
             ...parrafos(m.texto)
         );
+        if (primeraLectura) {
+            contenido.append(crear('button', {
+                type: 'button', class: 'btn-ver-interpretacion',
+                title: 'Oniria te da su interpretación sin que respondas las preguntas',
+                onclick: () => { if (estado.enviando) return; textarea.value = 'omitir'; enviar(); }
+            }, icono('destellos', 'icono-xs'), 'Ver la interpretación completa'));
+        }
         // Lo que Oniria recordó de sueños anteriores (privado: no se publica en el feed)
         if (m.conexion) {
             contenido.append(crear('div', { class: 'memoria-conexion' },
@@ -162,6 +176,14 @@ function pintarConversacion(mensajes) {
         if (m.rol === 'usuario') listaMensajes.append(mensajeUsuario(m.texto, (m.imagenes || []).map(urlImagenBorrador)));
         else listaMensajes.append(mensajeIA(m));
     }
+    quitarBotonesInterpretacion(true);
+}
+
+// El botón "Ver la interpretación completa" solo tiene sentido mientras la primera lectura
+// sea el último mensaje; en cuanto hay otra respuesta, se quita.
+function quitarBotonesInterpretacion(soloLosViejos = false) {
+    const botones = [...listaMensajes.querySelectorAll('.btn-ver-interpretacion')];
+    (soloLosViejos ? botones.filter((b) => b.closest('.mensaje') !== listaMensajes.lastElementChild) : botones).forEach((b) => b.remove());
 }
 
 // ---------------------------------------------------------
@@ -313,6 +335,7 @@ async function enviar() {
     if (estado.borrador) datos.append('conversacion', estado.borrador.id);
     adjuntos.forEach((a) => datos.append('imagenes', a.archivo, a.archivo.name));
 
+    quitarBotonesInterpretacion();
     // Mostrar el mensaje de inmediato y limpiar la caja
     const esPrimero = !estado.borrador;
     const burbujaUsuario = mensajeUsuario(texto, adjuntos.map((a) => a.url));

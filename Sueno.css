@@ -488,3 +488,26 @@
     color: transparent;
 }
 .insignia-beta b { font-weight: 800; }
+
+
+/* Botón para pedir la interpretación sin responder las preguntas */
+.btn-ver-interpretacion {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(120deg, #6c7bff, #a066f2 55%, #f06fb0);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(160, 102, 242, 0.3);
+}
+.btn-ver-interpretacion .icono-xs { width: 14px; height: 14px; }
+.btn-ver-interpretacion:hover { filter: brightness(1.06); }
+.btn-ver-interpretacion:focus-visible { outline: 2px solid #a066f2; outline-offset: 2px; }
+.interpretacion-etiqueta + .insignia-beta { margin-left: 8px; }
