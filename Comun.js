@@ -49,6 +49,8 @@ const ICONOS = {
     compartir: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
     llave: '<circle cx="8" cy="14" r="4"/><path d="m11 11 9-9M16 6l3 3M14 8l2 2"/>',
     reaccionar: '<path d="M20.8 11.2A8.8 8.8 0 1 1 12.8 3.2"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01M19 2.5v5M16.5 5h5"/>',
+    lupa: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M11 8v6M8 11h6"/>',
+    'lupa-menos': '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M8 11h6"/>',
     clip: '<path d="m20.5 11.5-8.3 8.3a5.3 5.3 0 0 1-7.5-7.5l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.6 8.6a1.8 1.8 0 0 1-2.5-2.5l7.9-7.9"/>'
 };
 
@@ -459,10 +461,29 @@ function crearBotonesAmistad(persona, alCambiar, { conMenu = false } = {}) {
 function crearCarrusel(items) {
     const marco = crear('div', { class: `carrusel-marco${items.length > 1 ? ' multiple' : ''}` });
     const pista = crear('div', { class: 'carrusel' });
+    // Las imágenes se pueden abrir en grande (lupa) y descargar
+    const imagenes = items
+        .filter(({ elemento }) => elemento.tagName === 'IMG')
+        .map(({ elemento, etiqueta }) => ({ url: elemento.src, etiqueta, alt: elemento.alt }));
+    let n = 0;
     items.forEach(({ elemento, etiqueta }) => {
+        let acciones = null;
+        if (elemento.tagName === 'IMG') {
+            const cual = n++;
+            const ver = () => abrirVisor(imagenes, cual);
+            elemento.classList.add('ampliable');
+            elemento.addEventListener('click', ver);
+            acciones = crear('div', { class: 'carrusel-acciones' },
+                crear('button', { type: 'button', class: 'carrusel-accion', title: 'Ver en grande', 'aria-label': 'Ver imagen en grande', onclick: ver }, icono('lupa')),
+                crear('button', {
+                    type: 'button', class: 'carrusel-accion', title: 'Descargar', 'aria-label': 'Descargar imagen',
+                    onclick: () => descargarImagen(imagenes[cual].url, nombreDescarga(imagenes[cual], cual))
+                }, icono('descargar')));
+        }
         pista.append(crear('div', { class: 'carrusel-item' },
             elemento,
-            etiqueta ? crear('span', { class: 'carrusel-etiqueta', text: etiqueta }) : null));
+            etiqueta ? crear('span', { class: 'carrusel-etiqueta', text: etiqueta }) : null,
+            acciones));
     });
     marco.append(pista);
     if (items.length < 2) return marco;
@@ -487,4 +508,177 @@ function crearCarrusel(items) {
     marco.append(anterior, siguiente, puntos, contador);
     actualizar();
     return marco;
+}
+
+// ---------------------------------------------------------
+// Descargar imágenes (las de Supabase vienen de otro dominio, así que
+// <a download> no basta: la bajamos como blob y la guardamos)
+// ---------------------------------------------------------
+function nombreDescarga(imagen, n) {
+    const extension = (imagen.url.split('?')[0].match(/\.(jpe?g|png|webp|heic|heif|gif)$/i) || [null, 'jpg'])[1];
+    const tipo = /IA/.test(imagen.etiqueta || '') ? 'ia' : `imagen-${n + 1}`;
+    return `oniria-${tipo}.${extension}`;
+}
+
+async function descargarImagen(url, nombre) {
+    try {
+        const respuesta = await fetch(url);
+        if (!respuesta.ok) throw new Error(respuesta.status);
+        const enlace = crear('a', { href: URL.createObjectURL(await respuesta.blob()), download: nombre });
+        document.body.append(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(enlace.href), 10000);
+    } catch {
+        window.open(url, '_blank', 'noopener'); // si no se pudo, al menos se abre para guardarla a mano
+    }
+}
+
+// ---------------------------------------------------------
+// Visor de imágenes a pantalla completa, con lupa (zoom) y descarga
+// ---------------------------------------------------------
+// imagenes = [{ url, etiqueta, alt }]; indice = la que se abre primero.
+// Zoom: botones +/-, rueda del mouse, doble clic o pellizcar en el celular.
+// Con zoom, se arrastra para moverse por la imagen.
+function abrirVisor(imagenes, indice = 0) {
+    if (!imagenes.length) return;
+    const ZOOM_MAX = 5;
+    const varias = imagenes.length > 1;
+    let actual = Math.max(0, Math.min(indice, imagenes.length - 1));
+    let escala = 1, x = 0, y = 0;
+
+    const dialogo = crear('dialog', { class: 'visor', 'aria-label': 'Imagen en grande' });
+    const img = crear('img', { class: 'visor-imagen', draggable: 'false' });
+    const lienzo = crear('div', { class: 'visor-lienzo' }, img);
+    const etiqueta = crear('span', { class: 'visor-etiqueta' });
+    const nivel = crear('span', { class: 'visor-nivel', 'aria-live': 'polite' });
+    const boton = (nombre, texto, accion, extra = '') =>
+        crear('button', { type: 'button', class: `visor-btn ${extra}`.trim(), title: texto, 'aria-label': texto, onclick: accion }, icono(nombre));
+
+    const btnMenos = boton('lupa-menos', 'Alejar', () => zoom(escala / 1.5));
+    const btnMas = boton('lupa', 'Acercar', () => zoom(escala * 1.5));
+    const btnDescargar = boton('descargar', 'Descargar esta imagen',
+        () => descargarImagen(imagenes[actual].url, nombreDescarga(imagenes[actual], actual)));
+    const btnTodas = varias
+        ? crear('button', { type: 'button', class: 'visor-btn con-texto', title: 'Descargar todas las imágenes', onclick: descargarTodas }, icono('descargar'), 'Todas')
+        : null;
+    const btnCerrar = boton('cerrar', 'Cerrar', () => dialogo.close());
+    const anterior = varias ? boton('izquierda', 'Imagen anterior', () => ir(actual - 1), 'visor-flecha izquierda') : null;
+    const siguiente = varias ? boton('derecha', 'Imagen siguiente', () => ir(actual + 1), 'visor-flecha derecha') : null;
+
+    agregar(dialogo,
+        crear('div', { class: 'visor-barra' },
+            etiqueta,
+            crear('div', { class: 'visor-controles' }, btnMenos, nivel, btnMas, btnDescargar, btnTodas, btnCerrar)),
+        lienzo, anterior, siguiente);
+
+    async function descargarTodas() {
+        for (const [k, imagen] of imagenes.entries()) {
+            await descargarImagen(imagen.url, nombreDescarga(imagen, k));
+            await new Promise((r) => setTimeout(r, 400)); // el navegador a veces ignora descargas muy seguidas
+        }
+    }
+
+    function aplicar() {
+        img.style.transform = `translate(${x}px, ${y}px) scale(${escala})`;
+        lienzo.classList.toggle('con-zoom', escala > 1);
+        nivel.textContent = `${Math.round(escala * 100)}%`;
+        btnMenos.disabled = escala <= 1;
+        btnMas.disabled = escala >= ZOOM_MAX;
+    }
+
+    // Que la imagen no se salga por completo de la pantalla al moverla
+    function limitar() {
+        const maxX = Math.max(0, (img.offsetWidth * escala - lienzo.clientWidth) / 2);
+        const maxY = Math.max(0, (img.offsetHeight * escala - lienzo.clientHeight) / 2);
+        x = Math.max(-maxX, Math.min(maxX, x));
+        y = Math.max(-maxY, Math.min(maxY, y));
+    }
+
+    // Cambia el zoom dejando quieto el punto (px, py), medido desde el centro del lienzo
+    function zoom(nueva, px = 0, py = 0) {
+        nueva = Math.max(1, Math.min(ZOOM_MAX, nueva));
+        x = px - (px - x) * (nueva / escala);
+        y = py - (py - y) * (nueva / escala);
+        escala = nueva;
+        if (escala === 1) { x = 0; y = 0; }
+        limitar();
+        aplicar();
+    }
+
+    function relativo(cx, cy) {
+        const r = lienzo.getBoundingClientRect();
+        return [cx - r.left - r.width / 2, cy - r.top - r.height / 2];
+    }
+
+    function ir(k) {
+        actual = (k + imagenes.length) % imagenes.length;
+        escala = 1; x = 0; y = 0;
+        img.src = imagenes[actual].url;
+        img.alt = imagenes[actual].alt || '';
+        etiqueta.textContent = [imagenes[actual].etiqueta, varias ? `${actual + 1}/${imagenes.length}` : '']
+            .filter(Boolean).join(' · ');
+        aplicar();
+    }
+
+    // Rueda del mouse = zoom hacia donde apunta
+    lienzo.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        zoom(escala * (e.deltaY < 0 ? 1.2 : 1 / 1.2), ...relativo(e.clientX, e.clientY));
+    }, { passive: false });
+
+    // Doble clic / doble toque = acercar ahí, o regresar al tamaño normal
+    lienzo.addEventListener('dblclick', (e) => zoom(escala > 1 ? 1 : 2.5, ...relativo(e.clientX, e.clientY)));
+
+    // Arrastrar con un dedo/mouse (si hay zoom) y pellizcar con dos dedos
+    const punteros = new Map();
+    let distanciaInicial = 0, escalaInicial = 1;
+    lienzo.addEventListener('pointerdown', (e) => {
+        lienzo.setPointerCapture(e.pointerId);
+        punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (punteros.size === 2) {
+            const [a, b] = [...punteros.values()];
+            distanciaInicial = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+            escalaInicial = escala;
+        }
+    });
+    lienzo.addEventListener('pointermove', (e) => {
+        const antes = punteros.get(e.pointerId);
+        if (!antes) return;
+        punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (punteros.size === 2) {
+            const [a, b] = [...punteros.values()];
+            zoom(escalaInicial * Math.hypot(a.x - b.x, a.y - b.y) / distanciaInicial,
+                ...relativo((a.x + b.x) / 2, (a.y + b.y) / 2));
+        } else if (escala > 1) {
+            x += e.clientX - antes.x;
+            y += e.clientY - antes.y;
+            limitar();
+            aplicar();
+        }
+    });
+    const soltar = (e) => punteros.delete(e.pointerId);
+    lienzo.addEventListener('pointerup', soltar);
+    lienzo.addEventListener('pointercancel', soltar);
+
+    // Tocar lo oscuro alrededor de la imagen (sin zoom) = cerrar
+    lienzo.addEventListener('click', (e) => { if (e.target === lienzo && escala === 1) dialogo.close(); });
+
+    dialogo.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' && varias) ir(actual - 1);
+        else if (e.key === 'ArrowRight' && varias) ir(actual + 1);
+        else if (e.key === '+' || e.key === '=') zoom(escala * 1.5);
+        else if (e.key === '-') zoom(escala / 1.5);
+        else return;
+        e.preventDefault();
+    });
+    dialogo.addEventListener('close', () => {
+        dialogo.classList.add('saliendo');
+        setTimeout(() => dialogo.remove(), 150);
+    });
+
+    document.body.append(dialogo);
+    ir(actual);
+    dialogo.showModal();
+    btnCerrar.focus();
 }

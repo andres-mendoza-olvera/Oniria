@@ -92,7 +92,11 @@ function mensajeUsuario(texto, urlsImagenes) {
     const li = crear('li', { class: 'mensaje usuario' });
     if (urlsImagenes.length) {
         const fotos = crear('div', { class: 'mensaje-imagenes' });
-        urlsImagenes.forEach((url) => fotos.append(crear('img', { src: url, alt: 'Imagen que adjuntaste' })));
+        const lista = urlsImagenes.map((url) => ({ url, etiqueta: 'Tu imagen', alt: 'Imagen que adjuntaste' }));
+        lista.forEach((imagen, i) => fotos.append(crear('img', {
+            class: 'ampliable', src: imagen.url, alt: imagen.alt, title: 'Ver en grande',
+            onclick: () => abrirVisor(lista, i)
+        })));
         li.append(fotos);
     }
     if (texto) li.append(crear('div', { class: 'burbuja', text: texto }));
@@ -114,7 +118,11 @@ function mensajeIA(m) {
     if (m.tipo === 'interpretacion') {
         const burbuja = crear('div', { class: 'burbuja interpretacion' });
         if (m.imagenIA) {
-            burbuja.append(crear('img', { class: 'imagen-ia', src: urlImagenBorrador('ia'), alt: `Imagen creada por IA: ${m.titulo || 'tu sueño'}` }));
+            const imagen = { url: urlImagenBorrador('ia'), etiqueta: 'Creada por IA', alt: `Imagen creada por IA: ${m.titulo || 'tu sueño'}` };
+            burbuja.append(crear('img', {
+                class: 'imagen-ia ampliable', src: imagen.url, alt: imagen.alt, title: 'Ver en grande',
+                onclick: () => abrirVisor([imagen])
+            }));
         }
         const contenido = crear('div', { class: 'contenido' });
         if (m.titulo) contenido.append(crear('h3', { class: 'interpretacion-titulo', text: m.titulo }));
