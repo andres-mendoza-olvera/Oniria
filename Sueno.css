@@ -532,15 +532,6 @@
 .burbuja p.con-saltos { white-space: pre-line; line-height: 1.8; }
 
 /* Aviso al adjuntar imágenes */
-.aviso-imagenes {
-    display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; padding: 9px 13px;
-    font-size: 0.8rem; line-height: 1.45; color: var(--text-main, inherit);
-    background: color-mix(in srgb, var(--surface, #fff) 92%, #8b5cf6);
-    border: 1px solid color-mix(in srgb, #a066f2 40%, transparent); border-radius: 14px;
-}
-.aviso-imagenes[hidden] { display: none; }
-.aviso-imagenes .icono-xs { flex: none; width: 14px; height: 14px; margin-top: 2px; color: #a066f2; }
-
 /* Opinión durante el chat */
 .opinion {
     margin: 0 0 10px; padding: 9px 13px; font-size: 0.82rem; border-radius: 14px;

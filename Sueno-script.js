@@ -219,16 +219,20 @@ async function prepararImagen(archivo) {
     }
 }
 
-// Aviso al adjuntar imágenes: el modelo propio todavía no lee imágenes
-const avisoImagenes = crear('p', { id: 'aviso-imagenes', class: 'aviso-imagenes', role: 'note', hidden: true },
-    icono('destellos', 'icono-xs'),
-    crear('span', { text: 'Oniria está en desarrollo y aún no cuenta con un modelo especializado en leer imágenes, '
-        + 'por lo que puede equivocarse al interpretarlas. Cuéntanos también tu sueño con palabras: ayuda mucho.' }));
-avisoImagenes.hidden = true;
-contenedorAdjuntos.before(avisoImagenes);
+// Aviso al adjuntar imágenes (ventana emergente): el modelo propio todavía no lee imágenes
+let avisoImagenesMostrado = false;
+function avisarImagenes() {
+    if (avisoImagenesMostrado) return;
+    avisoImagenesMostrado = true;
+    preguntar({
+        titulo: 'Oniria está en desarrollo',
+        texto: 'Aún no contamos con un modelo especializado en leer imágenes, por lo que Oniria puede equivocarse al interpretarlas. '
+            + 'Para mejores resultados, cuéntanos también tu sueño con palabras.',
+        aceptar: 'Entendido', soloAceptar: true, icono: 'destellos'
+    });
+}
 
 function pintarAdjuntos() {
-    avisoImagenes.hidden = estado.adjuntos.length === 0;
     contenedorAdjuntos.replaceChildren(...estado.adjuntos.map((adjunto, i) =>
         crear('div', { class: 'adjunto' },
             crear('img', { src: adjunto.url, alt: `Imagen adjunta ${i + 1}` }),
@@ -266,6 +270,7 @@ inputImagenes.addEventListener('change', async () => {
         estado.adjuntos.push({ archivo, url: URL.createObjectURL(archivo) });
     }
     pintarAdjuntos();
+    if (estado.adjuntos.length) avisarImagenes();
 });
 
 // ---------------------------------------------------------
