@@ -599,8 +599,9 @@ async function cargarEquipo() {
                 ? crear('button', {
                     type: 'button', class: 'btn-accion peligro',
                     onclick: async (e) => {
+                        const boton = e.currentTarget; // se guarda antes del await: después del diálogo currentTarget ya es null
                         if (!(await preguntar({ titulo: `¿Quitar a ${m.apodo} del equipo?`, texto: 'Se borrará su cuenta de subadministrador y se cerrará su sesión.', aceptar: 'Quitar', peligro: true, icono: 'basura' }))) return;
-                        e.currentTarget.disabled = true;
+                        boton.disabled = true;
                         try { await api(`/api/admin/equipo/${m.id_usuario}`, { method: 'DELETE' }); cargarEquipo(); } catch (err) { avisar(err.message); }
                     }
                 }, icono('basura', 'icono-sm'), 'Quitar')

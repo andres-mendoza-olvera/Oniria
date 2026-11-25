@@ -3213,7 +3213,7 @@ app.get('/api/admin/usuarios', requiereStaff(), async (req, res) => {
                AND ($1 = '' OR u.apodo ILIKE $2 OR u.nombre ILIKE $2 OR u.email ILIKE $2)
                AND ($3 <> 'suspendidas' OR (u.baneado_en IS NULL AND u.suspendido_hasta > NOW()))
                AND ($3 <> 'baneadas' OR u.baneado_en IS NOT NULL)
-             ORDER BY (u.baneado_en IS NOT NULL OR u.suspendido_hasta > NOW()) DESC, u.apodo
+             ORDER BY COALESCE(u.baneado_en IS NOT NULL OR u.suspendido_hasta > NOW(), FALSE) DESC, u.apodo
              LIMIT 50`,
             [texto, patron, filtro]
         );
@@ -3556,6 +3556,10 @@ app.get('/api/admin/usuarios/:id/estadisticas', requiereStaff(), async (req, res
 // =========================================================
 // 5. INICIALIZAR EL SERVIDOR
 // =========================================================
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en ${BASE_URL}`);
-});
+// Solo se abre el puerto cuando se ejecuta `node server.js`; las pruebas (tests/) importan la app sin arrancarla
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Servidor corriendo en ${BASE_URL}`);
+    });
+}
+module.exports = { app, primerTurno, siguienteTurno, topLista, estadisticasDe };
