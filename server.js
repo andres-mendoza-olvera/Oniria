@@ -3556,6 +3556,10 @@ app.get('/api/admin/usuarios/:id/estadisticas', requiereStaff(), async (req, res
 // =========================================================
 // 5. INICIALIZAR EL SERVIDOR
 // =========================================================
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en ${BASE_URL}`);
-});
+// Solo se abre el puerto cuando se ejecuta `node server.js`; las pruebas (tests/) importan la app sin arrancarla
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Servidor corriendo en ${BASE_URL}`);
+    });
+}
+module.exports = { app, primerTurno, siguienteTurno, topLista, estadisticasDe };

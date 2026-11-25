@@ -1,0 +1,23 @@
+const { JSDOM } = require('jsdom'); const fs = require('fs');
+const dom = new JSDOM('<!doctype html><body><section id="graficas"></section></body>', { runScripts: 'outside-only', pretendToBeVisual: true });
+const w = dom.window;
+w.eval(fs.readFileSync('Comun.js', 'utf-8') + '\n' + fs.readFileSync('Graficas.js', 'utf-8') + '\nwindow.__api = { crearRanking, crearGrafica, etiquetaBonita };');
+const { crearRanking, etiquetaBonita } = w.__api;
+let fallos = 0; const ok = (c, m) => { console.log((c ? '  OK     ' : '  FALLO  ') + m); if (!c) fallos++; };
+const filas = [{ clave: 'agua', total: 5, personas: 3 }, { clave: 'casa', total: 2, personas: 2 }, { clave: 'puente', total: 1, personas: 1 }];
+const t = crearRanking('Símbolos de tus sueños', filas, { marcarRepetidos: true, subtitulo: 'sub' });
+const lis = [...t.querySelectorAll('li.ranking-fila')];
+ok(lis.length === 3 && lis[0].querySelector('.ranking-texto').textContent === 'Agua', 'una fila por símbolo, en orden');
+ok(lis[0].querySelector('.ranking-relleno').style.width === '100%' && lis[1].querySelector('.ranking-relleno').style.width === '40%', 'barras proporcionales al máximo (100 % y 40 %)');
+ok(Math.round(parseFloat(lis[2].querySelector('.ranking-relleno').style.width)) === 20, 'la barra mínima es visible (20 %)');
+ok(lis[0].querySelector('.ranking-nombre .ranking-etiqueta') && lis[1].querySelector('.ranking-etiqueta') && !lis[2].querySelector('.ranking-etiqueta'), '"se repite" solo en lo que aparece 2 o más veces');
+ok(t.querySelector('h3').textContent === 'Símbolos de tus sueños' && t.getAttribute('aria-label') === 'Símbolos de tus sueños', 'título accesible');
+const v = crearRanking('Vacío', [], { vacio: 'Aún no hay símbolos' });
+ok(v.querySelector('.grafica-vacia').textContent === 'Aún no hay símbolos' && !v.querySelector('ol'), 'lista vacía muestra el aviso');
+const x = crearRanking('X', [{ clave: '<img src=x onerror=alert(1)>', total: 1 }]);
+ok(!x.querySelector('img') && x.textContent.includes('<img'), 'el texto de la IA se muestra como texto (sin HTML inyectado)');
+
+ok(etiquetaBonita('estacion tren') === 'Estación tren' && etiquetaBonita('habitacion') === 'Habitación' && etiquetaBonita('fotografia') === 'Fotografía', 'acentos restaurados y solo la primera letra en mayúscula');
+ok(etiquetaBonita('casa') === 'Casa' && etiquetaBonita('nino') === 'Niño' && etiquetaBonita('reir') === 'Reír' && etiquetaBonita('') === '', 'palabras sin acento y casos vacíos');
+ok(etiquetaBonita('estacion de tren') === 'Estación de tren', 'frases con conector');
+console.log(fallos ? `\n${fallos} FALLO(S)` : '\nTodo bien'); process.exit(fallos ? 1 : 0);

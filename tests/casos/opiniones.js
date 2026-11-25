@@ -1,0 +1,36 @@
+const { PGlite } = require('@electric-sql/pglite');
+const fs = require('fs'); const Module = require('module');
+const pg = new PGlite();
+const cliente = { query: (s, p) => pg.query(s, p), release() {} };
+class PoolPG { async query(s, p) { return pg.query(s, p); } async connect() { return cliente; } on() {} }
+const cargar = Module._load;
+Module._load = function (req, ...r) { if (req === 'pg') return { Pool: PoolPG, Client: PoolPG }; return cargar.call(this, req, ...r); };
+process.env.SESSION_SECRET = 'x'; process.env.PORT = '0'; process.env.GEMINI_API_KEY = 'g';
+const { app } = require('../../server.js');
+let fallos = 0; const ok = (c, m) => { console.log((c ? '  OK     ' : '  FALLO  ') + m); if (!c) fallos++; };
+const q = async (s, p) => (await pg.query(s, p)).rows;
+const ruta = (path, metodo = 'get') => (app.router || app._router).stack.find((l) => l.route?.path === path && l.route.methods[metodo]).route.stack;
+const llamar = async (capas, req) => { let salida; const res = { status(c) { this.codigo = c; return this; }, json(o) { salida = { codigo: this.codigo || 200, cuerpo: o }; return this; } };
+    await capas[capas.length - 1].handle(req, res, () => {}); return salida; };
+(async () => {
+    await pg.exec(`CREATE TABLE usuarios (id_usuario SERIAL PRIMARY KEY, nombre TEXT);
+      CREATE TABLE conversaciones (id_conversacion SERIAL PRIMARY KEY, id_usuario INT, motor TEXT);
+      INSERT INTO usuarios (nombre) VALUES ('Ana'),('Beto'); INSERT INTO conversaciones (id_usuario, motor) VALUES (1,'oniria'),(2,'gemini');`);
+    await pg.exec(fs.readFileSync('migraciones/013_opiniones.sql', 'utf-8'));
+    const op = (id, body) => llamar(ruta('/api/opiniones', 'post'), { session: { idUsuario: id }, body });
+    let r = await op(1, { valoracion: 4, comentario: 'Muy bien', conversacion: 1 });
+    ok(r.codigo === 201 && r.cuerpo.ok && !r.cuerpo.apoyo, 'guarda valoración + comentario ligado a su conversación');
+    ok((await q('SELECT motor FROM opiniones'))[0].motor === 'oniria', 'registra el motor de la conversación');
+    r = await op(1, { valoracion: 5 }); ok(r.codigo === 201, 'solo carita funciona');
+    r = await op(1, { comentario: 'solo texto' }); ok(r.codigo === 201, 'solo comentario funciona');
+    r = await op(1, {}); ok(r.codigo === 400, 'vacío → 400');
+    r = await op(1, { valoracion: 9 }); ok(r.codigo === 400, 'valoración fuera de rango → 400');
+    r = await op(1, { valoracion: 2.5 }); ok(r.codigo === 400, 'valoración decimal → 400');
+    r = await op(1, { valoracion: 3, conversacion: 2 }); ok(r.codigo === 404, 'conversación ajena → 404');
+    r = await op(1, { comentario: 'x'.repeat(5000) }); ok(r.codigo === 201 && (await q('SELECT length(comentario) l FROM opiniones ORDER BY id_opinion DESC LIMIT 1'))[0].l === 1000, 'comentario recortado a 1000');
+    r = await op(1, { comentario: 'Me quiero morir' }); ok(r.codigo === 201 && /800 911 2000/.test(r.cuerpo.apoyo || ''), 'comentario de crisis devuelve apoyo con teléfonos');
+    r = await op(1, { comentario: 'a veces siento que ya no quiero seguir adelante' }); ok(r.codigo === 201 && !!r.cuerpo.apoyo, 'comentario de cuidado devuelve apoyo');
+    await pg.exec(`INSERT INTO opiniones (id_usuario, valoracion) SELECT 2, 3 FROM generate_series(1,30)`);
+    r = await op(2, { valoracion: 3 }); ok(r.codigo === 429, 'límite diario → 429');
+    console.log(fallos ? `\n${fallos} FALLOS` : '\nTODO OK'); process.exit(fallos ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });
