@@ -12,6 +12,8 @@ const casos = [
     ['Flujo de IA: Gemini, Oniria, memoria y estadísticas', 'tests/casos/flujo_ia.js'],
     ['Estado de la IA, seguridad en el chat y publicación', 'tests/casos/estado_y_seguridad.js'],
     ['Opiniones: validación, propiedad y límite diario', 'tests/casos/opiniones.js'],
+    ['Administración: permisos, reportes, sanciones, publicaciones y equipo', 'tests/casos/admin.js'],
+    ['Interfaz del panel de administración: equipo y confirmaciones', 'tests/casos/interfaz_admin.js'],
     ['Interfaz del chat: botones, avisos y teléfonos', 'tests/casos/interfaz_chat.js'],
     ['Interfaz de opiniones y aviso de imágenes', 'tests/casos/interfaz_opiniones.js'],
     ['Gráficas y etiquetas de estadísticas', 'tests/casos/graficas.js']
