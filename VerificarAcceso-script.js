@@ -46,6 +46,7 @@ function errorCodigo(texto) {
 function pintar(destino) {
     const porSms = estado.metodo === 'sms';
     $('titulo-medio').textContent = porSms ? 'celular' : 'correo';
+    $('aviso-spam').hidden = porSms || !destino; // la imagen solo aplica al correo
     $('instrucciones').textContent = destino
         ? `Para proteger tu cuenta, escribe el código de 6 dígitos que te mandamos ${porSms ? 'por SMS al' : 'a'} ${destino}.`
         : 'No pudimos mandarte el código. Pica "Reenviar código" para intentarlo de nuevo.';

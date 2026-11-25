@@ -40,3 +40,29 @@
     background-color: rgba(255, 77, 106, 0.1);
     border-color: rgba(255, 77, 106, 0.35);
 }
+
+/* Aviso con imagen: revisar la carpeta de spam */
+.aviso-spam {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: rgba(160, 102, 242, 0.08);
+    border: 1px solid rgba(160, 102, 242, 0.3);
+    text-align: center;
+}
+.aviso-spam[hidden] { display: none; }
+.aviso-spam p { margin: 0; font-size: 0.88rem; line-height: 1.45; color: var(--text-muted); }
+.aviso-spam strong { color: inherit; }
+.aviso-spam-img { width: min(240px, 80%); height: auto; }
+.aviso-spam-img .sp-carpeta { fill: rgba(236, 111, 176, 0.16); stroke: #ec6fb0; stroke-width: 2; }
+.aviso-spam-img .sp-bandeja { fill: rgba(91, 108, 255, 0.14); stroke: var(--color-primary, #5b6cff); stroke-width: 2; }
+.aviso-spam-img .sp-linea { stroke: currentColor; stroke-opacity: 0.35; stroke-width: 1.5; fill: none; }
+.aviso-spam-img .sp-etq { font: 700 10px Inter, system-ui, sans-serif; fill: currentColor; }
+.aviso-spam-img .sp-sobre { fill: #fff; stroke: #a066f2; stroke-width: 2; }
+.aviso-spam-img .sp-solapa { fill: none; stroke: #a066f2; stroke-width: 2; stroke-linejoin: round; }
+.aviso-spam-img .sp-flecha { fill: none; stroke: var(--color-primary, #5b6cff); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.aviso-spam-img .sp-palomita { fill: none; stroke: #2fb36d; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
