@@ -125,9 +125,9 @@ const CUIDADO = [
     ['cansado_de_continuar', new RegExp(String.raw`\b(?:cansad[oa]|harto|harta|agotad[oa]|fatigad[oa]) de (?:tener que )?(?:continuar|seguir|luchar)\b${CONTINUAR_SIN_OBJETO}`)],
     ['cansado_de_vivir', /\b(?:cansad[oa]|harto|harta|agotad[oa]|fatigad[oa]) de (?:tener que )?(?:vivir|existir)\b(?! (?:aqui|alli|en (?:esta|esa|este|ese) (?:ciudad|casa|pais|barrio|departamento)|con (?:mis|mi|tanto|ruido)))/],
     ['dejar_de_existir', /\bdejar de (?:existir|respirar)\b|\bdejar de estar (?:alli|aqui|ahi|en este mundo|en el mundo|presente)\b/],
-    ['nadie_notara_ausencia', /\bnadie (?:notara|notaria|se dara cuenta de|se daria cuenta de|se enterara de|se enteraria de) (?:mi )?(?:ausencia|que (?:ya )?no estoy|que me (?:fui|voy|vaya))\b/],
+    ['nadie_notara_ausencia', /\bnadie (?:notara|notaria|se dara cuenta de|se daria cuenta de|se enterara de|se enteraria de) (?:mi )?(?:ausencia|que (?:ya )?no estoy|que me (?:fui|voy|vaya))\b|\bnadie (?:notara|notaria|se dara cuenta|se daria cuenta|se enterara|se enteraria) si (?:yo (?:me )?(?:desaparecia|desapareciera|desapareciese|desaparezco|fuera|iba|no estuviera|no estaba)|me (?:fuera|iba|fuese|desaparecia|desapareciera)|no estuviera|no estaba)\b/],
     ['desear_desaparecer', /\b(?:quisiera|queria|quiero|me gustaria|desearia|seria (?:agradable|lindo|bonito|un alivio|un descanso|mejor)) (?:simplemente |solo |solamente )?(?:desaparecer(?! (?:del mapa|de las redes|de redes|un rato|un tiempo|por (?:unos|un)|unos dias|de aqui un))|no existir|no estar aqui|no estar alli|dejar de ser)\b/],
-    ['no_seguir_adelante', /\b(?:ya )?no quiero (?:seguir|continuar) (?:adelante|asi|con mi vida|con todo|con nada)\b/],
+    ['no_seguir_adelante', /\b(?:ya )?no (?:quiero|queria|quise|quisiera) (?:seguir|continuar) (?:adelante|asi|con mi vida|con todo|con nada)\b/],
     ['sin_fuerzas_para_vivir', /\bno (?:tengo|me quedan) (?:fuerzas|ganas|energia) (?:para|de) (?:seguir|continuar|vivir)\b(?! (?:con|el|la|los|las|este|esta|trabajando|estudiando))/],
     ['calma_ante_desaparecer', /\b(?:calma|paz|tranquilidad|alivio) (?:ante|con|al pensar en) (?:la idea de )?(?:desaparecer|no estar|no existir|irme para siempre)\b/],
     ['dudar_si_notarian', /\b(?:me pregunto|me pregunta|dudo|me da curiosidad|pienso|me cuestiono) (?:si )?(?:realmente |de verdad |acaso )?(?:notarian|extranarian|se darian cuenta de|les importaria|le importaria a alguien) (?:mi |que |si )?(?:ausencia|no estoy|no estuviera|me fuera|desapareciera)/],
@@ -269,7 +269,9 @@ if (require.main === module) {
         'Quisiera desaparecer, simplemente no existir.',
         'Me pregunto si realmente notarían mi ausencia o si sus vidas continuarían exactamente igual sin mí.',
         'No sentí enojo, sino cierta calma ante la idea de desaparecer.',
-        'Dudo que alguien se daría cuenta de mi ausencia.'
+        'Dudo que alguien se daría cuenta de mi ausencia.',
+        'Soñé que caminaba por un camino largo y sentía que ya no quería seguir adelante, que nadie notaría si yo desaparecía.',
+        'En el sueño pensaba que nadie se daría cuenta si yo me fuera.'
     ];
     const NO_DEBE_CUIDAR = [
         'Soñé que corría por un bosque y estaba cansado de seguir corriendo, pero llegué a una casa.',
@@ -288,7 +290,10 @@ if (require.main === module) {
         'Me gustaría desaparecer del mapa en vacaciones, irme a una playa.',
         'Me pregunto si mis amigos notarían el cambio de look que me hice.',
         'Sentí calma ante la idea de viajar sola.',
-        'Soñé con la vida de mis abuelos y cómo seguirían igual sin mí en la foto, pero me reí.'
+        'Soñé con la vida de mis abuelos y cómo seguirían igual sin mí en la foto, pero me reí.',
+        'Soñé que el perro se perdía y nadie notaría si desaparecía el gato.',
+        'Ya no quería seguir con esa película, estaba aburrido.',
+        'Soñé que me escondía y nadie notaría si yo me asomaba, era un juego.'
     ];
     let fallosCuidado = 0;
     for (const t of DEBE_CUIDAR) {
